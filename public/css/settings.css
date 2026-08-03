@@ -1,0 +1,21 @@
+.settings-card { padding: var(--space-6); margin-bottom: var(--space-5); max-width: 640px; margin-left: auto; margin-right: auto; }
+.settings-card h2 { font-size: 17px; margin-bottom: var(--space-1); }
+.settings-card > p.text-secondary { margin-top: 0; margin-bottom: var(--space-5); font-size: 14px; }
+
+.engine-row {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--border);
+}
+.engine-row:last-child { border-bottom: none; }
+.engine-row .name { font-size: 14px; font-weight: 600; }
+.engine-row .reason { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+
+.key-row { display: flex; gap: var(--space-3); align-items: flex-end; padding: var(--space-4) 0; border-bottom: 1px solid var(--border); }
+.key-row:last-of-type { border-bottom: none; }
+.key-row .field { flex: 1; }
+
+.disclosure-note { font-size: 12px; color: var(--text-tertiary); line-height: 1.5; margin-top: var(--space-4); padding: var(--space-3) var(--space-4); background: var(--bg-alt); border-radius: var(--radius-sm); }
+
+.default-engine-row { display: flex; gap: var(--space-3); align-items: flex-end; }
+.default-engine-row .field { flex: 1; }

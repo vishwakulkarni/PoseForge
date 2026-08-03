@@ -1,0 +1,23 @@
+# Environment
+.env
+.env.local
+
+# Dependencies
+node_modules/
+
+# Runtime data (uploaded photos, generated results, DB-adjacent scratch files)
+storage/
+library/
+data/
+tmp/
+
+# Editor / OS
+.DS_Store
+*.log
+
+# Local agent/tool config — not part of the published project
+.claude/
+
+# Leftover from broken git init attempts during scaffolding — safe to delete
+.git-broken-do-not-use/
+.git-attempt1-do-not-use/

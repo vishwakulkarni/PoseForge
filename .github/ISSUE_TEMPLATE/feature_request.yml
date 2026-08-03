@@ -1,0 +1,35 @@
+name: Feature request
+description: Suggest an idea for PoseForge
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For anything larger than a small addition, it helps to describe the
+        problem before jumping to a solution — there may be a simpler path,
+        or it may already fit an existing extension point (see ARCHITECTURE.md,
+        especially the engine adapter pattern).
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: What are you trying to do that PoseForge doesn't support today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: What would you like to see happen? Rough sketches, API shapes, or UI mockups are welcome.
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any other approaches you thought about, and why you didn't go with them.
+    validations:
+      required: false

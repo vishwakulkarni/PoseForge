@@ -1,0 +1,56 @@
+# Security Policy
+
+## Threat model — please read before deploying anywhere but your own machine
+
+PoseForge is a **local-first, single-user application**. It is designed to
+run on your own computer, not to be exposed to a network or deployed as a
+shared/multi-user service. Specifically:
+
+- There is no authentication or authorization layer. Anyone who can reach
+  the port PoseForge listens on can use every feature, including reading
+  your saved characters, generation history, and uploaded photos.
+- OpenAI and Replicate API keys, if you configure them, are stored **in
+  plain text** in the local PostgreSQL database. There is no encryption at
+  rest.
+- Uploaded and generated images are stored unencrypted on the local
+  filesystem under `storage/`.
+
+If you deploy PoseForge on a server, behind a reverse proxy, or on a shared
+machine, you are taking on all of the above as your own responsibility —
+this project does not currently provide the access controls that would
+make that safe. Contributions that add an opt-in auth layer are welcome
+(see `ARCHITECTURE.md` for where that would plug in), but until then,
+treat PoseForge as a personal, local tool.
+
+## Privacy and safety note
+
+PoseForge is built for family photos, often of children. A few things worth
+being deliberate about:
+
+- Only upload photos of people who have consented (or, for minors, whose
+  parent/guardian has consented) to having their photo processed by an AI
+  image-generation engine.
+- If you configure a cloud engine (OpenAI or Replicate), uploaded photos are
+  sent to that third party's API for processing, subject to their own data
+  handling policies. Review those before uploading photos of children.
+- The Codex CLI engine keeps generation local to your own authenticated
+  session and does not require a separate API key, but is still subject to
+  the underlying model provider's terms.
+
+## Reporting a vulnerability
+
+If you find a security issue in PoseForge itself (not in one of its
+third-party engines/dependencies), please report it privately rather than
+opening a public issue — open a [GitHub Security Advisory](../../security/advisories/new)
+on this repository, or contact the maintainer directly. We'll acknowledge
+reports within a few days and aim to have a fix or mitigation plan within
+two weeks for anything serious.
+
+Please do not report vulnerabilities in Codex CLI, OpenAI, or Replicate
+themselves here — those should go to their respective maintainers.
+
+## Supported versions
+
+PoseForge does not yet have a formal release/support cadence (see
+`CHANGELOG.md`). Until a 1.0 release, only the latest commit on `main` is
+supported.

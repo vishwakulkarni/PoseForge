@@ -1,0 +1,116 @@
+<svg width="400" height="400" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Cartoon Golden Retriever artist mascot wearing a red beret and denim apron, holding a paint palette and brush">
+  <defs>
+    <linearGradient id="fur" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f6c976"/>
+      <stop offset="100%" stop-color="#e8a94b"/>
+    </linearGradient>
+    <linearGradient id="furLight" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fbe0a8"/>
+      <stop offset="100%" stop-color="#f3c774"/>
+    </linearGradient>
+    <linearGradient id="denim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#6f93c2"/>
+      <stop offset="100%" stop-color="#4d6fa0"/>
+    </linearGradient>
+    <linearGradient id="beret" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e8514a"/>
+      <stop offset="100%" stop-color="#c73a34"/>
+    </linearGradient>
+  </defs>
+
+  <!-- soft ground shadow -->
+  <ellipse cx="200" cy="366" rx="108" ry="16" fill="#000" opacity="0.07"/>
+
+  <!-- tail -->
+  <path d="M292 250 C 330 240, 344 200, 322 172 C 340 200, 336 240, 300 264 Z" fill="url(#fur)"/>
+
+  <!-- back leg -->
+  <ellipse cx="270" cy="330" rx="26" ry="34" fill="url(#fur)"/>
+  <ellipse cx="270" cy="356" rx="20" ry="10" fill="#fff7ea"/>
+
+  <!-- body -->
+  <path d="M138 210 C 120 260, 128 320, 176 344 C 220 364, 268 356, 288 316 C 306 282, 296 232, 262 206 C 224 178, 168 178, 138 210 Z" fill="url(#fur)"/>
+
+  <!-- front leg holding palette (left, viewer's left) -->
+  <g>
+    <ellipse cx="150" cy="300" rx="20" ry="46" transform="rotate(-18 150 300)" fill="url(#fur)"/>
+  </g>
+
+  <!-- denim apron -->
+  <path d="M156 232 C 152 268, 156 312, 176 340 C 204 356, 236 354, 258 334 C 274 310, 274 268, 262 234 C 226 248, 190 248, 156 232 Z" fill="url(#denim)"/>
+  <path d="M156 232 C 152 268, 156 312, 176 340" fill="none" stroke="#3d5a86" stroke-width="3" stroke-linecap="round" opacity="0.5"/>
+  <!-- apron pocket -->
+  <rect x="184" y="292" width="46" height="30" rx="8" fill="#5c80b3" stroke="#3d5a86" stroke-width="2"/>
+  <!-- paint splatters on apron -->
+  <circle cx="200" cy="256" r="6" fill="#e8514a" opacity="0.85"/>
+  <circle cx="238" cy="270" r="5" fill="#f2c245" opacity="0.85"/>
+  <circle cx="182" cy="278" r="4" fill="#3fb0c9" opacity="0.85"/>
+  <circle cx="222" cy="246" r="3.5" fill="#7cc26b" opacity="0.85"/>
+
+  <!-- apron straps -->
+  <path d="M170 232 C 176 214, 186 202, 200 198" fill="none" stroke="#4d6fa0" stroke-width="10" stroke-linecap="round"/>
+  <path d="M248 232 C 242 214, 232 202, 218 198" fill="none" stroke="#4d6fa0" stroke-width="10" stroke-linecap="round"/>
+
+  <!-- head -->
+  <g>
+    <!-- ears -->
+    <path d="M124 156 C 96 168, 86 208, 108 240 C 118 216, 128 190, 140 168 Z" fill="url(#fur)"/>
+    <path d="M280 156 C 308 168, 318 208, 296 240 C 286 216, 276 190, 264 168 Z" fill="url(#fur)"/>
+
+    <!-- head shape -->
+    <circle cx="202" cy="176" r="82" fill="url(#furLight)"/>
+
+    <!-- muzzle -->
+    <ellipse cx="202" cy="206" rx="46" ry="34" fill="#fff7ea"/>
+    <ellipse cx="202" cy="214" rx="10" ry="7" fill="#3a2a20"/>
+    <path d="M202 220 Q202 232 216 234" fill="none" stroke="#3a2a20" stroke-width="3" stroke-linecap="round"/>
+    <path d="M178 236 Q192 248 202 236" fill="none" stroke="#3a2a20" stroke-width="3" stroke-linecap="round"/>
+    <path d="M226 236 Q212 248 202 236" fill="none" stroke="#3a2a20" stroke-width="3" stroke-linecap="round"/>
+    <!-- tongue -->
+    <path d="M202 236 C 200 250, 206 260, 214 258 C 218 250, 212 240, 202 236 Z" fill="#f28ba0"/>
+
+    <!-- eyes -->
+    <g>
+      <ellipse cx="170" cy="168" rx="15" ry="18" fill="#2c2117"/>
+      <circle cx="175" cy="160" r="5" fill="#fff"/>
+      <ellipse cx="234" cy="168" rx="15" ry="18" fill="#2c2117"/>
+      <circle cx="239" cy="160" r="5" fill="#fff"/>
+    </g>
+    <!-- eyebrow hints -->
+    <path d="M154 146 Q170 136 186 146" fill="none" stroke="#c98a3a" stroke-width="4" stroke-linecap="round" opacity="0.6"/>
+    <path d="M218 146 Q234 136 250 146" fill="none" stroke="#c98a3a" stroke-width="4" stroke-linecap="round" opacity="0.6"/>
+
+    <!-- inner ear color -->
+    <path d="M124 156 C 108 168, 102 196, 112 220 C 118 200, 126 180, 136 164 Z" fill="#d98f57" opacity="0.55"/>
+    <path d="M280 156 C 296 168, 302 196, 292 220 C 286 200, 278 180, 268 164 Z" fill="#d98f57" opacity="0.55"/>
+
+    <!-- beret -->
+    <g transform="rotate(-14 202 108)">
+      <ellipse cx="202" cy="112" rx="52" ry="26" fill="url(#beret)"/>
+      <ellipse cx="202" cy="104" rx="46" ry="20" fill="#e8514a"/>
+      <circle cx="240" cy="96" r="7" fill="#c73a34"/>
+    </g>
+  </g>
+
+  <!-- right paw + palette -->
+  <g>
+    <ellipse cx="272" cy="286" rx="22" ry="30" transform="rotate(24 272 286)" fill="url(#fur)"/>
+    <!-- wooden palette -->
+    <path d="M276 244 C 300 240, 322 254, 320 276 C 318 296, 298 308, 278 302 C 270 300, 264 292, 268 282 C 258 284, 250 274, 256 264 C 260 254, 270 250, 276 244 Z" fill="#c98a52" stroke="#a8703c" stroke-width="2"/>
+    <circle cx="278" cy="258" r="6" fill="#e8514a"/>
+    <circle cx="298" cy="256" r="6" fill="#f2c245"/>
+    <circle cx="308" cy="272" r="6" fill="#3fb0c9"/>
+    <circle cx="296" cy="288" r="6" fill="#7cc26b"/>
+    <circle cx="278" cy="286" r="6" fill="#8a5cc2"/>
+  </g>
+
+  <!-- left paw + paintbrush -->
+  <g>
+    <ellipse cx="128" cy="270" rx="20" ry="28" transform="rotate(-20 128 270)" fill="url(#fur)"/>
+    <g transform="rotate(-40 112 236)">
+      <rect x="106" y="176" width="10" height="70" rx="4" fill="#c98a52"/>
+      <rect x="103" y="168" width="16" height="16" rx="3" fill="#9aa0a8"/>
+      <path d="M103 168 C103 156, 119 156, 119 168 C 119 176, 103 176, 103 168 Z" fill="#3fb0c9"/>
+    </g>
+  </g>
+</svg>

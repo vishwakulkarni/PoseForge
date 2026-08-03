@@ -1,0 +1,66 @@
+name: Bug report
+description: Something in PoseForge isn't working as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please don't use this form for security
+        vulnerabilities — see SECURITY.md for how to report those privately.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to Studio
+        2. Upload a character photo and a pose photo
+        3. Select the Codex engine and click Transform
+        4. See error...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: engine
+    attributes:
+      label: Which generation engine were you using (if relevant)?
+      options:
+        - Not applicable
+        - Codex CLI
+        - OpenAI
+        - Replicate
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: PoseForge version / commit
+      placeholder: e.g. v0.1.0, or a commit hash if running from main
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: OS, Node.js version, Docker or local Postgres, browser (if UI-related)
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Output from `npm run dev`, or the browser console. Please redact any API keys.
+      render: shell
+    validations:
+      required: false

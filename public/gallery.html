@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Gallery — PoseForge</title>
+<link rel="stylesheet" href="/css/base.css" />
+<link rel="stylesheet" href="/css/landing.css" />
+<link rel="stylesheet" href="/css/gallery.css" />
+</head>
+<body data-nav="gallery.html">
+  <nav class="site-nav" id="site-nav"></nav>
+
+  <main class="container">
+    <div class="page-header" style="padding: var(--space-8) 0 var(--space-5); text-align:center;">
+      <span class="eyebrow">Gallery</span>
+      <h1>What your next post could look like</h1>
+      <p>A look at the kinds of family photoshoots and Instagram posts PoseForge can create — every result stays recognizably them.</p>
+    </div>
+
+    <div class="filter-chips" id="filterChips">
+      <button class="filter-chip active" data-filter="all">All</button>
+      <button class="filter-chip" data-filter="family">Family</button>
+      <button class="filter-chip" data-filter="siblings">Siblings</button>
+      <button class="filter-chip" data-filter="insta">Instagram</button>
+      <button class="filter-chip" data-filter="seasonal">Seasonal</button>
+    </div>
+
+    <div class="example-grid" id="exampleGrid"></div>
+
+    <div class="cta-band" style="margin-bottom: var(--space-9);">
+      <h2 style="font-size:28px;">Try it with your own family photo</h2>
+      <p>Every example here started the same way — a photo of your family, and a pose you love.</p>
+      <div class="hero-actions">
+        <a href="/studio.html" class="btn btn-primary btn-lg">Create a pose</a>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/base.js"></script>
+  <script src="/js/gallery.js"></script>
+</body>
+</html>

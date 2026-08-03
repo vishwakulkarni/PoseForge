@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>History — PoseForge</title>
+<link rel="stylesheet" href="/css/base.css" />
+<link rel="stylesheet" href="/css/characters.css" />
+<link rel="stylesheet" href="/css/history.css" />
+</head>
+<body data-nav="history.html">
+  <nav class="site-nav" id="site-nav"></nav>
+
+  <main class="container">
+    <div class="page-header">
+      <span class="eyebrow">History</span>
+      <h1>Everything you've made</h1>
+      <p>Every transformation, successful or not, saved for later.</p>
+    </div>
+
+    <div class="history-filters">
+      <select id="characterFilter"><option value="">All characters</option></select>
+      <select id="statusFilter">
+        <option value="">All statuses</option>
+        <option value="completed">Completed</option>
+        <option value="failed">Failed</option>
+        <option value="pending">Pending</option>
+        <option value="running">Running</option>
+      </select>
+    </div>
+
+    <div id="historyGrid" class="history-grid"></div>
+    <div class="load-more-wrap"><button id="loadMore" class="btn btn-secondary hidden">Load more</button></div>
+  </main>
+
+  <div class="detail-overlay hidden" id="detailOverlay">
+    <div class="card detail-panel" id="detailPanel"></div>
+  </div>
+
+  <script src="/js/base.js"></script>
+  <script src="/js/history.js"></script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Settings — PoseForge</title>
+<link rel="stylesheet" href="/css/base.css" />
+<link rel="stylesheet" href="/css/settings.css" />
+</head>
+<body data-nav="settings.html">
+  <nav class="site-nav" id="site-nav"></nav>
+
+  <main class="container">
+    <div class="page-header" style="padding: var(--space-8) 0 var(--space-6); text-align:center;">
+      <span class="eyebrow">Settings</span>
+      <h1>Engines &amp; keys</h1>
+      <p>Configure which generation engines this local app can use.</p>
+    </div>
+
+    <div class="card settings-card">
+      <h2>Engine status</h2>
+      <p class="text-secondary">Codex CLI works out of the box. OpenAI and Replicate need an API key below.</p>
+      <div id="engineStatus"></div>
+    </div>
+
+    <div class="card settings-card">
+      <h2>API keys</h2>
+      <p class="text-secondary">Keys are only used to call the engine you select in Studio.</p>
+
+      <div class="key-row">
+        <div class="field">
+          <label class="field-label" for="openaiKey">OpenAI API key</label>
+          <input id="openaiKey" type="password" placeholder="Not configured" />
+        </div>
+        <button class="btn btn-secondary" data-key="openaiApiKey">Save</button>
+      </div>
+      <div class="key-row">
+        <div class="field">
+          <label class="field-label" for="replicateKey">Replicate API key</label>
+          <input id="replicateKey" type="password" placeholder="Not configured" />
+        </div>
+        <button class="btn btn-secondary" data-key="replicateApiKey">Save</button>
+      </div>
+
+      <p class="disclosure-note">Keys are stored in plain text in your local database — this app runs on your machine only and is not meant to be exposed to a network.</p>
+    </div>
+
+    <div class="card settings-card">
+      <h2>Default engine</h2>
+      <p class="text-secondary">Pre-selected automatically in Studio.</p>
+      <div class="default-engine-row">
+        <div class="field">
+          <select id="defaultEngine"></select>
+        </div>
+        <button class="btn btn-primary" id="saveDefault">Save</button>
+      </div>
+      <p class="status-line mt-3" id="settingsStatus"></p>
+    </div>
+  </main>
+
+  <script src="/js/base.js"></script>
+  <script src="/js/settings.js"></script>
+</body>
+</html>

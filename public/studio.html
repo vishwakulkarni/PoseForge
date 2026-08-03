@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Studio — PoseForge</title>
+<link rel="stylesheet" href="/css/base.css" />
+<link rel="stylesheet" href="/css/studio.css" />
+</head>
+<body data-nav="studio.html">
+  <nav class="site-nav" id="site-nav"></nav>
+
+  <main class="container">
+    <div class="studio-header">
+      <span class="eyebrow">Studio</span>
+      <h1>Create a pose</h1>
+      <p>Add a character, choose a pose, and let the studio transform it.</p>
+    </div>
+
+    <form id="studioForm">
+      <div class="studio-grid">
+        <!-- Character -->
+        <div class="card upload-card">
+          <div class="card-head">
+            <h3>Your character</h3>
+            <div class="mode-switch" id="characterModeSwitch">
+              <button type="button" class="active" data-mode="upload">Upload</button>
+              <button type="button" data-mode="saved">Saved</button>
+            </div>
+          </div>
+
+          <div id="characterUploadMode">
+            <label class="dropzone" id="characterDropzone">
+              <input type="file" id="characterPhoto" accept="image/*" />
+              <div class="dz-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 16V4M12 4l-4 4M12 4l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+              </div>
+              <div class="dz-text">Drop a photo, or click to upload</div>
+              <div class="dz-sub">A clear, front-facing photo works best</div>
+              <div class="dz-overlay"><button type="button" data-replace="characterPhoto">Replace photo</button></div>
+            </label>
+            <div class="upload-progress hidden" id="characterProgress"><div></div></div>
+
+            <div class="inline mt-4" style="display:flex; gap:8px;">
+              <input type="text" id="characterName" placeholder="Save this character as… (optional)" />
+              <button type="button" class="btn btn-secondary btn-sm" id="saveCharacterBtn">Save</button>
+            </div>
+            <p class="status-line" id="saveCharacterStatus"></p>
+          </div>
+
+          <div id="characterSavedMode" class="hidden">
+            <div class="saved-strip" id="savedStrip"></div>
+            <p class="status-line text-tertiary mt-2">Select a saved character above.</p>
+          </div>
+        </div>
+
+        <!-- Pose -->
+        <div class="card upload-card">
+          <div class="card-head"><h3>Pose reference</h3></div>
+          <label class="dropzone" id="poseDropzone">
+            <input type="file" id="posePhoto" accept="image/*" />
+            <div class="dz-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="7" r="3" stroke="currentColor" stroke-width="1.6"/><path d="M6 21c1-4 3.5-6 6-6s5 2 6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            </div>
+            <div class="dz-text">Drop a pose photo, or click to upload</div>
+            <div class="dz-sub">Any photo showing the pose you want to copy</div>
+            <div class="dz-overlay"><button type="button" data-replace="posePhoto">Replace photo</button></div>
+          </label>
+          <div class="upload-progress hidden" id="poseProgress"><div></div></div>
+        </div>
+      </div>
+
+      <div class="card controls-card">
+        <div class="panel-title">Creative direction</div>
+        <div class="controls-row">
+          <div>
+            <label class="field-label" for="backgroundPreset">Background</label>
+            <select id="backgroundPreset"><option value="">None</option></select>
+          </div>
+          <div>
+            <label class="field-label" for="stylePreset">Style</label>
+            <select id="stylePreset"><option value="">None</option></select>
+          </div>
+        </div>
+        <label class="field-label" for="instructions">Instructions <span class="text-tertiary" style="font-weight:400;">(optional — clothing, lighting, angle, background)</span></label>
+        <textarea id="instructions" placeholder="e.g. Warm golden-hour light, casual denim jacket, slight 3/4 angle…" maxlength="600"></textarea>
+
+        <div class="controls-row mt-4">
+          <div>
+            <label class="field-label" for="engine">Engine</label>
+            <select id="engine"></select>
+          </div>
+        </div>
+        <p class="status-line" id="engineHint"></p>
+
+        <div class="transform-bar">
+          <button type="submit" class="btn btn-primary btn-lg" id="transformBtn">Transform photo</button>
+        </div>
+        <p class="status-line" id="generateStatus">Add a character and a pose photo to get started.</p>
+      </div>
+    </form>
+
+    <div class="card result-card" id="resultCard">
+      <div class="card-head">
+        <h3>Result</h3>
+        <span class="badge badge-neutral" id="resultBadge">Waiting</span>
+      </div>
+      <div id="resultArea">
+        <div class="result-empty">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" stroke="currentColor" stroke-width="1.3"/><path d="M3 15l5-5 4 4 3-3 6 6" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+          <p>Your transformed photo will appear here.</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/base.js"></script>
+  <script src="/js/studio.js"></script>
+</body>
+</html>

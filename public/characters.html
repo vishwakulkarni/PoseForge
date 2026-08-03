@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Characters — PoseForge</title>
+<link rel="stylesheet" href="/css/base.css" />
+<link rel="stylesheet" href="/css/characters.css" />
+</head>
+<body data-nav="characters.html">
+  <nav class="site-nav" id="site-nav"></nav>
+
+  <main class="container">
+    <div class="page-header">
+      <span class="eyebrow">Characters</span>
+      <h1>Your library</h1>
+      <p>Save the people you photograph most, so you never have to re-upload them.</p>
+    </div>
+
+    <div id="characterGrid" class="character-grid"></div>
+  </main>
+
+  <button class="add-character-fab" id="addCharacterFab">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    Add character
+  </button>
+
+  <div class="modal-backdrop hidden" id="addModal">
+    <div class="card modal-card">
+      <h3>Add a character</h3>
+      <label class="field-label" for="modalPhoto">Photo</label>
+      <input type="file" id="modalPhoto" accept="image/*" />
+      <label class="field-label mt-4" for="modalName">Name</label>
+      <input type="text" id="modalName" placeholder="e.g. Me, Daksh, Mom…" />
+      <p class="status-line" id="modalStatus"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="modalCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="modalSave">Save character</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/base.js"></script>
+  <script src="/js/characters.js"></script>
+</body>
+</html>
