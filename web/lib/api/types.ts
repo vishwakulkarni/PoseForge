@@ -170,6 +170,44 @@ export interface Settings {
   };
 }
 
+/* ------------------------------------------- Document / passport photos */
+
+/** GET /api/passport/config */
+export interface DocumentProfile {
+  id: string;
+  countryCode: string;
+  country: string;
+  documentType: string;
+  label: string;
+  retrievedOn: string;
+  sourceVersionLabel: string;
+  sourceUpdatedOn: string;
+  officialLinks: Array<{ label: string; url: string }>;
+  requirements: string[];
+  output: {
+    widthPx: number;
+    heightPx: number;
+    format: 'png' | 'jpeg';
+    printWidthMm: number;
+    printHeightMm: number;
+    sheet: boolean;
+    maxBytes?: number;
+  };
+  prompt: string;
+  disclaimer: string;
+}
+
+export interface PassportConfig {
+  retrievedOn: string;
+  profiles: DocumentProfile[];
+}
+
+/** POST /api/passport */
+export interface PassportAccepted {
+  id: string;
+  status: 'pending' | 'completed';
+}
+
 /* ------------------------------------------------------------------ *
  * Metrics — new in the re-architecture. Served by GET /api/metrics.
  * ------------------------------------------------------------------ */

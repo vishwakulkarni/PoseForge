@@ -1,0 +1,92 @@
+---
+title: Contributing
+description: How to set up the project locally and get a change merged.
+---
+
+Thanks for considering a contribution. This is a small, local-first project —
+the goal is to keep it approachable for both users and contributors.
+
+## Before you start
+
+- For anything bigger than a small fix (a new feature, a new engine
+  adapter, a schema change), open an issue first to discuss the approach.
+  It's a much shorter round trip than writing the code first and finding
+  out it doesn't fit.
+- Read `ARCHITECTURE.md` for how the pieces fit together, especially the
+  engine adapter pattern if you're adding a new generation backend.
+- Read `CODE_OF_CONDUCT.md`. We keep this simple: be respectful, assume
+  good faith, and remember there's a person on the other end of every issue
+  and PR.
+
+## Development setup
+
+```bash
+git clone https://github.com/yourusername/poseforge.git
+cd poseforge
+cp .env.example .env
+docker compose up -d postgres
+npm install
+npm run migrate
+npm start
+```
+
+Open http://localhost:3004. For development with auto-restart and verbose
+JSON logs:
+
+```bash
+npm run dev
+```
+
+## Running tests
+
+```bash
+npm test
+```
+
+Tests use Node's built-in test runner (`node:test`) — no extra test
+framework dependency. Route-level tests that need a database will skip
+themselves gracefully if `DATABASE_URL` isn't reachable, so `npm test`
+works even without Postgres running, just with reduced coverage.
+
+## Adding a new generation engine
+
+This is the most common kind of contribution. Every engine lives in
+`engines/` and implements the same small interface — see
+`engines/engineInterface.md` and any existing adapter (`engines/openaiEngine.js`
+is a good reference for a cloud API-based engine) as a template:
+
+```js
+{
+  key: "your-engine",
+  label: "Your Engine",
+  async isReady() { /* return { ready, reason? } */ },
+  async generate({ characterPhotoPath, posePhotoPath, prompt, outputPath, apiKey }) {
+    /* write a PNG to outputPath, or throw */
+  },
+}
+```
+
+Register it in `engines/index.js`, and it will automatically show up in the
+Studio's engine dropdown and the Settings screen.
+
+## Commit style
+
+We use [Conventional Commits](https://www.conventionalcommits.org/)
+(`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`) — this keeps the
+changelog easy to generate and PR history easy to scan. Not strictly
+enforced by CI yet, but appreciated.
+
+## Pull requests
+
+- Keep PRs focused — one logical change per PR is much easier to review
+  than a bundle of unrelated fixes.
+- Update `CHANGELOG.md` under "Unreleased" for any user-facing change.
+- CI runs the test suite and a syntax check on every PR — make sure it's
+  green before requesting review.
+- Screenshots or a short clip are appreciated for any UI change.
+
+## Reporting bugs / requesting features
+
+Use the issue templates — they ask for just enough detail to act on the
+report without a back-and-forth. Security issues should **not** go through
+public issues; see `SECURITY.md`.

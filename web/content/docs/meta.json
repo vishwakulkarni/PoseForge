@@ -1,0 +1,14 @@
+{
+  "title": "Documentation",
+  "root": true,
+  "pages": [
+    "index",
+    "---Reference---",
+    "architecture",
+    "engine-interface",
+    "---Project---",
+    "contributing",
+    "security",
+    "credits"
+  ]
+}

@@ -240,6 +240,28 @@ export function useUpdateSettings() {
   });
 }
 
+/* --------------------------------------------------------------- Passport */
+
+export function usePassportConfig() {
+  return useQuery({
+    queryKey: ['passport-config'],
+    queryFn: api.passport.config,
+    // Guidance profiles are baked into the server build.
+    staleTime: Infinity,
+  });
+}
+
+export function useCreatePassportPhoto() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (form: FormData) => api.passport.create(form),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ['generations'] });
+      client.invalidateQueries({ queryKey: ['metrics'] });
+    },
+  });
+}
+
 /* ---------------------------------------------------------------- Metrics */
 
 export function useMetrics(scope: MetricsScope, refreshMs = 30_000) {
