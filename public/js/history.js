@@ -27,12 +27,13 @@ function statusBadge(status) {
 
 function usageCost(value) {
   if (value == null) return "Plan-dependent";
+  if (Number(value) === 0) return "$0.00";
   return value < 0.01 ? `$${Number(value).toFixed(4)}` : `$${Number(value).toFixed(2)}`;
 }
 
 function usageSummary(usage) {
-  if (!usage?.totalTokens) return "Not available";
-  const source = usage.source === "actual" ? "Recorded" : "Estimated";
+  if (!usage || !Object.keys(usage).length) return "Not available";
+  const source = usage.source === "local" ? "Local" : usage.source === "actual" ? "Recorded" : "Estimated";
   return `${source} · ${new Intl.NumberFormat().format(usage.totalTokens)} tokens · ${usageCost(usage.estimatedCostUsd)}`;
 }
 
@@ -81,7 +82,7 @@ async function openDetail(id) {
     ${item.outputUrl ? `<img class="detail-image" src="${item.outputUrl}" alt="Result" />` : ""}
     ${thumbRow ? `<div class="detail-people">${thumbRow}</div>` : ""}
     <div class="kv"><b>People</b><span>${esc(characterLabel(item))}</span></div>
-    <div class="kv"><b>Engine</b><span>${esc(item.engine)}</span></div>
+    <div class="kv"><b>Engine</b><span>${esc(item.engine)}${item.advancedSettings?.engineModel || item.usage?.model ? ` · ${esc(item.advancedSettings?.engineModel || item.usage?.model)}` : ""}</span></div>
     <div class="kv"><b>Studio mode</b><span>${esc(item.studioMode || "normal")}</span></div>
     <div class="kv"><b>Status</b><span>${statusBadge(item.status)}</span></div>
     <div class="kv"><b>Background</b><span>${esc(item.backgroundPreset?.name || "None")}</span></div>

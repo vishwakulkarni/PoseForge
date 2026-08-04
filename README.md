@@ -95,10 +95,15 @@ PORT=3004
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/poseforge
 ```
 
-Optional engine settings are `CODEX_BIN`, `CODEX_TIMEOUT_MS`, and
-`REPLICATE_TIMEOUT_MS`. API keys are configured from the Settings screen
-and stored as plain text in the local database — see `SECURITY.md` before
-running this anywhere but your own machine.
+The Settings screen includes guided setup for Codex CLI, Google Antigravity
+CLI, Google Gemini, and local ComfyUI workflows. Antigravity accepts
+`ANTIGRAVITY_BIN`, `ANTIGRAVITY_MODEL`, and `ANTIGRAVITY_TIMEOUT_MS` and
+uses the cached login created by an interactive `agy` session. Gemini accepts `GEMINI_API_KEY` and
+`GEMINI_IMAGE_MODEL`; ComfyUI accepts `COMFYUI_URL`, `COMFYUI_MODEL`,
+`COMFYUI_WORKFLOW_PATH`, and `COMFYUI_TIMEOUT_MS`. ComfyUI is restricted to
+loopback addresses unless `COMFYUI_ALLOW_REMOTE=true` is explicitly set.
+Database-backed API keys and workflows are stored as plain text — see
+`SECURITY.md` before running this anywhere but your own machine.
 
 ## Testing
 

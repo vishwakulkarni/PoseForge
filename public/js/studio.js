@@ -274,10 +274,18 @@ function updateEngineInfo() {
   stateEl.lastChild.textContent = engine?.ready ? "Ready" : "Unavailable";
   const notes = [];
   if (engine?.capabilities?.multiImage === "montage") notes.push("Multiple identities are combined into a reference montage for this engine.");
+  if (engine?.capabilities?.multiImage === "workflow") notes.push("Identity inputs follow your ComfyUI workflow; PoseForge creates a montage unless numbered identity placeholders are present.");
+  if (engine?.capabilities?.exactPose) notes.push("Exact pose control depends on the pose nodes and strength configured in your workflow.");
   if (engine?.capabilities?.quality === false) notes.push("Quality is interpreted as prompt direction by this engine.");
   if (engine?.capabilities?.aspectRatio === "prompt") notes.push("Aspect ratio is communicated as creative direction.");
   $("capabilityNote").textContent = notes.join(" ") || "Controls are supported by the selected engine.";
-  $("engineHint").textContent = engine?.key === "codex" ? "Runs through your local Codex CLI workspace." : "Reference images are sent only to the selected API engine.";
+  const model = engine?.models?.find((item) => item.id === engine.selectedModel);
+  const modelLabel = model ? ` · ${model.label}` : "";
+  $("engineHint").textContent = engine?.capabilities?.local
+    ? `Runs locally on this machine${modelLabel}.`
+    : engine?.capabilities?.localCli || engine?.key === "codex"
+      ? `Runs through the locally installed ${engine.label}${modelLabel}; the signed-in provider may process reference images.`
+      : `Reference images are sent only to ${engine?.label || "the selected API engine"}${modelLabel}.`;
   updateWorkspace();
   refreshUsageEstimate();
 }
@@ -381,6 +389,7 @@ function compactNumber(value) {
 
 function money(value) {
   if (value == null) return "plan-dependent cost";
+  if (Number(value) === 0) return "$0.00";
   if (value < 0.01) return `$${Number(value).toFixed(4)}`;
   return `$${Number(value).toFixed(2)}`;
 }
@@ -388,18 +397,19 @@ function money(value) {
 function renderUsage(usage, final = false) {
   if (!usage) return;
   state.usageEstimate = usage;
-  const source = usage.source === "actual" ? "Recorded usage" : final ? "Final estimate" : "Estimated usage";
+  const source = usage.source === "local" ? "Local generation" : usage.source === "actual" ? "Recorded usage" : final ? "Final estimate" : "Estimated usage";
   const line = `${compactNumber(usage.totalTokens)} tokens · ${money(usage.estimatedCostUsd)}`;
   $("usageEstimate").innerHTML = `<span>${source}</span><strong>${line}</strong><small>${esc(usage.pricingNote || `Pricing basis reviewed ${usage.rateDate || "recently"}. Actual provider billing can vary.`)}</small>`;
   $("dockUsage").textContent = `${source}: ${line}`;
 }
 
 function aggregateGenerationUsage(generations) {
-  const items = generations.map((item) => item.usage).filter((usage) => usage && usage.totalTokens);
+  const items = generations.map((item) => item.usage).filter((usage) => usage && Object.keys(usage).length);
   if (!items.length) return null;
   return {
-    source: items.some((item) => item.source === "actual") ? "actual" : "estimated",
+    source: items.every((item) => item.source === "local") ? "local" : items.some((item) => item.source === "actual") ? "actual" : "estimated",
     rateDate: items[0].rateDate,
+    model: items[0].model,
     inputTokens: items.reduce((sum, item) => sum + (Number(item.inputTokens) || 0), 0),
     outputTokens: items.reduce((sum, item) => sum + (Number(item.outputTokens) || 0), 0),
     totalTokens: items.reduce((sum, item) => sum + (Number(item.totalTokens) || 0), 0),
@@ -416,6 +426,7 @@ function refreshUsageEstimate() {
     const promptChars = $("instructions").value.length + $("negativePrompt").value.length + settings.subjects.reduce((sum, subject) => sum + subject.direction.length + subject.expression.length, 0) + 600;
     const params = new URLSearchParams({
       engine: $("engine").value,
+      model: selectedEngine()?.selectedModel || "",
       quality: state.mode === "advanced" ? settings.output.quality : "medium",
       aspectRatio: state.mode === "advanced" ? settings.output.aspectRatio : "1:1",
       subjects: String(Math.max(state.slots.filter(slotIsFilled).length, 1)),

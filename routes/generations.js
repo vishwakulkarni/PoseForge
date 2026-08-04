@@ -110,6 +110,7 @@ router.post("/", upload, asyncHandler(async (req, res) => {
     const engineKey = String(req.body.engine || ""); const engine = registry[engineKey];
     if (!engine) return res.status(400).json({ error: "Unknown engine." });
     const ready = await engine.isReady(); if (!ready.ready) return res.status(409).json({ error: ready.reason || "Engine is not ready." });
+    const engineModel = engine.getConfiguredModel ? await engine.getConfiguredModel() : null;
 
     // Resolve each slot to a local source image: a saved character's
     // primary photo, or the freshly uploaded file.
@@ -203,8 +204,8 @@ router.post("/", upload, asyncHandler(async (req, res) => {
         advancedPromptFragment,
         customInstructions: customInstructions || undefined,
       });
-      const usageEstimate = estimateGenerationUsage({ engine: engineKey, prompt, imageCount: characterPaths.length + 1, quality: advancedSettings.output.quality, aspectRatio: advancedSettings.output.aspectRatio });
-      const generationSettings = { ...advancedSettings, poseCollage: { ...advancedSettings.poseCollage, activeIndex: collageEnabled ? variantIndex : null } };
+      const usageEstimate = estimateGenerationUsage({ engine: engineKey, model: engineModel, prompt, imageCount: characterPaths.length + 1, quality: advancedSettings.output.quality, aspectRatio: advancedSettings.output.aspectRatio });
+      const generationSettings = { ...advancedSettings, engineModel, poseCollage: { ...advancedSettings.poseCollage, activeIndex: collageEnabled ? variantIndex : null } };
       await pool.query(
         "INSERT INTO generations (id, pose_photo_path, pose_reference_id, engine, background_preset_id, style_preset_id, prompt, studio_mode, advanced_settings, batch_id, usage_metrics) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11::jsonb)",
         [id, posePath, poseSource.referenceId, engineKey, backgroundId, styleId, prompt, studioMode, JSON.stringify(generationSettings), batchId, JSON.stringify(usageEstimate)]
@@ -224,6 +225,7 @@ router.post("/", upload, asyncHandler(async (req, res) => {
             outputPath: storage.absolutePath(outputPath),
             outputSettings: outputSettings(advancedSettings),
             apiKey: await getSetting(`${engineKey}_api_key`),
+            model: engineModel,
           });
           const usage = mergeActualUsage(usageEstimate, engineResult?.usage);
           await pool.query("UPDATE generations SET status = 'completed', output_path = $2, usage_metrics = $3::jsonb, completed_at = now() WHERE id = $1", [id, outputPath, JSON.stringify(usage)]);
@@ -245,13 +247,15 @@ router.post("/", upload, asyncHandler(async (req, res) => {
 }));
 
 router.get("/estimate", (req, res) => {
-  const engine = ["codex", "openai", "replicate"].includes(req.query.engine) ? req.query.engine : "codex";
+  const engine = registry[req.query.engine] ? req.query.engine : "codex";
+  const requestedModel = String(req.query.model || "");
+  const model = (registry[engine].models || []).some((item) => item.id === requestedModel) ? requestedModel : null;
   const quality = ["low", "medium", "high"].includes(req.query.quality) ? req.query.quality : "medium";
   const aspectRatio = ["1:1", "4:5", "16:9", "9:16"].includes(req.query.aspectRatio) ? req.query.aspectRatio : "1:1";
   const subjects = Math.min(Math.max(Number(req.query.subjects) || 1, 1), 4);
   const variants = Math.min(Math.max(Number(req.query.variants) || 1, 1), 6);
   const promptChars = Math.min(Math.max(Number(req.query.promptChars) || 600, 100), 4000);
-  res.json(batchEstimate({ engine, prompt: "x".repeat(promptChars), imageCount: subjects + 1, quality, aspectRatio }, variants));
+  res.json(batchEstimate({ engine, model, prompt: "x".repeat(promptChars), imageCount: subjects + 1, quality, aspectRatio }, variants));
 });
 
 router.get("/:id", asyncHandler(async (req, res) => {

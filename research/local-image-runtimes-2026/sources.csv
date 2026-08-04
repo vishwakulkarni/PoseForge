@@ -1,0 +1,10 @@
+id,title,type,url,retrieved,credibility,recency,bias
+1,ComfyUI README and API example,primary,https://github.com/Comfy-Org/ComfyUI,2026-08-04,high,high,project
+2,Hugging Face Diffusers docs,primary,https://huggingface.co/docs/diffusers,2026-08-04,high,high,project
+3,InvokeAI repository and requirements,primary,https://github.com/invoke-ai/InvokeAI,2026-08-04,high,high,project
+4,stable-diffusion.cpp repository,primary,https://github.com/leejet/stable-diffusion.cpp,2026-08-04,high,high,project
+5,FLUX.2 Klein 4B model card,primary,https://huggingface.co/black-forest-labs/FLUX.2-klein-4B,2026-08-04,high,high,vendor
+6,Qwen Image Edit 2511 model card,primary,https://huggingface.co/Qwen/Qwen-Image-Edit-2511,2026-08-04,high,high,vendor
+7,SDXL OpenPose and PhotoMaker sources,primary,https://huggingface.co/xinsir/controlnet-openpose-sdxl-1.0,2026-08-04,medium,medium,authors
+8,InstantID and IP-Adapter FaceID licensing,primary,https://github.com/instantX-research/InstantID,2026-08-04,high,medium,authors
+

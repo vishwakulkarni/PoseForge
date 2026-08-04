@@ -32,3 +32,28 @@ test("actual provider usage supersedes estimates", () => {
   assert.equal(merged.totalTokens, 570);
   assert.equal(merged.rateDate, RATE_DATE);
 });
+
+test("Gemini estimates follow the selected model tier", () => {
+  const pro = estimateGenerationUsage({ engine: "gemini", model: "gemini-3-pro-image-preview", quality: "high" });
+  const flash = estimateGenerationUsage({ engine: "gemini", model: "gemini-3.1-flash-image-preview", quality: "medium" });
+  assert.equal(pro.model, "gemini-3-pro-image-preview");
+  assert.equal(pro.estimatedCostUsd, 0.134);
+  assert.equal(flash.estimatedCostUsd, 0.067);
+});
+
+test("ComfyUI reports no provider tokens or API cost", () => {
+  const usage = estimateGenerationUsage({ engine: "comfy", model: "sdxl-openpose" });
+  assert.equal(usage.model, "sdxl-openpose");
+  assert.equal(usage.inputTokens, 0);
+  assert.equal(usage.outputTokens, 0);
+  assert.equal(usage.totalTokens, 0);
+  assert.equal(usage.estimatedCostUsd, 0);
+});
+
+test("Antigravity estimates tokens while leaving plan cost undisclosed", () => {
+  const usage = estimateGenerationUsage({ engine: "antigravity", model: "gemini-3.6-flash-high" });
+  assert.equal(usage.model, "gemini-3.6-flash-high");
+  assert.ok(usage.totalTokens > 0);
+  assert.equal(usage.estimatedCostUsd, null);
+  assert.match(usage.pricingNote, /G1 credit/);
+});

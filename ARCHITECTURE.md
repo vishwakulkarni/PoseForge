@@ -97,16 +97,19 @@ repeatedly.
 ## The engine adapter pattern
 
 This is the part most contributions touch. Every generation engine —
-Codex CLI, OpenAI, Replicate, or a future one — implements the same shape:
+Codex CLI, Antigravity CLI, OpenAI, Gemini, ComfyUI, Replicate, or a future one — implements
+the same shape:
 
 ```js
 {
   key: "engine-key",
   label: "Human-readable name",
+  models: [{ id: "provider-model-id", label: "Model name" }], // optional
+  async getConfiguredModel() {}, // optional
   async isReady() {
     // return { ready: true } or { ready: false, reason: "..." }
   },
-  async generate({ characterPhotoPaths, posePhotoPath, prompt, outputPath, apiKey }) {
+  async generate({ characterPhotoPaths, posePhotoPath, prompt, outputPath, outputSettings, apiKey, model }) {
     // write a PNG to outputPath, or throw an Error with a clear message
   },
 }
@@ -124,13 +127,14 @@ with more than one character photo it composites them into a side-by-side
 montage locally (via `sharp`) before sending — an imperfect but reasonable
 fallback, documented inline in that file.
 
-`engines/index.js` holds the registry (`{ codex, openai, replicate }`) and
+`engines/index.js` holds the registry (`{ codex, antigravity, openai, gemini, comfy, replicate }`) and
 `listEngines()`, which calls `isReady()` on each — that's what powers both
-the Studio's engine dropdown and the Settings screen's status list. Adding
-a new engine is: write the adapter, register it, done — no route or
-frontend changes needed. See `CONTRIBUTING.md` for the walkthrough.
+the Studio's engine dropdown and the Settings screen's status list. The
+registry is enough for basic discovery; engines with provider-specific
+credentials, models, or workflow settings also need corresponding Settings
+fields. See `CONTRIBUTING.md` for the walkthrough.
 
-Two adapters worth knowing about specifically:
+Adapters worth knowing about specifically:
 
 - **`codexEngine.js`** shells out to the Codex CLI (`codex exec --sandbox
   workspace-write --skip-git-repo-check --ephemeral ...`), passing the two
@@ -139,6 +143,22 @@ Two adapters worth knowing about specifically:
   binary on PATH."
 - **`openaiEngine.js`** and **`replicateEngine.js`** call their respective
   HTTP APIs directly using a key read from the `settings` table.
+- **`geminiEngine.js`** sends up to five inline reference images to the
+  configured Gemini image model and records provider token metadata plus a
+  dated rough per-output cost.
+- **`comfyEngine.js`** connects only to loopback by default, uploads the
+  references to ComfyUI, renders a user-supplied API workflow template,
+  polls its history endpoint, and downloads the first saved output image.
+  Its workflow placeholder contract is implemented in `lib/comfyWorkflow.js`.
+- **`antigravityEngine.js`** invokes Google’s local `agy` binary in documented
+  headless JSON mode. It confines each run to the generation folder with
+  `--sandbox`, auto-approves otherwise-unpromptable headless tool calls inside
+  that isolated folder, uses cached interactive credentials, and records
+  CLI-reported input, output, and thinking tokens. Antigravity's native image
+  tool currently stages output in its per-conversation `brain` directory even
+  when asked for a workspace path; the adapter validates the returned file URL,
+  conversation ID, directory boundary, size, and PNG signature before copying
+  that artifact into PoseForge storage.
 
 ## Generation flow (async status, serial execution)
 

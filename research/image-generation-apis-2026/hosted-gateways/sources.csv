@@ -1,0 +1,15 @@
+id,provider,title,url,accessed,credibility,recency,bias
+S01,Replicate,Pricing,https://replicate.com/pricing,2026-08-04,5,5,3
+S02,Replicate,FLUX.2 Pro model page,https://replicate.com/black-forest-labs/flux-2-pro,2026-08-04,5,5,3
+S03,Replicate,FLUX.2 Max model page,https://replicate.com/black-forest-labs/flux-2-max,2026-08-04,5,5,3
+S04,Replicate,Prediction API,https://replicate.com/docs/topics/predictions/create-a-prediction,2026-08-04,5,5,3
+S05,Replicate,Identity-model pages,https://replicate.com/bytedance/flux-pulid,2026-08-04,4,4,3
+S06,Together AI,FLUX.2 quickstart,https://docs.together.ai/docs/quickstart-flux,2026-08-04,5,5,3
+S07,Together AI,Pricing,https://www.together.ai/pricing,2026-08-04,5,5,3
+S08,Together AI,Dynamic rate limits,https://docs.together.ai/docs/serverless/rate-limits,2026-08-04,5,5,3
+S09,Hugging Face,Inference Providers pricing,https://huggingface.co/docs/inference-providers/pricing,2026-08-04,5,5,3
+S10,Hugging Face,Image-to-image API,https://huggingface.co/docs/inference-providers/tasks/image-to-image,2026-08-04,5,5,3
+S11,RunPod,Serverless endpoint settings,https://docs.runpod.io/serverless/endpoints/endpoint-configurations,2026-08-04,5,5,3
+S12,RunPod,Serverless pricing,https://docs.runpod.io/serverless/pricing,2026-08-04,5,5,3
+S13,Hugging Face,FLUX.2 license metadata,https://huggingface.co/api/models/black-forest-labs/FLUX.2-dev,2026-08-04,5,5,2
+

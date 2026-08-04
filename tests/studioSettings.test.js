@@ -52,5 +52,5 @@ test("buildAdvancedPromptFragment expresses per-person and camera direction", ()
   assert.match(prompt, /50mm lens character/);
   assert.match(prompt, /16:9 aspect ratio/);
   assert.match(prompt, /Avoid: text and watermarks/);
-  assert.deepEqual(outputSettings(settings), { aspectRatio: "16:9", quality: "high", variationStrength: 35, seed: null });
+  assert.deepEqual(outputSettings(settings), { aspectRatio: "16:9", quality: "high", variationStrength: 35, seed: null, negativePrompt: "text and watermarks" });
 });

@@ -85,6 +85,7 @@ router.post("/", upload.single("characterPhoto"), asyncHandler(async (req, res) 
       const ready = await engine.isReady();
       if (!ready.ready) return res.status(409).json({ error: ready.reason || "Engine is not ready." });
     }
+    const engineModel = engine?.getConfiguredModel ? await engine.getConfiguredModel() : null;
 
     const id = crypto.randomUUID();
     const posePath = storage.getGenerationPosePath(id, ".png");
@@ -98,9 +99,9 @@ router.post("/", upload.single("characterPhoto"), asyncHandler(async (req, res) 
     await createPoseTemplate(storage.absolutePath(posePath), profile);
 
     const prompt = `Create a photorealistic ${profile.label} photo of the exact person in Image 1. Preserve identity, age, facial geometry, skin tone, hair, and natural texture exactly. Image 2 is only a composition guide. ${profile.prompt}. Do not beautify, reshape, de-age, add makeup, or change identifying features. No text, borders, watermarks, or props.`;
-    const advancedSettings = { workflow: "document-photo", documentProfileId: profile.id, countryCode: profile.countryCode, documentType: profile.documentType, guidelineRetrievedOn: profile.retrievedOn, sourceVersionLabel: profile.sourceVersionLabel, officialGuidelineUrl: profile.officialLinks[0]?.url, processingMode, output: { aspectRatio: `${profile.output.widthPx}:${profile.output.heightPx}`, quality: "high", variantCount: 1, widthPx: profile.output.widthPx, heightPx: profile.output.heightPx, format: profile.output.format } };
+    const advancedSettings = { workflow: "document-photo", documentProfileId: profile.id, countryCode: profile.countryCode, documentType: profile.documentType, guidelineRetrievedOn: profile.retrievedOn, sourceVersionLabel: profile.sourceVersionLabel, officialGuidelineUrl: profile.officialLinks[0]?.url, processingMode, engineModel, output: { aspectRatio: `${profile.output.widthPx}:${profile.output.heightPx}`, quality: "high", variantCount: 1, widthPx: profile.output.widthPx, heightPx: profile.output.heightPx, format: profile.output.format } };
     const usageEstimate = processingMode === "ai"
-      ? estimateGenerationUsage({ engine: engineKey, prompt, imageCount: 2, quality: "high", aspectRatio: "1:1" })
+      ? estimateGenerationUsage({ engine: engineKey, model: engineModel, prompt, imageCount: 2, quality: "high", aspectRatio: "1:1" })
       : { source: "local", rateDate: profile.retrievedOn, inputTokens: 0, outputTokens: 0, totalTokens: 0, estimatedCostUsd: 0, pricingNote: "Local crop, resize, and format processing; no generation tokens used." };
     await pool.query("INSERT INTO generations (id, pose_photo_path, engine, prompt, studio_mode, advanced_settings, usage_metrics) VALUES ($1,$2,$3,$4,'advanced',$5::jsonb,$6::jsonb)", [id, posePath, engineKey, prompt, JSON.stringify(advancedSettings), JSON.stringify(usageEstimate)]);
     await pool.query("INSERT INTO generation_characters (generation_id, position, file_path) VALUES ($1,1,$2)", [id, characterPath]);
@@ -115,7 +116,7 @@ router.post("/", upload.single("characterPhoto"), asyncHandler(async (req, res) 
     enqueue(id, async () => {
       try {
         await pool.query("UPDATE generations SET status = 'running', started_at = now() WHERE id = $1", [id]);
-        const result = await engine.generate({ characterPhotoPaths: [storage.absolutePath(characterPath)], posePhotoPath: storage.absolutePath(posePath), prompt, outputPath: storage.absolutePath(rawPath), outputSettings: { aspectRatio: "1:1", quality: "high" }, apiKey: await setting(`${engineKey}_api_key`) });
+        const result = await engine.generate({ characterPhotoPaths: [storage.absolutePath(characterPath)], posePhotoPath: storage.absolutePath(posePath), prompt, outputPath: storage.absolutePath(rawPath), outputSettings: { aspectRatio: "1:1", quality: "high" }, apiKey: await setting(`${engineKey}_api_key`), model: engineModel });
         await createDocumentAssets(storage.absolutePath(rawPath), storage.absolutePath(outputPath), storage.absolutePath(sheetPath), profile);
         const usage = mergeActualUsage(usageEstimate, result?.usage);
         await pool.query("UPDATE generations SET status = 'completed', output_path = $2, usage_metrics = $3::jsonb, completed_at = now() WHERE id = $1", [id, outputPath, JSON.stringify(usage)]);
