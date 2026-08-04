@@ -22,6 +22,12 @@ test("getGenerationOutputPath is always a PNG regardless of input", () => {
   assert.equal(storage.getGenerationOutputPath("gen-1"), "generations/gen-1/output.png");
 });
 
+test("document photo paths keep application and print assets together", () => {
+  assert.equal(storage.getDocumentOutputPath("gen-1", "jpeg"), "generations/gen-1/document-photo.jpg");
+  assert.equal(storage.getDocumentOutputPath("gen-1", "png"), "generations/gen-1/document-photo.png");
+  assert.equal(storage.getDocumentSheetPath("gen-1"), "generations/gen-1/document-photo-sheet-4x6.png");
+});
+
 test("getGenerationPosePath and getGenerationCharacterPath live under the same generation folder", () => {
   const pose = storage.getGenerationPosePath("gen-1", "pose.jpg");
   const character = storage.getGenerationCharacterPath("gen-1", 1, "character.jpg");

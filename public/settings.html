@@ -1,64 +1,12 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Settings — PoseForge</title>
-<link rel="stylesheet" href="/css/base.css" />
-<link rel="stylesheet" href="/css/settings.css" />
-</head>
-<body data-nav="settings.html">
-  <nav class="site-nav" id="site-nav"></nav>
-
-  <main class="container">
-    <div class="page-header" style="padding: var(--space-8) 0 var(--space-6); text-align:center;">
-      <span class="eyebrow">Settings</span>
-      <h1>Engines &amp; keys</h1>
-      <p>Configure which generation engines this local app can use.</p>
-    </div>
-
-    <div class="card settings-card">
-      <h2>Engine status</h2>
-      <p class="text-secondary">Codex CLI works out of the box. OpenAI and Replicate need an API key below.</p>
-      <div id="engineStatus"></div>
-    </div>
-
-    <div class="card settings-card">
-      <h2>API keys</h2>
-      <p class="text-secondary">Keys are only used to call the engine you select in Studio.</p>
-
-      <div class="key-row">
-        <div class="field">
-          <label class="field-label" for="openaiKey">OpenAI API key</label>
-          <input id="openaiKey" type="password" placeholder="Not configured" />
-        </div>
-        <button class="btn btn-secondary" data-key="openaiApiKey">Save</button>
-      </div>
-      <div class="key-row">
-        <div class="field">
-          <label class="field-label" for="replicateKey">Replicate API key</label>
-          <input id="replicateKey" type="password" placeholder="Not configured" />
-        </div>
-        <button class="btn btn-secondary" data-key="replicateApiKey">Save</button>
-      </div>
-
-      <p class="disclosure-note">Keys are stored in plain text in your local database — this app runs on your machine only and is not meant to be exposed to a network.</p>
-    </div>
-
-    <div class="card settings-card">
-      <h2>Default engine</h2>
-      <p class="text-secondary">Pre-selected automatically in Studio.</p>
-      <div class="default-engine-row">
-        <div class="field">
-          <select id="defaultEngine"></select>
-        </div>
-        <button class="btn btn-primary" id="saveDefault">Save</button>
-      </div>
-      <p class="status-line mt-3" id="settingsStatus"></p>
-    </div>
-  </main>
-
-  <script src="/js/base.js"></script>
-  <script src="/js/settings.js"></script>
-</body>
-</html>
+<!DOCTYPE html><html lang="en" data-theme="light"><head>
+<meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Settings — PoseForge</title><script src="/js/theme.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/css/base.css" /><link rel="stylesheet" href="/css/settings.css" />
+</head><body data-nav="settings.html"><nav class="site-nav" id="site-nav"></nav><main class="container settings-page">
+<header class="page-header"><div class="page-header-copy"><span class="eyebrow">Workspace settings</span><h1>Engines & privacy</h1><p>Connect generation providers and choose how your local PoseForge workspace creates.</p></div></header>
+<div class="settings-layout"><aside class="settings-nav"><span>Workspace</span><a href="#engines" class="active">Generation engines</a><a href="#credentials">API credentials</a><a href="#defaults">Studio defaults</a><div class="local-note"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 3 5 6v5c0 4.8 2.8 8.1 7 10 4.2-1.9 7-5.2 7-10V6l-7-3Z" stroke="currentColor" stroke-width="1.6"/></svg><strong>Local workspace</strong><p>Settings are stored in your own Postgres database.</p></div></aside>
+<div class="settings-content">
+  <section class="settings-card" id="engines"><div class="settings-head"><div><span class="settings-index">01</span><h2>Generation engines</h2><p>PoseForge adapts Studio controls to each engine’s capabilities.</p></div><span class="badge badge-neutral">Live status</span></div><div id="engineStatus"></div></section>
+  <section class="settings-card" id="credentials"><div class="settings-head"><div><span class="settings-index">02</span><h2>API credentials</h2><p>Keys are only used when you select the matching engine.</p></div></div><div class="key-row"><div class="field"><label class="field-label" for="openaiKey">OpenAI API key</label><input id="openaiKey" type="password" placeholder="Not configured" autocomplete="off" /></div><button class="btn btn-secondary" data-key="openaiApiKey">Save</button></div><div class="key-row"><div class="field"><label class="field-label" for="replicateKey">Replicate API key</label><input id="replicateKey" type="password" placeholder="Not configured" autocomplete="off" /></div><button class="btn btn-secondary" data-key="replicateApiKey">Save</button></div><div class="disclosure-note"><strong>Security note</strong><span>Keys are stored as plain text locally. Do not expose this app to a public network without adding authentication and encrypted secret storage.</span></div></section>
+  <section class="settings-card" id="defaults"><div class="settings-head"><div><span class="settings-index">03</span><h2>Studio default</h2><p>The engine selected automatically in every new composition.</p></div></div><div class="default-engine-row"><div class="field"><label class="field-label" for="defaultEngine">Default generation engine</label><select id="defaultEngine"></select></div><button class="btn btn-primary" id="saveDefault">Save default</button></div><p class="status-line" id="settingsStatus"></p></section>
+</div></div></main><script src="/js/base.js"></script><script src="/js/settings.js"></script></body></html>

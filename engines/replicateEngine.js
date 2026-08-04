@@ -40,8 +40,9 @@ async function compositeCharacters(paths) {
 
 const engine = {
   key: "replicate", label: "Replicate",
+  capabilities: { multiImage: "montage", aspectRatio: true, quality: false, variants: true },
   async isReady() { return (await configured()) ? { ready: true } : { ready: false, reason: "No API key configured" }; },
-  async generate({ characterPhotoPaths, posePhotoPath, prompt, outputPath, apiKey }) {
+  async generate({ characterPhotoPaths, posePhotoPath, prompt, outputPath, outputSettings = {}, apiKey }) {
     const key = apiKey || await configured();
     if (!key) throw new Error("No Replicate API key configured.");
     const paths = Array.isArray(characterPhotoPaths) ? characterPhotoPaths : [characterPhotoPaths];
@@ -49,7 +50,9 @@ const engine = {
     const character = `data:image/png;base64,${(await fs.promises.readFile(compositePath)).toString("base64")}`;
     if (compositePath !== paths[0]) await fs.promises.rm(compositePath, { force: true }).catch(() => {});
     const pose = `data:image/png;base64,${(await fs.promises.readFile(posePhotoPath)).toString("base64")}`;
-    const response = await fetch(`https://api.replicate.com/v1/models/${MODEL_SLUG}/predictions`, { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ input: { prompt: `${prompt} Use this character reference and pose reference.`, input_image: character, pose_image: pose } }) });
+    const replicateInput = { prompt: `${prompt} Use this character reference and pose reference.`, input_image: character, pose_image: pose, aspect_ratio: outputSettings.aspectRatio || "1:1" };
+    if (outputSettings.seed != null) replicateInput.seed = outputSettings.seed;
+    const response = await fetch(`https://api.replicate.com/v1/models/${MODEL_SLUG}/predictions`, { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ input: replicateInput }) });
     let prediction = await response.json();
     if (!response.ok) throw new Error(prediction.detail || `Replicate request failed (${response.status}).`);
     const deadline = Date.now() + Number(process.env.REPLICATE_TIMEOUT_MS || 300000);
@@ -65,6 +68,7 @@ const engine = {
     const image = await fetch(url);
     if (!image.ok) throw new Error("Could not download Replicate output.");
     await fs.promises.writeFile(outputPath, Buffer.from(await image.arrayBuffer()));
+    return { usage: prediction.metrics ? { source: "provider-metric", predictTimeSeconds: Number(prediction.metrics.predict_time || 0) || undefined } : {} };
   },
 };
 module.exports = engine;

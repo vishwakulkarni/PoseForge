@@ -26,7 +26,8 @@ db/
   migrations/               001_init.sql (schema), 002/003_*_seed.sql (starter presets),
                              004_pose_references.sql (pose library schema),
                              005_pose_references_seed.sql (starter poses),
-                             006_generation_characters.sql (up to 4 people per generation)
+                             006_generation_characters.sql (up to 4 people per generation),
+                             008_advanced_studio.sql (recipes, creative settings, batches)
 routes/
   characters.js, generations.js, presets.js, engines.js, settings.js, pose-references.js
 engines/
@@ -51,7 +52,7 @@ storage/                    Runtime-created, gitignored: characters/, generation
 
 ## Data model
 
-Seven tables, no ORM:
+Eight product tables, no ORM:
 
 - **`characters`** — a saved identity (name + timestamps).
 - **`character_photos`** — one or more reference photos per character, one
@@ -82,6 +83,12 @@ Seven tables, no ORM:
   true`, always has a local `file_path`). `tag_status` (`pending` →
   `tagged`/`skipped`) tracks the best-effort AI auto-tagging pipeline —
   see below.
+- **`studio_recipes`** — named, reusable Advanced-mode settings stored as
+  JSONB. Recipes contain creative controls only; they never retain identity
+  or pose images.
+
+Advanced generations also store `studio_mode`, sanitized `advanced_settings`
+JSONB, and an optional `batch_id` that groups multi-variant requests.
 
 Run `npm run migrate` to apply `db/migrations/*.sql` in order; it tracks
 what's already applied in a `schema_migrations` table, so it's safe to run

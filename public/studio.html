@@ -1,107 +1,244 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Studio — PoseForge</title>
-<link rel="stylesheet" href="/css/base.css" />
-<link rel="stylesheet" href="/css/studio.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#f5f6f8" />
+  <title>Studio — PoseForge</title>
+  <script src="/js/theme.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/studio.css" />
 </head>
-<body data-nav="studio.html">
+<body data-nav="studio.html" class="studio-page">
   <nav class="site-nav" id="site-nav"></nav>
 
-  <main class="container">
-    <div class="studio-header">
-      <span class="eyebrow">Studio</span>
-      <h1>Create a pose</h1>
-      <p>Add a character, choose a pose, and let the studio transform it.</p>
-    </div>
-
-    <ol class="step-rail" id="stepRail">
-      <li class="step-rail-item active" data-step="1"><span class="step-num">1</span><span class="step-name">Family</span></li>
-      <li class="step-rail-item" data-step="2"><span class="step-num">2</span><span class="step-name">Pose</span></li>
-      <li class="step-rail-item" data-step="3"><span class="step-num">3</span><span class="step-name">Direction</span></li>
-      <li class="step-rail-item" data-step="4"><span class="step-num">4</span><span class="step-name">Generate</span></li>
-    </ol>
-
+  <main class="studio-shell">
     <form id="studioForm">
-      <div class="studio-grid">
-        <!-- Characters (up to 4 people) -->
-        <div class="card upload-card">
-          <div class="card-head"><h3><span class="step-chip">Step 1</span>Your family</h3><span class="badge badge-neutral" id="personCounter">1 of 4</span></div>
-          <div id="characterSlots"></div>
-          <button type="button" class="btn btn-secondary btn-sm hidden" id="addPersonBtn">+ Add another person</button>
-        </div>
-
-        <!-- Pose -->
-        <div class="card upload-card">
-          <div class="card-head"><h3><span class="step-chip">Step 2</span>Pose reference</h3></div>
-          <label class="dropzone" id="poseDropzone">
-            <input type="file" id="posePhoto" accept="image/*" />
-            <div class="dz-icon">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="7" r="3" stroke="currentColor" stroke-width="1.6"/><path d="M6 21c1-4 3.5-6 6-6s5 2 6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-            </div>
-            <div class="dz-text">Drop a pose photo, or click to upload</div>
-            <div class="dz-sub">Any photo showing the pose you want to copy</div>
-            <div class="dz-overlay"><button type="button" data-replace="posePhoto">Replace photo</button></div>
-          </label>
-          <div class="upload-progress hidden" id="poseProgress"><div></div></div>
-
-          <div class="pose-picker">
-            <div class="pose-picker-head">
-              <span class="field-label" style="margin:0;">Or pick from your pose library</span>
-              <a href="/gallery.html" class="text-tertiary" style="font-size:12px;">Browse full library →</a>
-            </div>
-            <div class="pose-thumb-strip" id="poseThumbStrip"></div>
-            <p class="status-line text-tertiary" style="font-size:11px; margin-top:6px;">Pose photos you upload are saved here automatically so you can reuse them later.</p>
+      <div class="studio-workbench">
+        <aside class="studio-panel asset-panel" aria-label="Source assets">
+          <div class="panel-head">
+            <div><span class="panel-kicker">01</span><h2>Sources</h2></div>
+            <span class="panel-count" id="personCounter">1 / 4</span>
           </div>
-        </div>
+
+          <section class="asset-section">
+            <div class="section-label-row"><span>Subjects</span><span>Identity references</span></div>
+            <div id="characterSlots" class="character-slots"></div>
+            <button type="button" class="add-source-btn hidden" id="addPersonBtn">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+              Add another subject
+            </button>
+          </section>
+
+          <section class="asset-section pose-section">
+            <div class="section-label-row"><span>Pose reference</span><a href="/gallery.html">View library</a></div>
+            <label class="dropzone pose-dropzone" id="poseDropzone">
+              <input type="file" id="posePhoto" accept="image/*,.heic,.heif" />
+              <div class="dz-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0-12L8 7m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+              <div class="dz-text">Add pose photo</div>
+              <div class="dz-sub">Drag here or browse</div>
+              <div class="pose-collage-grid hidden" id="poseCollageGrid" aria-hidden="true"></div>
+              <div class="dz-overlay"><button type="button" data-replace="posePhoto">Replace pose</button></div>
+            </label>
+            <div class="upload-progress hidden" id="poseProgress"><div></div></div>
+            <div class="pose-collage-controls advanced-only">
+              <label class="collage-toggle"><input type="checkbox" id="poseCollageEnabled" /><span><strong>Multi-pose collage</strong><small>Split one pose sheet into parallel outputs</small></span></label>
+              <div class="collage-options hidden" id="poseCollageOptions">
+                <div><label class="field-label" for="poseCollageCount">Pose cells</label><select id="poseCollageCount"><option value="2">2 poses</option><option value="3">3 poses</option><option value="4">4 poses</option><option value="5">5 poses</option><option value="6">6 poses</option></select></div>
+                <div><label class="field-label" for="poseCollageLayout">Grid layout</label><select id="poseCollageLayout"><option value="auto">Auto</option><option value="horizontal">Horizontal strip</option><option value="vertical">Vertical strip</option><option value="2x2">2 × 2</option><option value="3x2">3 × 2</option><option value="2x3">2 × 3</option></select></div>
+              </div>
+              <p class="collage-help hidden" id="poseCollageHelp">Each cell becomes one pose reference and one generated image. Maximum six jobs per batch.</p>
+            </div>
+            <div class="pose-library-mini" id="poseThumbStrip"></div>
+          </section>
+        </aside>
+
+        <section class="canvas-panel" aria-label="Composition canvas">
+          <div class="canvas-toolbar">
+            <div class="canvas-status"><span class="canvas-status-dot"></span><span id="canvasLabel">Ready to compose</span></div>
+            <div class="mode-switch" role="group" aria-label="Studio experience level">
+              <button type="button" data-studio-mode="normal" class="active">Normal</button>
+              <button type="button" data-studio-mode="advanced">Advanced <span class="pro-dot"></span></button>
+            </div>
+            <div class="canvas-tools">
+              <span class="canvas-meta" id="canvasRatio">1:1</span>
+              <button type="button" class="canvas-tool" id="fitCanvas" title="Fit canvas" aria-label="Fit canvas">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="canvas-viewport">
+            <div class="canvas-artboard" id="canvasArtboard" data-aspect="1:1">
+              <div class="canvas-empty" id="canvasEmpty">
+                <div class="canvas-orbit" aria-hidden="true">
+                  <span></span><span></span><span></span>
+                  <div class="orbit-mark"></div>
+                </div>
+                <h3>Build your composition</h3>
+                <p>Add a subject and pose reference. Your source preview will assemble here before generation.</p>
+              </div>
+              <div class="source-composition hidden" id="sourceComposition">
+                <img class="composition-pose" id="compositionPose" alt="Selected pose reference" />
+                <div class="composition-wash"></div>
+                <div class="composition-subjects" id="compositionSubjects"></div>
+                <div class="composition-caption"><span>Source composition</span><strong id="compositionSummary">1 subject · 1 pose</strong></div>
+              </div>
+              <div class="generation-stage hidden" id="resultArea"></div>
+            </div>
+          </div>
+          <div class="variant-tray hidden" id="variantTray"></div>
+          <div class="canvas-footer">
+            <div class="canvas-tip"><kbd>Tip</kbd><span id="canvasTip">Use a clear, front-facing identity photo for the strongest match.</span></div>
+            <div class="canvas-progress hidden" id="canvasProgress"><span></span></div>
+          </div>
+        </section>
+
+        <aside class="studio-panel inspector-panel" aria-label="Creative controls">
+          <div class="panel-head inspector-head">
+            <div><span class="panel-kicker">02</span><h2>Direction</h2></div>
+            <button type="button" class="reset-button" id="resetControls">Reset</button>
+          </div>
+
+          <div class="inspector-scroll">
+            <section class="recipe-bar advanced-only">
+              <div class="section-label-row"><span>Recipe</span><button type="button" id="saveRecipeBtn">Save current</button></div>
+              <select id="recipeSelect"><option value="">Custom setup</option></select>
+            </section>
+
+            <details class="control-group" open>
+              <summary><span>Look &amp; environment</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></summary>
+              <div class="control-body">
+                <div class="two-fields">
+                  <div><label class="field-label" for="backgroundPreset">Background</label><select id="backgroundPreset"><option value="">Original / auto</option></select></div>
+                  <div><label class="field-label" for="stylePreset">Visual style</label><select id="stylePreset"><option value="">Photoreal</option></select></div>
+                </div>
+                <label class="field-label" for="instructions">Creative brief <span id="instructionCount">0 / 600</span></label>
+                <textarea id="instructions" maxlength="600" placeholder="Describe wardrobe, mood, scene details, or anything the final image should communicate…"></textarea>
+              </div>
+            </details>
+
+            <details class="control-group advanced-only" open>
+              <summary><span>Identity &amp; pose</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></summary>
+              <div class="control-body">
+                <div class="range-field">
+                  <label class="field-label" for="identityFidelity">Identity fidelity <strong id="identityValue">85</strong></label>
+                  <input type="range" id="identityFidelity" min="0" max="100" value="85" />
+                  <div class="range-axis"><span>Interpret</span><span>Preserve</span></div>
+                </div>
+                <div class="range-field">
+                  <label class="field-label" for="poseFidelity">Pose adherence <strong id="poseValue">80</strong></label>
+                  <input type="range" id="poseFidelity" min="0" max="100" value="80" />
+                  <div class="range-axis"><span>Inspired</span><span>Exact</span></div>
+                </div>
+                <div class="two-fields fidelity-grid">
+                  <div class="range-field"><label class="field-label" for="ageFidelity">Age fidelity <strong id="ageValue">90</strong></label><input type="range" id="ageFidelity" min="0" max="100" value="90" /></div>
+                  <div class="range-field"><label class="field-label" for="hairFidelity">Hair fidelity <strong id="hairValue">85</strong></label><input type="range" id="hairFidelity" min="0" max="100" value="85" /></div>
+                </div>
+                <div class="toggle-list">
+                  <label><input type="checkbox" id="preserveSkinTexture" checked /><span><strong>Natural skin texture</strong><small>Avoid plastic smoothing</small></span></label>
+                  <label><input type="checkbox" id="correctHands" checked /><span><strong>Anatomy guard</strong><small>Prioritize hands, eyes, and teeth</small></span></label>
+                </div>
+                <div id="subjectDirections" class="subject-directions"></div>
+              </div>
+            </details>
+
+            <details class="control-group advanced-only">
+              <summary><span>Camera &amp; light</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></summary>
+              <div class="control-body">
+                <div class="two-fields">
+                  <div><label class="field-label" for="framing">Framing</label><select id="framing"><option value="auto">Auto</option><option value="close-up">Close-up</option><option value="medium">Medium</option><option value="full-body">Full body</option><option value="wide">Wide</option></select></div>
+                  <div><label class="field-label" for="cameraAngle">Angle</label><select id="cameraAngle"><option value="auto">Auto</option><option value="eye-level">Eye level</option><option value="low-angle">Low angle</option><option value="high-angle">High angle</option><option value="overhead">Overhead</option></select></div>
+                  <div><label class="field-label" for="lens">Lens feel</label><select id="lens"><option value="auto">Auto</option><option value="24mm">24mm wide</option><option value="35mm">35mm natural</option><option value="50mm">50mm classic</option><option value="85mm">85mm portrait</option></select></div>
+                  <div><label class="field-label" for="depthOfField">Depth</label><select id="depthOfField"><option value="auto">Auto</option><option value="shallow">Shallow</option><option value="balanced">Balanced</option><option value="deep">Deep</option></select></div>
+                  <div><label class="field-label" for="aperture">Aperture</label><select id="aperture"><option value="auto">Auto</option><option value="f/1.8">f/1.8</option><option value="f/2.8">f/2.8</option><option value="f/4">f/4</option><option value="f/8">f/8</option><option value="f/11">f/11</option></select></div>
+                </div>
+                <div class="two-fields">
+                  <div><label class="field-label" for="lighting">Lighting</label><select id="lighting"><option value="auto">Auto match</option><option value="soft-studio">Soft studio</option><option value="golden-hour">Golden hour</option><option value="window-light">Window light</option><option value="dramatic">Dramatic contrast</option><option value="overcast">Soft overcast</option></select></div>
+                  <div><label class="field-label" for="lightingTemperature">Temperature</label><select id="lightingTemperature"><option value="auto">Auto</option><option value="cool">Cool</option><option value="neutral">Neutral</option><option value="warm">Warm</option></select></div>
+                  <div><label class="field-label" for="timeOfDay">Time of day</label><select id="timeOfDay"><option value="auto">Auto</option><option value="morning">Morning</option><option value="midday">Midday</option><option value="sunset">Sunset</option><option value="night">Night</option></select></div>
+                </div>
+              </div>
+            </details>
+
+            <details class="control-group advanced-only">
+              <summary><span>Composition</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></summary>
+              <div class="control-body">
+                <div class="two-fields">
+                  <div><label class="field-label" for="subjectSpacing">Subject spacing</label><select id="subjectSpacing"><option value="auto">Auto</option><option value="tight">Tight</option><option value="natural">Natural</option><option value="airy">Airy</option></select></div>
+                  <div><label class="field-label" for="cropSafety">Crop behavior</label><select id="cropSafety"><option value="safe">Safe</option><option value="auto">Auto</option><option value="dynamic">Dynamic</option><option value="extra-headroom">Extra headroom</option></select></div>
+                  <div><label class="field-label" for="backgroundSeparation">Background separation</label><select id="backgroundSeparation"><option value="auto">Auto</option><option value="flat">Flat</option><option value="subtle">Subtle</option><option value="strong">Strong</option></select></div>
+                </div>
+                <div class="toggle-list"><label><input type="checkbox" id="mirrorPose" /><span><strong>Mirror pose</strong><small>Flip the reference horizontally</small></span></label></div>
+              </div>
+            </details>
+
+            <details class="control-group advanced-only">
+              <summary><span>Finish &amp; retouch</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></summary>
+              <div class="control-body">
+                <div class="two-fields">
+                  <div><label class="field-label" for="retouch">Retouch</label><select id="retouch"><option value="none">None</option><option value="natural" selected>Natural</option><option value="polished">Polished</option></select></div>
+                  <div><label class="field-label" for="colorGrade">Color grade</label><select id="colorGrade"><option value="auto">Auto</option><option value="neutral">Neutral</option><option value="warm-film">Warm film</option><option value="cool-editorial">Cool editorial</option><option value="cinematic">Cinematic</option><option value="black-and-white">Black &amp; white</option></select></div>
+                  <div><label class="field-label" for="grain">Film grain</label><select id="grain"><option value="none">None</option><option value="subtle">Subtle</option><option value="medium">Medium</option></select></div>
+                </div>
+                <div class="range-field"><label class="field-label" for="sharpness">Output sharpness <strong id="sharpnessValue">50</strong></label><input type="range" id="sharpness" min="0" max="100" value="50" /></div>
+              </div>
+            </details>
+
+            <details class="control-group advanced-only">
+              <summary><span>Output</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></summary>
+              <div class="control-body">
+                <label class="field-label">Aspect ratio</label>
+                <div class="ratio-picker" id="ratioPicker">
+                  <button type="button" data-ratio="1:1" class="active"><i class="ratio-square"></i><span>Square</span></button>
+                  <button type="button" data-ratio="4:5"><i class="ratio-portrait"></i><span>Portrait</span></button>
+                  <button type="button" data-ratio="16:9"><i class="ratio-wide"></i><span>Wide</span></button>
+                  <button type="button" data-ratio="9:16"><i class="ratio-story"></i><span>Story</span></button>
+                </div>
+                <div class="two-fields output-fields">
+                  <div><label class="field-label" for="quality">Quality</label><select id="quality"><option value="low">Draft</option><option value="medium" selected>Standard</option><option value="high">High</option></select></div>
+                  <div><label class="field-label" for="variantCount">Bulk outputs</label><select id="variantCount"><option value="1">1 image</option><option value="2">2 images</option><option value="3">3 images</option><option value="4">4 images</option><option value="5">5 images</option><option value="6">6 images</option></select></div>
+                </div>
+                <div class="range-field"><label class="field-label" for="variationStrength">Variation strength <strong id="variationValue">35</strong></label><input type="range" id="variationStrength" min="0" max="100" value="35" /><div class="range-axis"><span>Consistent</span><span>Exploratory</span></div></div>
+                <label class="field-label" for="seed">Seed <span>Optional · engine-specific</span></label>
+                <input type="number" id="seed" min="0" max="2147483647" placeholder="Random" />
+                <label class="field-label" for="negativePrompt">Avoid</label>
+                <textarea id="negativePrompt" maxlength="400" placeholder="Artifacts, unwanted objects, visual traits…"></textarea>
+                <p class="capability-note" id="capabilityNote"></p>
+                <div class="usage-estimate" id="usageEstimate"><span>Estimated usage</span><strong>Calculating…</strong><small>Rates and actual provider billing can vary.</small></div>
+              </div>
+            </details>
+          </div>
+        </aside>
       </div>
 
-      <div class="card controls-card">
-        <div class="panel-title"><span class="step-chip">Step 3</span>Creative direction</div>
-        <div class="controls-row">
-          <div>
-            <label class="field-label" for="backgroundPreset">Background</label>
-            <select id="backgroundPreset"><option value="">None</option></select>
-          </div>
-          <div>
-            <label class="field-label" for="stylePreset">Style</label>
-            <select id="stylePreset"><option value="">None</option></select>
-          </div>
+      <div class="generation-dock">
+        <div class="engine-control">
+          <span class="engine-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3v4m0 10v4M3 12h4m10 0h4M5.6 5.6l2.8 2.8m7.2 7.2 2.8 2.8m0-12.8-2.8 2.8m-7.2 7.2-2.8 2.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="12" cy="12" r="3.5" stroke="currentColor" stroke-width="1.7"/></svg></span>
+          <div><label for="engine">Generation engine</label><select id="engine"></select></div>
+          <span class="engine-state" id="engineState"><i></i>Checking</span>
         </div>
-        <label class="field-label" for="instructions">Instructions <span class="text-tertiary" style="font-weight:400;">(optional — clothing, lighting, angle, background)</span></label>
-        <textarea id="instructions" placeholder="e.g. Warm golden-hour light, casual denim jacket, slight 3/4 angle…" maxlength="600"></textarea>
-
-        <div class="controls-row mt-4">
-          <div>
-            <label class="field-label" for="engine">Engine</label>
-            <select id="engine"></select>
-          </div>
-        </div>
-        <p class="status-line" id="engineHint"></p>
-
-        <div class="transform-bar">
-          <span class="step-chip">Step 4</span>
-          <button type="submit" class="btn btn-primary btn-lg" id="transformBtn">Transform photo</button>
-        </div>
-        <p class="status-line" id="generateStatus">Add a character and a pose photo to get started.</p>
+        <div class="generate-summary"><strong id="generateSummary">Add sources to begin</strong><span id="engineHint">Your images stay on this machine unless the selected engine requires an API.</span><small class="dock-usage" id="dockUsage">Usage estimate will appear here.</small><p class="status-line dock-status" id="generateStatus" aria-live="polite"></p></div>
+        <button type="submit" class="generate-button" id="transformBtn">
+          <span class="generate-button-copy"><small id="generateOverline">Ready when you are</small><strong>Generate transformation</strong></span>
+          <span class="generate-arrow"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        </button>
       </div>
     </form>
-
-    <div class="card result-card" id="resultCard">
-      <div class="card-head">
-        <h3>Result</h3>
-        <span class="badge badge-neutral" id="resultBadge">Waiting</span>
-      </div>
-      <div id="resultArea">
-        <div class="result-empty">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" stroke="currentColor" stroke-width="1.3"/><path d="M3 15l5-5 4 4 3-3 6 6" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
-          <p>Your transformed photo will appear here.</p>
-        </div>
-      </div>
-    </div>
   </main>
+
+  <div class="modal-backdrop hidden" id="recipeModal">
+    <div class="modal-card">
+      <div class="modal-head"><div><span class="eyebrow">Reusable setup</span><h3>Save studio recipe</h3></div><button type="button" class="modal-close" id="closeRecipeModal" aria-label="Close">×</button></div>
+      <label class="field-label" for="recipeName">Recipe name</label>
+      <input type="text" id="recipeName" maxlength="80" placeholder="e.g. Editorial portrait · soft window" />
+      <p class="field-help">Saves fidelity, camera, lighting, and output settings. Your source images are never included.</p>
+      <p class="status-line" id="recipeStatus"></p>
+      <div class="modal-actions"><button type="button" class="btn btn-ghost" id="cancelRecipe">Cancel</button><button type="button" class="btn btn-primary" id="confirmRecipe">Save recipe</button></div>
+    </div>
+  </div>
 
   <script src="/js/base.js"></script>
   <script src="/js/studio.js"></script>

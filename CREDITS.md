@@ -61,6 +61,32 @@ is saved locally under `storage/pose-library/` and is yours — it's never
 sent anywhere except to whichever AI tagging engine you've configured (if
 any), the same way generation itself works.
 
+### Expanded Unsplash pose collection
+
+Migration `010_curated_pose_collection.sql` adds 50 curated pose-reference
+photos from [Unsplash](https://unsplash.com) under the
+[Unsplash License](https://unsplash.com/license): 15 male, 15 female,
+10 couple, and 10 family references. The license permits free commercial and
+non-commercial use and modification without required attribution. PoseForge
+still links each Gallery card to its canonical Unsplash photo page as a
+courtesy and audit trail.
+
+Canonical Unsplash photo IDs: KIPqvvTOC1s, Py8F6-hRn5o, Xo4YvBp6IBM,
+CMGO5KBNtVs, syx5GyrkeZ8, UJlPhr1uRNQ, W9oEn9hbR9s, w-93ar9an2Q,
+aNv-NSMy5BA, TjvKuYy2kuk, XhjMnKL61YA, l_adRqoRjnY, ECnaVI-So-c,
+e4IkD6rPIJk, Fxlh_ar5LlQ, nkWnc-W_GP8, jYhTf46JzQY, faStDXKctu0,
+ydT30WRWeEc, UUTOuXqaExk, EoVzkcclFqs, kaTyHp6qSuY, _8qzW8tQbNk,
+t62bfusiaY0, MQ9U2GFnnDc, wCV4e1PMYQo, g28-mHHl-Z0, 9Ydpv-isJDM,
+bdlEdoCaCaQ, x_-12y6wBpE, x9kIDS9tUCU, duW35_FZ3hk, 2buEAAs8SUY,
+uIq7zm4pRjU, 1G6rlSIF-P0, Bo8tVzieMjw, rVw_iaMwkTw, mQEGvXR7doM,
+dqa2LjshmWY, CeNh4ARlkNs, 4_mJ1TbMK8A, Wr3comVZJxU, OMl0o6TSQXU,
+SAwxJ8PHY3Q, vISLDBH5Sic, b0TuKEQc9Ak, 0cmJRW5rOJ8, fkGwWLNCuBs,
+FqqaJI9OxMI, MRWHSKimBJk.
+
+These people do not endorse or have any association with PoseForge. The
+photos are pose inspiration/reference material, not PoseForge-generated
+results and not marketing testimonials.
+
 ## Mascot artwork
 
 The painter-dog mascot (`public/images/mascot-painter-dog.svg` and the

@@ -1,12 +1,11 @@
 // The Gallery is the pose library: every pose PoseForge knows about,
-// including the curated Pexels starter set and every pose photo you've
+// including the curated Pexels/Unsplash starter sets and every pose photo you've
 // ever uploaded in Studio (poses are saved to the library automatically —
 // there's no separate "save" step). Starter photos are real, free-to-use
-// stock photography from Pexels (license: https://www.pexels.com/license/,
-// free for any use, no attribution required). See CREDITS.md.
+// stock photography used under each provider's free license. See CREDITS.md.
 
 let poseReferences = [];
-let activeFilter = "all";
+let activeFilter = { type: "all", value: "all" };
 
 function poseCard(pose) {
   const tagBadge = pose.tagStatus === "pending" ? `<span class="tagging-badge">Tagging…</span>` : "";
@@ -18,7 +17,7 @@ function poseCard(pose) {
       </div>
       <div class="example-meta">
         <h4>${pose.title}${tagBadge}</h4>
-        <p>${pose.isCustom ? "Added by you" : "Starter pose"}</p>
+        <p>${pose.isCustom ? "Added by you" : `Curated${pose.sourceProvider ? ` · ${pose.sourceProvider}` : ""}`}${pose.sourcePageUrl ? ` · <a href="${pose.sourcePageUrl}" target="_blank" rel="noreferrer">Source ↗</a>` : ""}</p>
         <div class="tags">${tags}</div>
         <div class="example-actions">
           <a class="btn btn-primary btn-sm" href="/studio.html?pose=${pose.id}">Use this pose</a>
@@ -31,7 +30,7 @@ function poseCard(pose) {
 
 function renderPoses() {
   const grid = $("exampleGrid");
-  const items = activeFilter === "all" ? poseReferences : poseReferences.filter((p) => p.category === activeFilter);
+  const items = activeFilter.type === "all" ? poseReferences : activeFilter.type === "tag" ? poseReferences.filter((pose) => (pose.tags || []).includes(activeFilter.value)) : poseReferences.filter((pose) => pose.category === activeFilter.value);
   if (!items.length) {
     grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><p>No poses in this category yet.</p></div>`;
     return;
@@ -63,7 +62,7 @@ document.querySelectorAll(".filter-chip").forEach((chip) => {
   chip.addEventListener("click", () => {
     document.querySelectorAll(".filter-chip").forEach((c) => c.classList.remove("active"));
     chip.classList.add("active");
-    activeFilter = chip.dataset.filter;
+    activeFilter = chip.dataset.tag ? { type: "tag", value: chip.dataset.tag } : chip.dataset.filter === "all" ? { type: "all", value: "all" } : { type: "category", value: chip.dataset.filter };
     renderPoses();
   });
 });
@@ -78,14 +77,23 @@ $("cancelAddPose").addEventListener("click", () => addModal.classList.add("hidde
 addModal.addEventListener("click", (e) => { if (e.target === addModal) addModal.classList.add("hidden"); });
 
 $("addPoseDropzone").addEventListener("click", (e) => { if (!e.target.closest("input")) $("addPoseFile").click(); });
-$("addPoseFile").addEventListener("change", () => {
+$("addPoseFile").addEventListener("change", async () => {
   const file = $("addPoseFile").files[0];
   if (!file) return;
   const zone = $("addPoseDropzone");
   zone.classList.add("has-image");
   let img = zone.querySelector("img.preview-img");
   if (!img) { img = document.createElement("img"); img.className = "preview-img"; zone.insertBefore(img, zone.firstChild); }
-  img.src = URL.createObjectURL(file);
+  try {
+    setStatus($("addPoseStatus"), isHeicFile(file) ? "Converting HEIC preview…" : "Preparing preview…");
+    img.src = await uploadPreviewUrl(file);
+    setStatus($("addPoseStatus"), "Pose ready.", "ok");
+  } catch (error) {
+    $("addPoseFile").value = "";
+    img.remove();
+    zone.classList.remove("has-image");
+    setStatus($("addPoseStatus"), error.message, "error");
+  }
 });
 
 $("submitAddPose").addEventListener("click", async () => {

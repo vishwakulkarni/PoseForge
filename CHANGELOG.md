@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- PoseForge Studio 2.0: a three-panel creative workbench with Normal and
+  Advanced modes, light/dark theme switching, a responsive composition
+  canvas, and an engine-aware generation dock.
+- Advanced creative controls for per-person direction, identity and pose
+  fidelity, camera, lighting, negative direction, aspect ratio, quality,
+  and batches of up to four queued variants.
+- Reusable Studio recipes via the new `studio_recipes` table and
+  `GET/POST/DELETE /api/recipes` endpoints.
+- Generation provenance for `studio_mode`, JSONB advanced settings, and
+  multi-variant `batch_id` grouping.
+- A creator-focused redesign across Landing, Characters, Pose Library,
+  History, and Settings, with a persistent theme toggle.
+
 - Open-source project scaffolding: Apache-2.0 license, `CONTRIBUTING.md`,
   `CODE_OF_CONDUCT.md`, `SECURITY.md`, `ARCHITECTURE.md`, issue/PR
   templates, CI workflow, and an initial test suite.

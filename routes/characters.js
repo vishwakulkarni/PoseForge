@@ -6,6 +6,7 @@ const crypto = require("crypto");
 const { pool } = require("../db/pool");
 const storage = require("../lib/storage");
 const { asyncHandler, isUuid, cleanup, errorStatus } = require("./helpers");
+const { normalizeToPng } = require("../lib/imageNormalizer");
 
 const router = express.Router();
 const tempDir = path.join(__dirname, "..", "tmp", "uploads-v2");
@@ -22,18 +23,20 @@ router.post("/", upload.single("characterPhoto"), asyncHandler(async (req, res) 
     const name = String(req.body.name || "").trim();
     if (!name) return res.status(400).json({ error: "A character name is required." });
     if (!req.file) return res.status(400).json({ error: "A character photo is required." });
+    const characterId = crypto.randomUUID();
+    const photoId = crypto.randomUUID();
+    const filePath = storage.getCharacterPhotoPath(characterId, photoId, ".png");
+    const abs = storage.absolutePath(filePath);
+    await normalizeToPng(req.file.path, abs, { originalName: req.file.originalname, mimeType: req.file.mimetype });
     const client = await pool.connect();
-    let row; let photo;
+    let row;
     try {
       await client.query("BEGIN");
-      row = (await client.query("INSERT INTO characters (name) VALUES ($1) RETURNING *", [name])).rows[0];
-      photo = (await client.query("INSERT INTO character_photos (character_id, file_path) VALUES ($1, $2) RETURNING *", [row.id, storage.getCharacterPhotoPath(row.id, crypto.randomUUID(), req.file.originalname)])).rows[0];
+      row = (await client.query("INSERT INTO characters (id, name) VALUES ($1, $2) RETURNING *", [characterId, name])).rows[0];
+      await client.query("INSERT INTO character_photos (id, character_id, file_path) VALUES ($1, $2, $3)", [photoId, characterId, filePath]);
       await client.query("COMMIT");
-    } catch (err) { await client.query("ROLLBACK"); throw err; } finally { client.release(); }
-    const abs = storage.absolutePath(photo.file_path);
-    await fs.promises.mkdir(path.dirname(abs), { recursive: true });
-    await fs.promises.copyFile(req.file.path, abs);
-    res.status(201).json({ id: row.id, name: row.name, primaryPhotoUrl: storage.publicUrl(photo.file_path) });
+    } catch (err) { await client.query("ROLLBACK"); await storage.removeRelative(filePath); throw err; } finally { client.release(); }
+    res.status(201).json({ id: row.id, name: row.name, primaryPhotoUrl: storage.publicUrl(filePath) });
   } catch (err) {
     if (err.code === "23505") return res.status(409).json({ error: "A character with that name already exists." });
     throw err;
@@ -53,10 +56,20 @@ router.post("/:id/photos", upload.single("photo"), asyncHandler(async (req, res)
     const exists = await pool.query("SELECT id FROM characters WHERE id = $1", [req.params.id]);
     if (!exists.rowCount) return res.status(404).json({ error: "Character not found." });
     const id = crypto.randomUUID(); const makePrimary = req.body.makePrimary === "true";
-    const filePath = storage.getCharacterPhotoPath(req.params.id, id, req.file.originalname);
-    if (makePrimary) await pool.query("UPDATE character_photos SET is_primary = false WHERE character_id = $1", [req.params.id]);
-    await pool.query("INSERT INTO character_photos (id, character_id, file_path, is_primary) VALUES ($1, $2, $3, $4)", [id, req.params.id, filePath, makePrimary]);
-    const abs = storage.absolutePath(filePath); await fs.promises.mkdir(path.dirname(abs), { recursive: true }); await fs.promises.copyFile(req.file.path, abs);
+    const filePath = storage.getCharacterPhotoPath(req.params.id, id, ".png");
+    const abs = storage.absolutePath(filePath);
+    await normalizeToPng(req.file.path, abs, { originalName: req.file.originalname, mimeType: req.file.mimetype });
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      if (makePrimary) await client.query("UPDATE character_photos SET is_primary = false WHERE character_id = $1", [req.params.id]);
+      await client.query("INSERT INTO character_photos (id, character_id, file_path, is_primary) VALUES ($1, $2, $3, $4)", [id, req.params.id, filePath, makePrimary]);
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      await storage.removeRelative(filePath);
+      throw error;
+    } finally { client.release(); }
     res.status(201).json({ id, url: storage.publicUrl(filePath), isPrimary: makePrimary });
   } finally { await cleanup(req.file); }
 }));

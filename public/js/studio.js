@@ -1,470 +1,681 @@
 const MAX_CHARACTERS = 4;
 
 const state = {
-  characters: [], // saved characters, loaded once
-  slots: [], // [{ position, mode: 'upload'|'saved', file, selectedCharacterId, selectedCharacterName, el }]
+  mode: new URLSearchParams(location.search).get("mode") === "advanced" || localStorage.getItem("poseforge-studio-mode") === "advanced" ? "advanced" : "normal",
+  characters: [],
+  slots: [],
   poseFile: null,
+  posePreviewUrl: "",
   selectedPoseReferenceId: null,
   poseReferences: [],
+  poseCollageEnabled: false,
   engines: [],
-  lastGeneration: null,
+  recipes: [],
+  aspectRatio: "1:1",
+  generations: [],
+  activeResultIndex: 0,
+  generating: false,
+  usageEstimate: null,
+  usageTimer: null,
 };
 
-function setPoseImagePreview(url) {
-  const zone = $("poseDropzone");
-  zone.classList.add("has-image");
-  let img = zone.querySelector("img.preview-img");
-  if (!img) { img = document.createElement("img"); img.className = "preview-img"; zone.insertBefore(img, zone.firstChild); }
-  img.src = url;
+function esc(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
 }
 
-// ---------------------------------------------------------------------
-// Character slots (up to MAX_CHARACTERS, added one at a time)
-// ---------------------------------------------------------------------
+function iconUser() {
+  return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="1.6"/><path d="M5.5 20c1-4.2 3.4-6.2 6.5-6.2s5.5 2 6.5 6.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+}
 
 function slotTemplate(position) {
-  return `
-    <div class="character-slot" data-position="${position}">
-      <div class="slot-head">
-        <span class="slot-label">Person ${position}</span>
-        <div class="mode-switch" data-role="modeSwitch">
-          <button type="button" class="active" data-mode="upload">Upload</button>
-          <button type="button" data-mode="saved">Saved</button>
-        </div>
-        ${position > 1 ? `<button type="button" class="slot-remove" data-role="remove" title="Remove person ${position}">×</button>` : ""}
-      </div>
+  return `<div class="character-slot" data-position="${position}">
+    <div class="slot-head">
+      <label class="slot-preview" data-role="preview">${iconUser()}<input class="slot-file" type="file" accept="image/*,.heic,.heif" data-role="fileInput" /></label>
+      <div class="slot-copy"><strong data-role="title">Subject ${position}</strong><span data-role="subtitle">Add identity photo</span></div>
+      ${position > 1 ? `<button type="button" class="slot-remove" data-role="remove" aria-label="Remove subject ${position}">×</button>` : ""}
+      <button type="button" class="slot-menu-btn" data-role="menu" aria-label="Choose source for subject ${position}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="slot-picker" data-role="picker">
+      <div class="slot-mode-tabs"><button type="button" class="active" data-mode="upload">Upload</button><button type="button" data-mode="saved">Saved</button></div>
       <div data-role="uploadMode">
-        <label class="dropzone slot-dropzone" data-role="dropzone">
-          <input type="file" accept="image/*" data-role="fileInput" />
-          <div class="dz-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 16V4M12 4l-4 4M12 4l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-          </div>
-          <div class="dz-text">Drop a photo, or click to upload</div>
-          <div class="dz-sub">A clear, front-facing photo works best</div>
-          <div class="dz-overlay"><button type="button" data-role="replace">Replace photo</button></div>
-        </label>
-        <div class="upload-progress hidden" data-role="progress"><div></div></div>
-        <div class="inline mt-3" style="display:flex; gap:8px;">
-          <input type="text" data-role="saveName" placeholder="Save this person as… (optional)" />
-          <button type="button" class="btn btn-secondary btn-sm" data-role="saveBtn">Save</button>
-        </div>
+        <div class="quick-save"><input type="text" data-role="saveName" placeholder="Save identity as…" /><button type="button" data-role="saveBtn">Save</button></div>
         <p class="status-line" data-role="saveStatus"></p>
       </div>
-      <div data-role="savedMode" class="hidden">
-        <div class="saved-strip" data-role="savedStrip"></div>
-        <p class="status-line text-tertiary mt-2">Select a saved character above.</p>
-      </div>
+      <div class="saved-strip hidden" data-role="savedMode"></div>
     </div>
-  `;
+  </div>`;
+}
+
+function slotIsFilled(slot) {
+  return slot.mode === "saved" ? Boolean(slot.selectedCharacterId) : Boolean(slot.file);
+}
+
+function slotPreviewUrl(slot) {
+  if (slot.mode === "saved") return state.characters.find((c) => c.id === slot.selectedCharacterId)?.primaryPhotoUrl || "";
+  return slot.previewUrl || "";
 }
 
 function renderSavedStrip(slot) {
-  const strip = slot.el.querySelector('[data-role="savedStrip"]');
+  const strip = slot.el.querySelector('[data-role="savedMode"]');
   if (!state.characters.length) {
-    strip.innerHTML = `<p class="status-line text-tertiary">No saved characters yet — upload one and click Save.</p>`;
+    strip.innerHTML = `<span class="status-line">No saved identities yet.</span>`;
     return;
   }
-  strip.innerHTML = state.characters.map((c) => `
-    <button type="button" class="saved-chip ${slot.selectedCharacterId === c.id ? "selected" : ""}" data-id="${c.id}" aria-pressed="${slot.selectedCharacterId === c.id}" aria-label="Use ${c.name}">
-      ${c.primaryPhotoUrl
-        ? `<img class="avatar" src="${c.primaryPhotoUrl}" alt="" />`
-        : `<div class="avatar" style="display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:var(--text-tertiary);" aria-hidden="true">${c.name.slice(0,1).toUpperCase()}</div>`}
-      <span>${c.name}</span>
-    </button>
-  `).join("");
-  strip.querySelectorAll(".saved-chip").forEach((chip) => {
-    chip.addEventListener("click", () => {
-      strip.querySelectorAll(".saved-chip").forEach((c) => { c.classList.remove("selected"); c.setAttribute("aria-pressed", "false"); });
-      chip.classList.add("selected");
-      chip.setAttribute("aria-pressed", "true");
-      const character = state.characters.find((c) => c.id === chip.dataset.id);
-      slot.selectedCharacterId = character.id;
-      slot.selectedCharacterName = character.name;
-      updateAddPersonVisibility();
-    });
-  });
+  strip.innerHTML = state.characters.map((character) => `<button type="button" class="saved-chip ${slot.selectedCharacterId === character.id ? "selected" : ""}" data-id="${character.id}" title="${esc(character.name)}">
+    ${character.primaryPhotoUrl ? `<img src="${character.primaryPhotoUrl}" alt="" />` : `<span class="saved-avatar">${esc(character.name.slice(0, 1).toUpperCase())}</span>`}
+    <span class="saved-name">${esc(character.name)}</span>
+  </button>`).join("");
+  strip.querySelectorAll(".saved-chip").forEach((chip) => chip.addEventListener("click", () => {
+    slot.mode = "saved";
+    slot.selectedCharacterId = chip.dataset.id;
+    slot.file = null;
+    strip.querySelectorAll(".saved-chip").forEach((item) => item.classList.toggle("selected", item === chip));
+    syncSlot(slot);
+  }));
+}
+
+function syncSlot(slot) {
+  const character = state.characters.find((item) => item.id === slot.selectedCharacterId);
+  const title = slot.el.querySelector('[data-role="title"]');
+  const subtitle = slot.el.querySelector('[data-role="subtitle"]');
+  const preview = slot.el.querySelector('[data-role="preview"]');
+  const url = slotPreviewUrl(slot);
+  title.textContent = character?.name || `Subject ${slot.position}`;
+  subtitle.textContent = slotIsFilled(slot) ? (slot.mode === "saved" ? "Saved identity" : "Uploaded identity") : "Add identity photo";
+  preview.querySelector("img")?.remove();
+  if (url) preview.insertAdjacentHTML("afterbegin", `<img src="${url}" alt="" />`);
+  slot.el.classList.toggle("is-filled", slotIsFilled(slot));
+  slot.el.classList.remove("has-error");
+  renderSubjectDirections();
+  updateWorkspace();
 }
 
 function wireSlot(slot) {
-  const el = slot.el;
-  const dropzone = el.querySelector('[data-role="dropzone"]');
-  const fileInput = el.querySelector('[data-role="fileInput"]');
-  const progress = el.querySelector('[data-role="progress"]');
-
-  function handleFile(file) {
+  const input = slot.el.querySelector('[data-role="fileInput"]');
+  input.addEventListener("change", async () => {
+    const file = input.files[0];
     if (!file) return;
-    slot.file = file;
+    if (slot.previewUrl?.startsWith("blob:")) URL.revokeObjectURL(slot.previewUrl);
     slot.mode = "upload";
-    progress.classList.remove("hidden");
-    const bar = progress.firstElementChild;
-    bar.style.width = "0%";
-    requestAnimationFrame(() => { bar.style.width = "70%"; });
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      bar.style.width = "100%";
-      dropzone.classList.add("has-image");
-      dropzone.style.backgroundImage = "";
-      let img = dropzone.querySelector("img.preview-img");
-      if (!img) { img = document.createElement("img"); img.className = "preview-img"; dropzone.insertBefore(img, dropzone.firstChild); }
-      img.src = e.target.result;
-      setTimeout(() => progress.classList.add("hidden"), 500);
-      updateAddPersonVisibility();
-    };
-    reader.readAsDataURL(file);
-  }
-
-  fileInput.addEventListener("change", () => handleFile(fileInput.files[0]));
-  dropzone.addEventListener("click", (e) => { if (e.target.closest("[data-role=replace]")) return; });
-  dropzone.addEventListener("dragover", (e) => { e.preventDefault(); dropzone.classList.add("drag-over"); });
-  dropzone.addEventListener("dragleave", () => dropzone.classList.remove("drag-over"));
-  dropzone.addEventListener("drop", (e) => {
-    e.preventDefault();
-    dropzone.classList.remove("drag-over");
-    const file = e.dataTransfer.files[0];
-    if (file) { const dt = new DataTransfer(); dt.items.add(file); fileInput.files = dt.files; handleFile(file); }
+    slot.file = file;
+    slot.selectedCharacterId = null;
+    slot.el.querySelector('[data-role="subtitle"]').textContent = isHeicFile(file) ? "Converting HEIC preview…" : "Preparing preview…";
+    try {
+      slot.previewUrl = await uploadPreviewUrl(file);
+      syncSlot(slot);
+    } catch (error) {
+      slot.file = null;
+      slot.previewUrl = "";
+      input.value = "";
+      slot.el.querySelector('[data-role="subtitle"]').textContent = error.message;
+      slot.el.classList.add("has-error");
+      updateWorkspace();
+    }
   });
-  el.querySelector('[data-role="replace"]')?.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); fileInput.value = ""; fileInput.click(); });
-
-  el.querySelectorAll('[data-role="modeSwitch"] button').forEach((btn) => {
-    btn.addEventListener("click", () => {
-      el.querySelectorAll('[data-role="modeSwitch"] button').forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
-      slot.mode = btn.dataset.mode;
-      el.querySelector('[data-role="uploadMode"]').classList.toggle("hidden", slot.mode !== "upload");
-      el.querySelector('[data-role="savedMode"]').classList.toggle("hidden", slot.mode !== "saved");
-      updateAddPersonVisibility();
-    });
-  });
-
-  el.querySelector('[data-role="saveBtn"]').addEventListener("click", async () => {
-    const statusEl = el.querySelector('[data-role="saveStatus"]');
-    if (!slot.file) return setStatus(statusEl, "Choose a photo first.", "error");
-    const name = el.querySelector('[data-role="saveName"]').value.trim();
-    if (!name) return setStatus(statusEl, "Enter a name to save under.", "error");
-    setStatus(statusEl, "Saving…");
+  slot.el.querySelector('[data-role="menu"]').addEventListener("click", () => slot.el.querySelector('[data-role="picker"]').classList.toggle("hidden"));
+  slot.el.querySelectorAll("[data-mode]").forEach((button) => button.addEventListener("click", () => {
+    slot.mode = button.dataset.mode;
+    slot.el.querySelectorAll("[data-mode]").forEach((item) => item.classList.toggle("active", item === button));
+    slot.el.querySelector('[data-role="uploadMode"]').classList.toggle("hidden", slot.mode !== "upload");
+    slot.el.querySelector('[data-role="savedMode"]').classList.toggle("hidden", slot.mode !== "saved");
+    syncSlot(slot);
+  }));
+  slot.el.querySelector('[data-role="saveBtn"]').addEventListener("click", async () => {
+    const status = slot.el.querySelector('[data-role="saveStatus"]');
+    const name = slot.el.querySelector('[data-role="saveName"]').value.trim();
+    if (!slot.file) return setStatus(status, "Upload a photo first.", "error");
+    if (!name) return setStatus(status, "Add a name first.", "error");
     const form = new FormData();
     form.append("characterPhoto", slot.file);
     form.append("name", name);
     try {
+      setStatus(status, "Saving…");
       await api("/api/characters", { method: "POST", body: form });
-      setStatus(statusEl, "Character saved.", "ok");
       await loadCharacters();
-    } catch (err) {
-      setStatus(statusEl, err.message, "error");
-    }
+      setStatus(status, "Saved to Characters.", "ok");
+    } catch (error) { setStatus(status, error.message, "error"); }
   });
-
-  el.querySelector('[data-role="remove"]')?.addEventListener("click", () => removeSlotsFrom(slot.position));
-
+  slot.el.querySelector('[data-role="remove"]')?.addEventListener("click", () => removeSlotsFrom(slot.position));
   renderSavedStrip(slot);
 }
 
 function addSlot() {
+  if (state.slots.length >= MAX_CHARACTERS) return;
   const position = state.slots.length + 1;
-  if (position > MAX_CHARACTERS) return;
   const wrapper = document.createElement("div");
-  wrapper.innerHTML = slotTemplate(position).trim();
-  const el = wrapper.firstElementChild;
-  $("characterSlots").appendChild(el);
-  const slot = { position, mode: "upload", file: null, selectedCharacterId: null, selectedCharacterName: null, el };
+  wrapper.innerHTML = slotTemplate(position);
+  const slot = { position, mode: "upload", file: null, selectedCharacterId: null, previewUrl: "", el: wrapper.firstElementChild };
   state.slots.push(slot);
+  $("characterSlots").appendChild(slot.el);
   wireSlot(slot);
-  updateAddPersonVisibility();
+  renderSubjectDirections();
+  updateWorkspace();
 }
 
 function removeSlotsFrom(position) {
-  state.slots.filter((s) => s.position >= position).forEach((s) => s.el.remove());
-  state.slots = state.slots.filter((s) => s.position < position);
-  updateAddPersonVisibility();
-}
-
-function slotIsFilled(slot) {
-  return slot.mode === "upload" ? Boolean(slot.file) : Boolean(slot.selectedCharacterId);
-}
-
-function updateAddPersonVisibility() {
-  const btn = $("addPersonBtn");
-  const last = state.slots[state.slots.length - 1];
-  const canAdd = last && slotIsFilled(last) && state.slots.length < MAX_CHARACTERS;
-  btn.classList.toggle("hidden", !canAdd);
-  updatePersonCounter();
-  updateStepRail();
-}
-
-function updatePersonCounter() {
-  const counter = $("personCounter");
-  if (!counter) return;
-  counter.textContent = `${state.slots.length} of ${MAX_CHARACTERS}`;
-}
-
-// ---------------------------------------------------------------------
-// Step rail — reflects progress through Family → Pose → Direction → Generate
-// ---------------------------------------------------------------------
-function updateStepRail() {
-  const rail = $("stepRail");
-  if (!rail) return;
-  const hasFamily = Boolean(state.slots.length && slotIsFilled(state.slots[0]));
-  const hasPose = Boolean(state.poseFile || state.selectedPoseReferenceId);
-  const hasDirection = Boolean(
-    $("instructions")?.value.trim() || $("backgroundPreset")?.value || $("stylePreset")?.value
-  );
-  const generated = Boolean(state.lastGeneration);
-
-  const doneFlags = { 1: hasFamily, 2: hasPose, 3: hasDirection, 4: generated };
-  let current = 1;
-  if (hasFamily) current = 2;
-  if (hasFamily && hasPose) current = 3;
-  if (hasFamily && hasPose) current = 4; // direction is optional, so pose completion unlocks Generate too
-
-  rail.querySelectorAll(".step-rail-item").forEach((item) => {
-    const step = Number(item.dataset.step);
-    item.classList.toggle("done", Boolean(doneFlags[step]));
-    item.classList.toggle("active", step === current);
+  state.slots.filter((slot) => slot.position >= position).forEach((slot) => {
+    if (slot.previewUrl?.startsWith("blob:")) URL.revokeObjectURL(slot.previewUrl);
+    slot.el.remove();
   });
+  state.slots = state.slots.filter((slot) => slot.position < position);
+  renderSubjectDirections();
+  updateWorkspace();
 }
-
-$("addPersonBtn").addEventListener("click", addSlot);
 
 async function loadCharacters() {
   try {
     const data = await api("/api/characters");
     state.characters = data.characters || [];
     state.slots.forEach(renderSavedStrip);
-  } catch (err) {
-    // Non-fatal — saved characters are optional; slots still work via upload.
-  }
+  } catch (_) { /* uploads still work without the saved library */ }
 }
 
-// ---------------------------------------------------------------------
-// Pose reference
-// ---------------------------------------------------------------------
-
-function setupDropzone(zoneId, inputId, progressId, onFile) {
-  const zone = $(zoneId);
-  const input = $(inputId);
-  const progress = $(progressId);
-
-  function handleFile(file) {
+function setupPoseUpload() {
+  const zone = $("poseDropzone");
+  const input = $("posePhoto");
+  const progress = $("poseProgress");
+  async function accept(file) {
     if (!file) return;
-    onFile(file);
+    if (state.posePreviewUrl?.startsWith("blob:")) URL.revokeObjectURL(state.posePreviewUrl);
+    state.poseFile = file;
+    state.selectedPoseReferenceId = null;
+    setStatus($("generateStatus"), isHeicFile(file) ? "Converting HEIC pose preview…" : "Preparing pose preview…");
     progress.classList.remove("hidden");
-    const bar = progress.firstElementChild;
-    bar.style.width = "0%";
-    requestAnimationFrame(() => { bar.style.width = "70%"; });
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      bar.style.width = "100%";
-      zone.classList.add("has-image");
-      zone.style.backgroundImage = "";
-      let img = zone.querySelector("img.preview-img");
-      if (!img) {
-        img = document.createElement("img");
-        img.className = "preview-img";
-        zone.insertBefore(img, zone.firstChild);
-      }
-      img.src = e.target.result;
-      setTimeout(() => progress.classList.add("hidden"), 500);
-    };
-    reader.readAsDataURL(file);
-  }
-
-  input.addEventListener("change", () => handleFile(input.files[0]));
-  zone.addEventListener("click", (e) => { if (e.target.closest("[data-replace]")) return; });
-  zone.addEventListener("dragover", (e) => { e.preventDefault(); zone.classList.add("drag-over"); });
-  zone.addEventListener("dragleave", () => zone.classList.remove("drag-over"));
-  zone.addEventListener("drop", (e) => {
-    e.preventDefault();
-    zone.classList.remove("drag-over");
-    const file = e.dataTransfer.files[0];
-    if (file) {
-      const dt = new DataTransfer();
-      dt.items.add(file);
-      input.files = dt.files;
-      handleFile(file);
+    try {
+      state.posePreviewUrl = await uploadPreviewUrl(file);
+      requestAnimationFrame(() => { progress.firstElementChild.style.width = "100%"; });
+      setTimeout(() => progress.classList.add("hidden"), 450);
+      setStatus($("generateStatus"), "Pose reference ready.", "ok");
+      renderPosePreview();
+    } catch (error) {
+      state.poseFile = null;
+      state.posePreviewUrl = "";
+      input.value = "";
+      progress.classList.add("hidden");
+      setStatus($("generateStatus"), error.message, "error");
+      renderPosePreview();
     }
-  });
-
-  zone.querySelector("[data-replace]")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    input.value = "";
-    input.click();
-  });
+  }
+  input.addEventListener("change", () => accept(input.files[0]));
+  zone.addEventListener("dragover", (event) => { event.preventDefault(); zone.classList.add("drag-over"); });
+  zone.addEventListener("dragleave", () => zone.classList.remove("drag-over"));
+  zone.addEventListener("drop", (event) => { event.preventDefault(); zone.classList.remove("drag-over"); accept(event.dataTransfer.files[0]); });
+  zone.querySelector("[data-replace]").addEventListener("click", (event) => { event.preventDefault(); event.stopPropagation(); input.click(); });
 }
 
-setupDropzone("poseDropzone", "posePhoto", "poseProgress", (file) => {
-  state.poseFile = file;
-  state.selectedPoseReferenceId = null;
-  document.querySelectorAll("#poseThumbStrip .pose-thumb").forEach((t) => t.classList.remove("selected"));
-  updateStepRail();
-});
+function renderPosePreview() {
+  const zone = $("poseDropzone");
+  zone.querySelector("img.preview-img")?.remove();
+  if (state.posePreviewUrl) zone.insertAdjacentHTML("afterbegin", `<img class="preview-img" src="${state.posePreviewUrl}" alt="" />`);
+  zone.classList.toggle("has-image", Boolean(state.posePreviewUrl));
+  document.querySelectorAll(".pose-thumb").forEach((thumb) => thumb.classList.toggle("selected", thumb.dataset.id === state.selectedPoseReferenceId));
+  renderPoseCollageGrid();
+  updateWorkspace();
+}
 
 async function loadPoseReferences(preselectId) {
   const strip = $("poseThumbStrip");
   try {
     const data = await api("/api/pose-references");
-    state.poseReferences = (data.poseReferences || []).slice(0, 14);
-    if (!state.poseReferences.length) { strip.innerHTML = `<p class="status-line text-tertiary" style="font-size:12px;">No saved poses yet — upload one to start your library.</p>`; return; }
-    strip.innerHTML = state.poseReferences.map((p) => `
-      <button type="button" class="pose-thumb" data-id="${p.id}" aria-pressed="${state.selectedPoseReferenceId === p.id}" aria-label="Use pose: ${p.title}${p.tagStatus === "pending" ? " (tagging in progress)" : ""}">
-        <img src="${p.imageUrl}" alt="" loading="lazy" />
-        ${p.tagStatus === "pending" ? `<span class="pending-dot" aria-hidden="true"></span>` : ""}
-      </button>
-    `).join("");
-    strip.querySelectorAll(".pose-thumb").forEach((thumb) => {
-      thumb.addEventListener("click", () => {
-        const pose = state.poseReferences.find((p) => p.id === thumb.dataset.id);
-        if (!pose) return;
-        strip.querySelectorAll(".pose-thumb").forEach((t) => { t.classList.remove("selected"); t.setAttribute("aria-pressed", "false"); });
-        thumb.classList.add("selected");
-        thumb.setAttribute("aria-pressed", "true");
-        state.poseFile = null;
-        state.selectedPoseReferenceId = pose.id;
-        $("posePhoto").value = "";
-        setPoseImagePreview(pose.imageUrl);
-        updateStepRail();
-      });
-    });
-    if (preselectId) strip.querySelector(`.pose-thumb[data-id="${preselectId}"]`)?.click();
-  } catch (err) {
-    strip.innerHTML = `<p class="status-line error" style="font-size:12px;">${err.message}</p>`;
-  }
+    const allPoses = data.poseReferences || [];
+    const requested = preselectId ? allPoses.find((pose) => pose.id === preselectId) : null;
+    state.poseReferences = (requested ? [requested, ...allPoses.filter((pose) => pose.id !== requested.id)] : allPoses).slice(0, 16);
+    strip.innerHTML = state.poseReferences.map((pose) => `<button type="button" class="pose-thumb" data-id="${pose.id}" title="${esc(pose.title)}"><img src="${pose.imageUrl}" alt="" />${pose.tagStatus === "pending" ? `<span class="pending-dot"></span>` : ""}</button>`).join("");
+    strip.querySelectorAll(".pose-thumb").forEach((thumb) => thumb.addEventListener("click", () => {
+      const pose = state.poseReferences.find((item) => item.id === thumb.dataset.id);
+      state.poseFile = null;
+      state.selectedPoseReferenceId = pose.id;
+      state.posePreviewUrl = pose.imageUrl;
+      $("poseCollageEnabled").checked = false;
+      syncPoseCollageControls();
+      $("posePhoto").value = "";
+      renderPosePreview();
+    }));
+    if (preselectId) strip.querySelector(`[data-id="${CSS.escape(preselectId)}"]`)?.click();
+  } catch (error) { strip.innerHTML = `<span class="status-line error">${esc(error.message)}</span>`; }
 }
 
 async function loadPresets() {
   try {
     const data = await api("/api/presets");
-    const bg = data.presets.filter((p) => p.type === "background");
-    const style = data.presets.filter((p) => p.type === "style");
-    $("backgroundPreset").innerHTML = `<option value="">None</option>` + bg.map((p) => `<option value="${p.id}">${p.name}</option>`).join("");
-    $("stylePreset").innerHTML = `<option value="">None</option>` + style.map((p) => `<option value="${p.id}">${p.name}</option>`).join("");
+    for (const preset of data.presets || []) {
+      const target = preset.type === "background" ? $("backgroundPreset") : $("stylePreset");
+      target.add(new Option(preset.name, preset.id));
+    }
   } catch (_) { /* presets are optional */ }
 }
 
+function selectedEngine() { return state.engines.find((item) => item.key === $("engine").value); }
+
 async function loadEngines() {
+  const select = $("engine");
   try {
-    const data = await api("/api/engines");
-    state.engines = data.engines || [];
-    $("engine").innerHTML = state.engines.map((e) => `<option value="${e.key}" ${e.key === data.defaultEngine ? "selected" : ""}>${e.label}${e.ready ? "" : " (needs setup)"}</option>`).join("");
-    updateEngineHint();
-  } catch (err) {
-    setStatus($("engineHint"), err.message, "error");
+    const [enginesData, settingsData] = await Promise.all([api("/api/engines"), api("/api/settings")]);
+    state.engines = enginesData.engines || [];
+    select.innerHTML = "";
+    state.engines.forEach((engine) => {
+      const option = new Option(engine.label + (engine.ready ? "" : " · unavailable"), engine.key);
+      option.disabled = !engine.ready;
+      select.add(option);
+    });
+    const preferred = state.engines.find((item) => item.key === settingsData.defaultEngine && item.ready) || state.engines.find((item) => item.ready);
+    if (preferred) select.value = preferred.key;
+    updateEngineInfo();
+  } catch (error) {
+    select.innerHTML = `<option value="">No engines available</option>`;
+    setStatus($("generateStatus"), error.message, "error");
   }
 }
 
-function updateEngineHint() {
-  const item = state.engines.find((e) => e.key === $("engine").value);
-  if (item && !item.ready) {
-    setStatus($("engineHint"), `${item.reason || "This engine needs setup"} — visit Settings to configure it.`, "error");
-  } else {
-    setStatus($("engineHint"), "", "neutral");
-  }
+function updateEngineInfo() {
+  const engine = selectedEngine();
+  const stateEl = $("engineState");
+  stateEl.classList.toggle("ready", Boolean(engine?.ready));
+  stateEl.lastChild.textContent = engine?.ready ? "Ready" : "Unavailable";
+  const notes = [];
+  if (engine?.capabilities?.multiImage === "montage") notes.push("Multiple identities are combined into a reference montage for this engine.");
+  if (engine?.capabilities?.quality === false) notes.push("Quality is interpreted as prompt direction by this engine.");
+  if (engine?.capabilities?.aspectRatio === "prompt") notes.push("Aspect ratio is communicated as creative direction.");
+  $("capabilityNote").textContent = notes.join(" ") || "Controls are supported by the selected engine.";
+  $("engineHint").textContent = engine?.key === "codex" ? "Runs through your local Codex CLI workspace." : "Reference images are sent only to the selected API engine.";
+  updateWorkspace();
+  refreshUsageEstimate();
 }
-$("engine").addEventListener("change", updateEngineHint);
-["instructions", "backgroundPreset", "stylePreset"].forEach((id) => {
-  $(id)?.addEventListener("input", updateStepRail);
-  $(id)?.addEventListener("change", updateStepRail);
-});
 
-// ---------------------------------------------------------------------
-// Transform
-// ---------------------------------------------------------------------
-$("studioForm").addEventListener("submit", async (event) => {
+function setStudioMode(mode) {
+  state.mode = mode === "advanced" ? "advanced" : "normal";
+  document.body.dataset.studioMode = state.mode;
+  localStorage.setItem("poseforge-studio-mode", state.mode);
+  document.querySelectorAll("[data-studio-mode]").forEach((button) => button.classList.toggle("active", button.dataset.studioMode === state.mode));
+  syncPoseCollageControls();
+  updateWorkspace();
+  refreshUsageEstimate();
+}
+
+function renderSubjectDirections() {
+  const mount = $("subjectDirections");
+  const previous = [...mount.querySelectorAll(".subject-direction")].map((el) => ({ direction: el.querySelector('[data-role="direction"]')?.value || "", expression: el.querySelector('[data-role="expression"]')?.value || "" }));
+  mount.innerHTML = state.slots.map((slot, index) => {
+    const character = state.characters.find((item) => item.id === slot.selectedCharacterId);
+    const url = slotPreviewUrl(slot);
+    return `<div class="subject-direction">
+      <div class="subject-direction-head">${url ? `<img src="${url}" alt="" />` : `<span class="subject-direction-avatar">${index + 1}</span>`}<span>${esc(character?.name || `Subject ${index + 1}`)}</span></div>
+      <input type="text" data-role="direction" maxlength="280" placeholder="Wardrobe or placement" value="${esc(previous[index]?.direction || "")}" />
+      <input type="text" data-role="expression" maxlength="100" placeholder="Expression" value="${esc(previous[index]?.expression || "")}" />
+    </div>`;
+  }).join("");
+}
+
+function advancedSettings() {
+  return {
+    identityFidelity: Number($("identityFidelity").value),
+    poseFidelity: Number($("poseFidelity").value),
+    ageFidelity: Number($("ageFidelity").value),
+    hairFidelity: Number($("hairFidelity").value),
+    preserveSkinTexture: $("preserveSkinTexture").checked,
+    correctHands: $("correctHands").checked,
+    subjects: [...document.querySelectorAll(".subject-direction")].map((el) => ({ direction: el.querySelector('[data-role="direction"]').value.trim(), expression: el.querySelector('[data-role="expression"]').value.trim() })),
+    camera: { framing: $("framing").value, angle: $("cameraAngle").value, lens: $("lens").value, depthOfField: $("depthOfField").value, aperture: $("aperture").value },
+    lighting: $("lighting").value,
+    lightingTemperature: $("lightingTemperature").value,
+    timeOfDay: $("timeOfDay").value,
+    composition: { spacing: $("subjectSpacing").value, crop: $("cropSafety").value, backgroundSeparation: $("backgroundSeparation").value, mirrorPose: $("mirrorPose").checked },
+    finish: { retouch: $("retouch").value, colorGrade: $("colorGrade").value, grain: $("grain").value, sharpness: Number($("sharpness").value) },
+    poseCollage: { enabled: $("poseCollageEnabled").checked, count: Number($("poseCollageCount").value), layout: $("poseCollageLayout").value },
+    negativePrompt: $("negativePrompt").value.trim(),
+    output: { aspectRatio: state.aspectRatio, quality: $("quality").value, variantCount: Number($("variantCount").value), variationStrength: Number($("variationStrength").value), seed: $("seed").value === "" ? null : Number($("seed").value) },
+  };
+}
+
+function applyAdvancedSettings(settings = {}) {
+  $("identityFidelity").value = settings.identityFidelity ?? 85;
+  $("poseFidelity").value = settings.poseFidelity ?? 80;
+  $("ageFidelity").value = settings.ageFidelity ?? 90;
+  $("hairFidelity").value = settings.hairFidelity ?? 85;
+  $("preserveSkinTexture").checked = settings.preserveSkinTexture !== false;
+  $("correctHands").checked = settings.correctHands !== false;
+  $("identityValue").textContent = $("identityFidelity").value;
+  $("poseValue").textContent = $("poseFidelity").value;
+  $("ageValue").textContent = $("ageFidelity").value;
+  $("hairValue").textContent = $("hairFidelity").value;
+  $("framing").value = settings.camera?.framing || "auto";
+  $("cameraAngle").value = settings.camera?.angle || "auto";
+  $("lens").value = settings.camera?.lens || "auto";
+  $("depthOfField").value = settings.camera?.depthOfField || "auto";
+  $("aperture").value = settings.camera?.aperture || "auto";
+  $("lighting").value = settings.lighting || "auto";
+  $("lightingTemperature").value = settings.lightingTemperature || "auto";
+  $("timeOfDay").value = settings.timeOfDay || "auto";
+  $("subjectSpacing").value = settings.composition?.spacing || "auto";
+  $("cropSafety").value = settings.composition?.crop || "safe";
+  $("backgroundSeparation").value = settings.composition?.backgroundSeparation || "auto";
+  $("mirrorPose").checked = settings.composition?.mirrorPose === true;
+  $("retouch").value = settings.finish?.retouch || "natural";
+  $("colorGrade").value = settings.finish?.colorGrade || "auto";
+  $("grain").value = settings.finish?.grain || "none";
+  $("sharpness").value = settings.finish?.sharpness ?? 50;
+  $("sharpnessValue").textContent = $("sharpness").value;
+  $("negativePrompt").value = settings.negativePrompt || "";
+  $("quality").value = settings.output?.quality || "medium";
+  $("variantCount").value = String(settings.output?.variantCount || 1);
+  $("variationStrength").value = settings.output?.variationStrength ?? 35;
+  $("variationValue").textContent = $("variationStrength").value;
+  $("seed").value = settings.output?.seed ?? "";
+  $("poseCollageEnabled").checked = settings.poseCollage?.enabled === true;
+  $("poseCollageCount").value = String(settings.poseCollage?.count || 2);
+  $("poseCollageLayout").value = settings.poseCollage?.layout || "auto";
+  setAspectRatio(settings.output?.aspectRatio || "1:1");
+  const directionEls = document.querySelectorAll(".subject-direction");
+  directionEls.forEach((el, index) => {
+    el.querySelector('[data-role="direction"]').value = settings.subjects?.[index]?.direction || "";
+    el.querySelector('[data-role="expression"]').value = settings.subjects?.[index]?.expression || "";
+  });
+  syncPoseCollageControls();
+  updateWorkspace();
+  refreshUsageEstimate();
+}
+
+function compactNumber(value) {
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(Number(value) || 0);
+}
+
+function money(value) {
+  if (value == null) return "plan-dependent cost";
+  if (value < 0.01) return `$${Number(value).toFixed(4)}`;
+  return `$${Number(value).toFixed(2)}`;
+}
+
+function renderUsage(usage, final = false) {
+  if (!usage) return;
+  state.usageEstimate = usage;
+  const source = usage.source === "actual" ? "Recorded usage" : final ? "Final estimate" : "Estimated usage";
+  const line = `${compactNumber(usage.totalTokens)} tokens · ${money(usage.estimatedCostUsd)}`;
+  $("usageEstimate").innerHTML = `<span>${source}</span><strong>${line}</strong><small>${esc(usage.pricingNote || `Pricing basis reviewed ${usage.rateDate || "recently"}. Actual provider billing can vary.`)}</small>`;
+  $("dockUsage").textContent = `${source}: ${line}`;
+}
+
+function aggregateGenerationUsage(generations) {
+  const items = generations.map((item) => item.usage).filter((usage) => usage && usage.totalTokens);
+  if (!items.length) return null;
+  return {
+    source: items.some((item) => item.source === "actual") ? "actual" : "estimated",
+    rateDate: items[0].rateDate,
+    inputTokens: items.reduce((sum, item) => sum + (Number(item.inputTokens) || 0), 0),
+    outputTokens: items.reduce((sum, item) => sum + (Number(item.outputTokens) || 0), 0),
+    totalTokens: items.reduce((sum, item) => sum + (Number(item.totalTokens) || 0), 0),
+    estimatedCostUsd: items.every((item) => item.estimatedCostUsd != null) ? items.reduce((sum, item) => sum + Number(item.estimatedCostUsd), 0) : null,
+    pricingNote: items[0].pricingNote,
+  };
+}
+
+function refreshUsageEstimate() {
+  clearTimeout(state.usageTimer);
+  state.usageTimer = setTimeout(async () => {
+    if (!$("engine").value) return;
+    const settings = advancedSettings();
+    const promptChars = $("instructions").value.length + $("negativePrompt").value.length + settings.subjects.reduce((sum, subject) => sum + subject.direction.length + subject.expression.length, 0) + 600;
+    const params = new URLSearchParams({
+      engine: $("engine").value,
+      quality: state.mode === "advanced" ? settings.output.quality : "medium",
+      aspectRatio: state.mode === "advanced" ? settings.output.aspectRatio : "1:1",
+      subjects: String(Math.max(state.slots.filter(slotIsFilled).length, 1)),
+      variants: String(plannedOutputCount()),
+      promptChars: String(promptChars),
+    });
+    try { renderUsage(await api(`/api/generations/estimate?${params}`)); }
+    catch (_) { $("dockUsage").textContent = "Usage estimate unavailable."; }
+  }, 180);
+}
+
+function plannedOutputCount() {
+  if (state.mode !== "advanced") return 1;
+  return $("poseCollageEnabled").checked ? Number($("poseCollageCount").value) : Number($("variantCount").value);
+}
+
+function collageColumns(count, layout) {
+  if (layout === "vertical") return 1;
+  if (layout === "horizontal") return count;
+  if (layout === "2x2" || layout === "2x3") return 2;
+  if (layout === "3x2") return 3;
+  if (count === 4) return 2;
+  if (count >= 5) return 3;
+  return count;
+}
+
+function renderPoseCollageGrid() {
+  const grid = $("poseCollageGrid");
+  const enabled = state.mode === "advanced" && $("poseCollageEnabled").checked && Boolean(state.posePreviewUrl);
+  grid.classList.toggle("hidden", !enabled);
+  if (!enabled) return;
+  const count = Number($("poseCollageCount").value);
+  grid.style.gridTemplateColumns = `repeat(${collageColumns(count, $("poseCollageLayout").value)}, 1fr)`;
+  grid.innerHTML = Array.from({ length: count }, (_, index) => `<span>${index + 1}</span>`).join("");
+}
+
+function syncPoseCollageControls() {
+  if (!$("poseCollageEnabled")) return;
+  state.poseCollageEnabled = state.mode === "advanced" && $("poseCollageEnabled").checked;
+  $("poseCollageOptions").classList.toggle("hidden", !state.poseCollageEnabled);
+  $("poseCollageHelp").classList.toggle("hidden", !state.poseCollageEnabled);
+  $("variantCount").disabled = state.poseCollageEnabled;
+  if (state.poseCollageEnabled) $("variantCount").value = $("poseCollageCount").value;
+  renderPoseCollageGrid();
+  updateWorkspace();
+  refreshUsageEstimate();
+}
+
+async function loadRecipes() {
+  try {
+    const data = await api("/api/recipes");
+    state.recipes = data.recipes || [];
+    $("recipeSelect").innerHTML = `<option value="">Custom setup</option>${state.recipes.map((recipe) => `<option value="${recipe.id}">${esc(recipe.name)}</option>`).join("")}`;
+  } catch (_) { /* migrations may not be applied yet */ }
+}
+
+function openRecipeModal() {
+  $("recipeModal").classList.remove("hidden");
+  document.body.classList.add("modal-open");
+  setTimeout(() => $("recipeName").focus(), 30);
+}
+
+function closeRecipeModal() {
+  $("recipeModal").classList.add("hidden");
+  document.body.classList.remove("modal-open");
+  setStatus($("recipeStatus"), "");
+}
+
+async function saveRecipe() {
+  const name = $("recipeName").value.trim();
+  if (!name) return setStatus($("recipeStatus"), "Give this recipe a name.", "error");
+  try {
+    setStatus($("recipeStatus"), "Saving…");
+    const recipe = await api("/api/recipes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, characterCount: state.slots.length, settings: advancedSettings() }) });
+    await loadRecipes();
+    $("recipeSelect").value = recipe.id;
+    $("recipeName").value = "";
+    closeRecipeModal();
+  } catch (error) { setStatus($("recipeStatus"), error.message, "error"); }
+}
+
+function setAspectRatio(ratio) {
+  state.aspectRatio = ["1:1", "4:5", "16:9", "9:16"].includes(ratio) ? ratio : "1:1";
+  $("canvasArtboard").dataset.aspect = state.aspectRatio;
+  $("canvasRatio").textContent = state.aspectRatio;
+  document.querySelectorAll("[data-ratio]").forEach((button) => button.classList.toggle("active", button.dataset.ratio === state.aspectRatio));
+  refreshUsageEstimate();
+}
+
+function updateWorkspace() {
+  const filled = state.slots.filter(slotIsFilled);
+  const hasPose = Boolean(state.posePreviewUrl);
+  $("personCounter").textContent = `${state.slots.length} / ${MAX_CHARACTERS}`;
+  $("addPersonBtn").classList.toggle("hidden", !(state.slots.length < MAX_CHARACTERS && slotIsFilled(state.slots[state.slots.length - 1])));
+  const empty = $("canvasEmpty");
+  const composition = $("sourceComposition");
+  const showComposition = !state.generating && !state.generations.length && (filled.length || hasPose);
+  empty.classList.toggle("hidden", showComposition || state.generating || state.generations.length);
+  composition.classList.toggle("hidden", !showComposition);
+  if (showComposition) {
+    $("compositionPose").src = state.posePreviewUrl || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600'%3E%3Crect width='100%25' height='100%25' fill='%23e9ebef'/%3E%3C/svg%3E";
+    $("compositionSubjects").innerHTML = filled.map((slot) => `<div class="composition-subject"><img src="${slotPreviewUrl(slot)}" alt="" /></div>`).join("");
+    $("compositionSummary").textContent = `${filled.length} subject${filled.length === 1 ? "" : "s"} · ${hasPose ? "pose ready" : "add pose"}`;
+  }
+  const ready = Boolean(filled.length && filled.length === state.slots.length && hasPose && selectedEngine()?.ready && !state.generating);
+  const collageNeedsUpload = state.poseCollageEnabled && !state.poseFile;
+  const canGenerate = ready && !collageNeedsUpload;
+  const outputCount = plannedOutputCount();
+  $("transformBtn").disabled = !canGenerate;
+  $("generateSummary").textContent = canGenerate ? `${filled.length} subject${filled.length === 1 ? "" : "s"} · ${outputCount} output${outputCount === 1 ? "" : "s"} · ${state.aspectRatio}` : collageNeedsUpload ? "Upload a pose collage to continue" : "Add sources to begin";
+  $("generateOverline").textContent = state.mode === "advanced" ? "Advanced transformation" : "Guided transformation";
+  const dot = document.querySelector(".canvas-status-dot");
+  dot.className = `canvas-status-dot${state.generating ? " running" : canGenerate ? " ready" : ""}`;
+  $("canvasLabel").textContent = state.generating ? "Generation in progress" : state.generations.length ? "Generation complete" : canGenerate ? "Composition ready" : collageNeedsUpload ? "Upload pose collage" : "Ready to compose";
+}
+
+function renderGenerationStage() {
+  const stage = $("resultArea");
+  const tray = $("variantTray");
+  if (state.generating && !state.generations.some((item) => item.outputUrl)) {
+    stage.classList.remove("hidden");
+    stage.innerHTML = `<div class="studio-loader"><img src="/images/mascot-painter-dog.png" onerror="this.onerror=null;this.src='/images/mascot-painter-dog.svg'" alt="" /><div class="loader-ring"></div><strong>Forging your composition</strong><span>Preserving identity, pose, and direction</span></div>`;
+    return;
+  }
+  const current = state.generations[state.activeResultIndex] || state.generations.find((item) => item.outputUrl);
+  if (!current?.outputUrl) {
+    if (!state.generations.length) return stage.classList.add("hidden");
+    stage.classList.remove("hidden");
+    stage.innerHTML = `<div class="generation-error"><span>Generation stopped</span><strong>No variation completed successfully.</strong><p>${esc(state.generations[0]?.errorMessage || "Review the selected engine and try again.")}</p><a href="/history.html">Open generation history →</a></div>`;
+    tray.classList.add("hidden");
+    return;
+  }
+  stage.classList.remove("hidden");
+  stage.innerHTML = `<img src="${current.outputUrl}" alt="Generated transformation" /><div class="result-overlay"><span>Variation ${state.activeResultIndex + 1}</span><div><a href="${current.outputUrl}" download>Download</a><a href="/history.html">History</a><button type="button" id="regenerateBtn">Regenerate</button></div></div>`;
+  $("regenerateBtn").addEventListener("click", () => $("studioForm").requestSubmit());
+  tray.classList.toggle("hidden", state.generations.length <= 1);
+  tray.innerHTML = state.generations.map((item, index) => `<button type="button" class="variant-thumb ${index === state.activeResultIndex ? "active" : ""}" data-index="${index}">${item.outputUrl ? `<img src="${item.outputUrl}" alt="Variation ${index + 1}" />` : `<span>${item.status === "failed" ? "Failed" : "…"}</span>`}</button>`).join("");
+  tray.querySelectorAll(".variant-thumb").forEach((button) => button.addEventListener("click", () => { state.activeResultIndex = Number(button.dataset.index); renderGenerationStage(); }));
+}
+
+async function pollGenerations(ids) {
+  while (true) {
+    const results = await Promise.all(ids.map((id) => api(`/api/generations/${id}`).catch((error) => ({ id, status: "failed", errorMessage: error.message }))));
+    state.generations = results;
+    const completed = results.filter((item) => item.status === "completed").length;
+    const failed = results.filter((item) => item.status === "failed").length;
+    setStatus($("generateStatus"), `${completed + failed} of ${results.length} variations finished${failed ? ` · ${failed} failed` : ""}.`, failed === results.length ? "error" : "neutral");
+    if (completed) {
+      const activeHasOutput = results[state.activeResultIndex]?.outputUrl;
+      if (!activeHasOutput) state.activeResultIndex = results.findIndex((item) => item.outputUrl);
+      renderGenerationStage();
+    }
+    if (results.every((item) => ["completed", "failed"].includes(item.status))) break;
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+  }
+  const usage = aggregateGenerationUsage(state.generations);
+  if (usage) renderUsage(usage, true);
+}
+
+async function generate(event) {
   event.preventDefault();
-  const statusEl = $("generateStatus");
-  const resultArea = $("resultArea");
-  const badge = $("resultBadge");
-
-  const engineItem = state.engines.find((e) => e.key === $("engine").value);
-  if (!engineItem) return setStatus(statusEl, "Choose an engine.", "error");
-  if (!engineItem.ready) return setStatus(statusEl, `${engineItem.reason || "Engine is not ready"}. Open Settings to configure it.`, "error");
-
-  if (!state.poseFile && !state.selectedPoseReferenceId) return setStatus(statusEl, "Add a pose reference photo, or pick one from your library.", "error");
-  if (!state.slots.length || !slotIsFilled(state.slots[0])) return setStatus(statusEl, "Add at least one person.", "error");
-  const unfilled = state.slots.find((s) => !slotIsFilled(s));
-  if (unfilled) return setStatus(statusEl, `Add a photo (or pick a saved character) for Person ${unfilled.position}.`, "error");
-
+  if (state.generating) return;
+  const filled = state.slots.filter(slotIsFilled);
+  if (filled.length !== state.slots.length) return setStatus($("generateStatus"), "Add an identity for every subject.", "error");
+  if (!state.poseFile && !state.selectedPoseReferenceId) return setStatus($("generateStatus"), "Add a pose reference.", "error");
+  if (state.poseCollageEnabled && !state.poseFile) return setStatus($("generateStatus"), "Upload a pose collage instead of selecting a library pose.", "error");
   const form = new FormData();
+  state.slots.forEach((slot, index) => {
+    const position = index + 1;
+    if (slot.mode === "saved") form.append(`characterId_${position}`, slot.selectedCharacterId);
+    else form.append(`characterPhoto_${position}`, slot.file);
+  });
   if (state.poseFile) form.append("posePhoto", state.poseFile);
   else form.append("poseReferenceId", state.selectedPoseReferenceId);
-  state.slots.forEach((slot) => {
-    if (slot.mode === "saved") form.append(`characterId_${slot.position}`, slot.selectedCharacterId);
-    else form.append(`characterPhoto_${slot.position}`, slot.file);
-  });
-  form.append("engine", engineItem.key);
+  form.append("engine", $("engine").value);
+  form.append("studioMode", state.mode);
+  form.append("advancedSettings", JSON.stringify(advancedSettings()));
+  form.append("poseCollageEnabled", String(state.poseCollageEnabled));
+  form.append("poseCollageCount", $("poseCollageCount").value);
+  form.append("poseCollageLayout", $("poseCollageLayout").value);
   if ($("backgroundPreset").value) form.append("backgroundPresetId", $("backgroundPreset").value);
   if ($("stylePreset").value) form.append("stylePresetId", $("stylePreset").value);
   if ($("instructions").value.trim()) form.append("instructions", $("instructions").value.trim());
-
-  $("transformBtn").disabled = true;
-  badge.textContent = "Queued";
-  badge.className = "badge badge-neutral";
-  resultArea.innerHTML = `<div class="studio-loader"><img class="loader-mascot" src="/images/mascot-painter-dog.png" onerror="this.onerror=null;this.src='/images/mascot-painter-dog.svg';" alt="" /><div class="ring"></div><p id="loaderText">Queued…</p></div>`;
-  setStatus(statusEl, "Queued…");
-
+  state.generating = true;
+  state.generations = [];
+  state.activeResultIndex = 0;
+  $("canvasProgress").classList.remove("hidden");
+  setStatus($("generateStatus"), "Preparing references and joining the generation queue…");
+  updateWorkspace();
+  renderGenerationStage();
   try {
-    const created = await api("/api/generations", { method: "POST", body: form });
-    let record;
-    do {
-      await new Promise((r) => setTimeout(r, 1500));
-      record = await api(`/api/generations/${created.id}`);
-      const running = record.status === "running";
-      const label = running ? "Generating… this can take a minute." : "Queued…";
-      const loaderText = $("loaderText");
-      if (loaderText) loaderText.textContent = label;
-      badge.textContent = running ? "Generating" : "Queued";
-      badge.className = running ? "badge badge-running" : "badge badge-neutral";
-      setStatus(statusEl, label);
-    } while (["pending", "running"].includes(record.status));
-
-    state.lastGeneration = record;
-    updateStepRail();
-
-    if (record.status === "completed") {
-      badge.textContent = "Done";
-      badge.className = "badge badge-ok";
-      setStatus(statusEl, "Done.", "ok");
-      const characters = record.characters || [];
-      const beforeMarkup = characters.length <= 1
-        ? `<img src="${characters[0]?.photoUrl}" alt="${characters[0]?.name || "Person 1"}" />`
-        : `<div class="before-thumbs count-${characters.length}">${characters.map((c) => `<img src="${c.photoUrl}" alt="${c.name || `Person ${c.position}`}" />`).join("")}</div>`;
-      resultArea.innerHTML = `
-        <div class="compare">
-          <figure>${beforeMarkup}<figcaption>Before</figcaption></figure>
-          <figure><img src="${record.outputUrl}" alt="Transformed result" /><figcaption>After</figcaption></figure>
-        </div>
-        <div class="result-actions">
-          <a class="btn btn-primary" href="${record.outputUrl}" download>Download</a>
-          <button type="button" class="btn btn-secondary" id="shareBtn">Share</button>
-          <button type="button" class="btn btn-secondary" id="regenerateBtn">Regenerate</button>
-        </div>
-      `;
-      $("shareBtn")?.addEventListener("click", async () => {
-        const url = new URL(record.outputUrl, location.origin).href;
-        if (navigator.share) { try { await navigator.share({ title: "My PoseForge result", url }); } catch (_) {} }
-        else { await navigator.clipboard.writeText(url); setStatus(statusEl, "Link copied to clipboard.", "ok"); }
-      });
-      $("regenerateBtn")?.addEventListener("click", () => $("studioForm").requestSubmit());
-      loadPoseReferences();
-    } else {
-      badge.textContent = "Failed";
-      badge.className = "badge badge-error";
-      resultArea.innerHTML = `<p class="error-box">${record.errorMessage || "Generation failed."}</p>`;
-      setStatus(statusEl, record.errorMessage || "Generation failed.", "error");
-    }
-  } catch (err) {
-    badge.textContent = "Failed";
-    badge.className = "badge badge-error";
-    resultArea.innerHTML = `<p class="error-box">${err.message}</p>`;
-    setStatus(statusEl, err.message, "error");
+    const response = await api("/api/generations", { method: "POST", body: form });
+    await pollGenerations(response.generationIds || [response.id]);
+    const completed = state.generations.filter((item) => item.status === "completed").length;
+    setStatus($("generateStatus"), completed ? `${completed} transformation${completed === 1 ? "" : "s"} ready.` : "Generation failed. Open History for details.", completed ? "ok" : "error");
+  } catch (error) {
+    state.generations = [];
+    $("resultArea").classList.add("hidden");
+    setStatus($("generateStatus"), error.message, "error");
   } finally {
-    $("transformBtn").disabled = false;
+    state.generating = false;
+    $("canvasProgress").classList.add("hidden");
+    updateWorkspace();
+    renderGenerationStage();
   }
-});
+}
 
-addSlot();
-loadCharacters();
-loadPresets();
-loadEngines();
-loadPoseReferences(new URLSearchParams(location.search).get("pose"));
-updateStepRail();
+function resetControls() {
+  $("backgroundPreset").value = "";
+  $("stylePreset").value = "";
+  $("instructions").value = "";
+  $("instructionCount").textContent = "0 / 600";
+  $("recipeSelect").value = "";
+  applyAdvancedSettings();
+  updateWorkspace();
+}
+
+function wireControls() {
+  document.querySelectorAll("[data-studio-mode]").forEach((button) => button.addEventListener("click", () => setStudioMode(button.dataset.studioMode)));
+  $("addPersonBtn").addEventListener("click", addSlot);
+  $("engine").addEventListener("change", updateEngineInfo);
+  $("studioForm").addEventListener("submit", generate);
+  $("instructions").addEventListener("input", () => { $("instructionCount").textContent = `${$("instructions").value.length} / 600`; });
+  [["identityFidelity", "identityValue"], ["poseFidelity", "poseValue"], ["ageFidelity", "ageValue"], ["hairFidelity", "hairValue"], ["sharpness", "sharpnessValue"], ["variationStrength", "variationValue"]].forEach(([inputId, valueId]) => $(inputId).addEventListener("input", () => { $(valueId).textContent = $(inputId).value; refreshUsageEstimate(); }));
+  $("ratioPicker").addEventListener("click", (event) => { const button = event.target.closest("[data-ratio]"); if (button) { setAspectRatio(button.dataset.ratio); updateWorkspace(); } });
+  $("variantCount").addEventListener("change", () => { updateWorkspace(); refreshUsageEstimate(); });
+  $("poseCollageEnabled").addEventListener("change", syncPoseCollageControls);
+  $("poseCollageCount").addEventListener("change", () => { $("variantCount").value = $("poseCollageCount").value; syncPoseCollageControls(); });
+  $("poseCollageLayout").addEventListener("change", syncPoseCollageControls);
+  $("instructions").addEventListener("input", refreshUsageEstimate);
+  $("negativePrompt").addEventListener("input", refreshUsageEstimate);
+  document.querySelectorAll(".inspector-scroll select, .inspector-scroll input[type='checkbox'], .inspector-scroll input[type='number']").forEach((control) => control.addEventListener("change", refreshUsageEstimate));
+  $("subjectDirections").addEventListener("input", refreshUsageEstimate);
+  $("resetControls").addEventListener("click", resetControls);
+  $("fitCanvas").addEventListener("click", () => $("canvasArtboard").scrollIntoView({ behavior: "smooth", block: "center" }));
+  $("saveRecipeBtn").addEventListener("click", openRecipeModal);
+  $("closeRecipeModal").addEventListener("click", closeRecipeModal);
+  $("cancelRecipe").addEventListener("click", closeRecipeModal);
+  $("confirmRecipe").addEventListener("click", saveRecipe);
+  $("recipeModal").addEventListener("click", (event) => { if (event.target === $("recipeModal")) closeRecipeModal(); });
+  $("recipeSelect").addEventListener("change", () => { const recipe = state.recipes.find((item) => item.id === $("recipeSelect").value); if (recipe) applyAdvancedSettings(recipe.settings); });
+}
+
+async function init() {
+  wireControls();
+  setupPoseUpload();
+  addSlot();
+  setStudioMode(state.mode);
+  const preselectedPose = new URLSearchParams(location.search).get("pose");
+  const preselectedCharacter = new URLSearchParams(location.search).get("character");
+  await Promise.all([loadCharacters(), loadPoseReferences(preselectedPose), loadPresets(), loadEngines(), loadRecipes()]);
+  if (preselectedCharacter && state.characters.some((character) => character.id === preselectedCharacter)) {
+    state.slots[0].mode = "saved";
+    state.slots[0].selectedCharacterId = preselectedCharacter;
+    state.slots[0].file = null;
+    syncSlot(state.slots[0]);
+  }
+  state.slots.forEach(renderSavedStrip);
+  renderSubjectDirections();
+  updateWorkspace();
+}
+
+init();

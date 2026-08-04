@@ -1,46 +1,17 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Characters — PoseForge</title>
-<link rel="stylesheet" href="/css/base.css" />
-<link rel="stylesheet" href="/css/characters.css" />
-</head>
-<body data-nav="characters.html">
-  <nav class="site-nav" id="site-nav"></nav>
-
-  <main class="container">
-    <div class="page-header">
-      <span class="eyebrow">Characters</span>
-      <h1>Your library</h1>
-      <p>Save the people you photograph most, so you never have to re-upload them.</p>
-    </div>
-
-    <div id="characterGrid" class="character-grid"></div>
-  </main>
-
-  <button class="add-character-fab" id="addCharacterFab">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-    Add character
-  </button>
-
-  <div class="modal-backdrop hidden" id="addModal">
-    <div class="card modal-card">
-      <h3>Add a character</h3>
-      <label class="field-label" for="modalPhoto">Photo</label>
-      <input type="file" id="modalPhoto" accept="image/*" />
-      <label class="field-label mt-4" for="modalName">Name</label>
-      <input type="text" id="modalName" placeholder="e.g. Me, Daksh, Mom…" />
-      <p class="status-line" id="modalStatus"></p>
-      <div class="modal-actions">
-        <button type="button" class="btn btn-ghost" id="modalCancel">Cancel</button>
-        <button type="button" class="btn btn-primary" id="modalSave">Save character</button>
-      </div>
-    </div>
-  </div>
-
-  <script src="/js/base.js"></script>
-  <script src="/js/characters.js"></script>
-</body>
-</html>
+<!DOCTYPE html><html lang="en" data-theme="light"><head>
+<meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Characters — PoseForge</title><script src="/js/theme.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/css/base.css" /><link rel="stylesheet" href="/css/characters.css" />
+</head><body data-nav="characters.html"><nav class="site-nav" id="site-nav"></nav>
+<main class="container library-page">
+  <header class="page-header"><div class="page-header-copy"><span class="eyebrow">Identity library</span><h1>Your characters</h1><p>Curate the people you create with often. Each identity stays reusable across every pose and direction.</p></div><button class="btn btn-primary btn-lg" id="addCharacterFab"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Add character</button></header>
+  <div class="library-toolbar"><div><strong>Identity references</strong><span>Clear, front-facing images deliver the strongest results.</span></div><a class="btn btn-secondary btn-sm" href="/studio.html">Open Studio →</a></div>
+  <div id="characterGrid" class="character-grid"></div>
+</main>
+<div class="modal-backdrop hidden" id="addModal"><div class="modal-card"><div class="modal-head"><div><span class="eyebrow">New identity</span><h3>Add a character</h3></div><button type="button" class="modal-close" id="modalCancel" aria-label="Close">×</button></div>
+  <label class="dropzone character-upload" id="characterUploadZone"><input type="file" id="modalPhoto" accept="image/*,.heic,.heif" /><div class="dz-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 16V4m0 0L8 8m4-4 4 4M5 16v3h14v-3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="dz-text">Choose an identity photo</div><div class="dz-sub">JPG, PNG, HEIC or HEIF · up to 25 MB</div></label>
+  <label class="field-label mt-4" for="modalName">Character name</label><input type="text" id="modalName" placeholder="e.g. Me, Alex, Mom…" /><p class="status-line" id="modalStatus"></p><div class="modal-actions"><button type="button" class="btn btn-ghost" id="modalCancelSecondary">Cancel</button><button type="button" class="btn btn-primary" id="modalSave">Save character</button></div>
+</div></div>
+<script src="/js/base.js"></script><script src="/js/characters.js"></script></body></html>

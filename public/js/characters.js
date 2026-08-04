@@ -22,7 +22,7 @@ async function loadCharacters() {
         <h4>${c.name}</h4>
         <div class="meta">Added ${relativeTime(c.createdAt)}</div>
         <div class="character-tile-actions">
-          <a class="btn btn-sm btn-secondary" href="/studio.html">Use in Studio</a>
+          <a class="btn btn-sm btn-secondary" href="/studio.html?character=${encodeURIComponent(c.id)}">Use in Studio</a>
           <button type="button" class="btn btn-sm btn-danger" data-delete="${c.id}">Delete</button>
         </div>
       </div>
@@ -47,7 +47,25 @@ async function loadCharacters() {
 const modal = $("addModal");
 $("addCharacterFab").addEventListener("click", () => modal.classList.remove("hidden"));
 $("modalCancel").addEventListener("click", () => modal.classList.add("hidden"));
+$("modalCancelSecondary").addEventListener("click", () => modal.classList.add("hidden"));
 modal.addEventListener("click", (e) => { if (e.target === modal) modal.classList.add("hidden"); });
+
+$("modalPhoto").addEventListener("change", async () => {
+  const file = $("modalPhoto").files[0];
+  const zone = $("characterUploadZone");
+  zone.querySelector("img.preview-img")?.remove();
+  if (!file) return zone.classList.remove("has-image");
+  try {
+    setStatus($("modalStatus"), isHeicFile(file) ? "Converting HEIC preview…" : "Preparing preview…");
+    zone.insertAdjacentHTML("afterbegin", `<img class="preview-img" src="${await uploadPreviewUrl(file)}" alt="" />`);
+    zone.classList.add("has-image");
+    setStatus($("modalStatus"), "Photo ready.", "ok");
+  } catch (error) {
+    $("modalPhoto").value = "";
+    zone.classList.remove("has-image");
+    setStatus($("modalStatus"), error.message, "error");
+  }
+});
 
 $("modalSave").addEventListener("click", async () => {
   const statusEl = $("modalStatus");
@@ -64,6 +82,8 @@ $("modalSave").addEventListener("click", async () => {
     setStatus(statusEl, "Saved.", "ok");
     $("modalPhoto").value = "";
     $("modalName").value = "";
+    $("characterUploadZone").querySelector("img.preview-img")?.remove();
+    $("characterUploadZone").classList.remove("has-image");
     setTimeout(() => { modal.classList.add("hidden"); setStatus(statusEl, ""); }, 500);
     await loadCharacters();
   } catch (err) {

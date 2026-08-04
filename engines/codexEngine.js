@@ -9,6 +9,7 @@ const TIMEOUT_MS = Number(process.env.CODEX_TIMEOUT_MS || 300000);
 const engine = {
   key: "codex",
   label: "Codex CLI",
+  capabilities: { multiImage: true, aspectRatio: "prompt", quality: "prompt", variants: true },
   async isReady() {
     const result = spawnSync(CODEX_BIN, ["--version"], { stdio: "ignore" });
     return result.error || result.status !== 0

@@ -25,6 +25,17 @@ function statusBadge(status) {
   return map[status] || "";
 }
 
+function usageCost(value) {
+  if (value == null) return "Plan-dependent";
+  return value < 0.01 ? `$${Number(value).toFixed(4)}` : `$${Number(value).toFixed(2)}`;
+}
+
+function usageSummary(usage) {
+  if (!usage?.totalTokens) return "Not available";
+  const source = usage.source === "actual" ? "Recorded" : "Estimated";
+  return `${source} · ${new Intl.NumberFormat().format(usage.totalTokens)} tokens · ${usageCost(usage.estimatedCostUsd)}`;
+}
+
 function card(item) {
   const el = document.createElement("button");
   el.type = "button";
@@ -71,14 +82,20 @@ async function openDetail(id) {
     ${thumbRow ? `<div class="detail-people">${thumbRow}</div>` : ""}
     <div class="kv"><b>People</b><span>${esc(characterLabel(item))}</span></div>
     <div class="kv"><b>Engine</b><span>${esc(item.engine)}</span></div>
+    <div class="kv"><b>Studio mode</b><span>${esc(item.studioMode || "normal")}</span></div>
     <div class="kv"><b>Status</b><span>${statusBadge(item.status)}</span></div>
     <div class="kv"><b>Background</b><span>${esc(item.backgroundPreset?.name || "None")}</span></div>
     <div class="kv"><b>Style</b><span>${esc(item.stylePreset?.name || "None")}</span></div>
     <div class="kv"><b>Pose reference</b><span><a href="${item.posePhotoUrl}" target="_blank" rel="noreferrer">View</a></span></div>
+    ${item.advancedSettings?.output ? `<div class="kv"><b>Output</b><span>${esc(item.advancedSettings.output.aspectRatio || "1:1")} · ${esc(item.advancedSettings.output.quality || "standard")} quality</span></div>` : ""}
+    <div class="kv"><b>Usage &amp; rough cost</b><span>${esc(usageSummary(item.usage))}</span></div>
+    ${item.usage?.inputTokens ? `<div class="kv"><b>Token detail</b><span>${new Intl.NumberFormat().format(item.usage.inputTokens)} input · ${new Intl.NumberFormat().format(item.usage.outputTokens || 0)} output</span></div>` : ""}
+    ${item.usage?.rateDate ? `<div class="kv"><b>Pricing basis</b><span>${esc(item.usage.rateDate)} · provider billing may vary</span></div>` : ""}
     ${item.errorMessage ? `<p class="error-box mt-3">${esc(item.errorMessage)}</p>` : ""}
     <pre>${esc(item.prompt)}</pre>
     <div class="detail-actions">
       ${item.outputUrl ? `<a class="btn btn-secondary" href="${item.outputUrl}" download>Download</a>` : ""}
+      ${item.passportSheetUrl ? `<a class="btn btn-secondary" href="${item.passportSheetUrl}" download>Download 4 × 6 sheet</a>` : ""}
       <button type="button" class="btn btn-danger" id="deleteBtn">Delete</button>
       <button type="button" class="btn btn-ghost" id="closeDetail">Close</button>
     </div>

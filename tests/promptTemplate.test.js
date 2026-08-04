@@ -54,6 +54,15 @@ test("buildMergePrompt appends custom instructions last", () => {
   assert.ok(prompt.indexOf("BACKGROUND_FRAGMENT") < prompt.indexOf("make the sky purple"));
 });
 
+test("buildMergePrompt includes advanced creative controls before custom instructions", () => {
+  const prompt = buildMergePrompt({
+    advancedPromptFragment: "Use 85mm portrait framing.",
+    customInstructions: "Keep the red jacket.",
+  });
+  assert.match(prompt, /Creative controls: Use 85mm portrait framing\./);
+  assert.ok(prompt.indexOf("Creative controls") < prompt.indexOf("Additional instructions"));
+});
+
 test("buildMergePrompt omits optional fragments entirely when not provided", () => {
   const prompt = buildMergePrompt({});
   assert.doesNotMatch(prompt, /Additional instructions from the user/);

@@ -12,6 +12,9 @@ const { registry } = require("../engines");
 const { asyncHandler, isUuid, cleanup } = require("./helpers");
 const logger = require("../lib/logger");
 const poseLibrary = require("../lib/poseLibrary");
+const { sanitizeAdvancedSettings, buildAdvancedPromptFragment, outputSettings } = require("../lib/studioSettings");
+const { estimateGenerationUsage, mergeActualUsage, batchEstimate } = require("../lib/usageEstimator");
+const { splitPoseCollage } = require("../lib/poseCollage");
 
 const router = express.Router();
 const tempDir = path.join(__dirname, "..", "tmp", "uploads-v2"); fs.mkdirSync(tempDir, { recursive: true });
@@ -27,6 +30,7 @@ const upload = multer({
 const detailSql = `SELECT g.*, bp.name AS background_name, bp.type AS background_type, sp.name AS style_name, sp.type AS style_type, pr.title AS pose_title FROM generations g LEFT JOIN presets bp ON bp.id = g.background_preset_id LEFT JOIN presets sp ON sp.id = g.style_preset_id LEFT JOIN pose_references pr ON pr.id = g.pose_reference_id`;
 
 function shape(row, characters = []) {
+  const advancedSettings = row.advanced_settings || {};
   return {
     id: row.id,
     status: row.status,
@@ -39,6 +43,12 @@ function shape(row, characters = []) {
     backgroundPreset: row.background_preset_id ? { id: row.background_preset_id, name: row.background_name, type: "background", isCustom: false } : null,
     stylePreset: row.style_preset_id ? { id: row.style_preset_id, name: row.style_name, type: "style", isCustom: false } : null,
     prompt: row.prompt,
+    studioMode: row.studio_mode || "normal",
+    advancedSettings,
+    batchId: row.batch_id || null,
+    usage: row.usage_metrics || {},
+    documentSheetUrl: advancedSettings.workflow === "document-photo" ? storage.publicUrl(storage.getDocumentSheetPath(row.id)) : advancedSettings.workflow === "passport" ? storage.publicUrl(storage.getPassportSheetPath(row.id)) : null,
+    passportSheetUrl: advancedSettings.workflow === "document-photo" ? storage.publicUrl(storage.getDocumentSheetPath(row.id)) : advancedSettings.workflow === "passport" ? storage.publicUrl(storage.getPassportSheetPath(row.id)) : null,
     errorMessage: row.error_message,
     createdAt: row.created_at,
     startedAt: row.started_at,
@@ -74,6 +84,7 @@ router.post("/", upload, asyncHandler(async (req, res) => {
   const poseReferenceId = String(req.body.poseReferenceId || "");
   const uploadId = crypto.randomUUID();
   let storedPose = null;
+  let collageTempDir = null;
   const uploadedCharacterFiles = [];
   try {
     // Up to MAX_CHARACTERS character slots, each either a saved character
@@ -127,56 +138,121 @@ router.post("/", upload, asyncHandler(async (req, res) => {
     // Resolve the pose source: either a fresh upload (which we register as
     // a new library entry so it's reusable later) or an existing library
     // entry (lazily cached from its source_url on first real use).
-    let resolvedPoseReferenceId;
-    let poseSourcePath;
-    if (pose) {
-      const poseRefRow = await poseLibrary.addPoseReference(storedPose.absolutePath, { isCustom: true });
-      resolvedPoseReferenceId = poseRefRow.id;
-      poseSourcePath = storage.absolutePath(poseRefRow.file_path);
+    const studioMode = req.body.studioMode === "advanced" ? "advanced" : "normal";
+    const collageEnabled = studioMode === "advanced" && req.body.poseCollageEnabled === "true";
+    const poseSources = [];
+    if (pose && collageEnabled) {
+      const collageCount = Math.min(Math.max(Number(req.body.poseCollageCount) || 2, 2), 6);
+      const collageLayout = String(req.body.poseCollageLayout || "auto");
+      collageTempDir = path.join(tempDir, `collage-${uploadId}`);
+      const normalizedCollagePath = path.join(collageTempDir, "collage.png");
+      await normalizeToPng(storedPose.absolutePath, normalizedCollagePath, { originalName: pose.originalname, mimeType: pose.mimetype });
+      const split = await splitPoseCollage(normalizedCollagePath, collageTempDir, { count: collageCount, layout: collageLayout });
+      for (const [index, cellPath] of split.outputs.entries()) {
+        const row = await poseLibrary.addPoseReference(cellPath, { title: `Collage pose ${index + 1}`, category: "collage", isCustom: true, originalName: path.basename(cellPath), mimeType: "image/png" });
+        poseSources.push({ referenceId: row.id, sourcePath: storage.absolutePath(row.file_path), index });
+      }
+    } else if (pose) {
+      const poseRefRow = await poseLibrary.addPoseReference(storedPose.absolutePath, { isCustom: true, originalName: pose.originalname, mimeType: pose.mimetype });
+      poseSources.push({ referenceId: poseRefRow.id, sourcePath: storage.absolutePath(poseRefRow.file_path), index: 0 });
     } else {
       const resolved = await poseLibrary.resolvePoseReferenceFile(poseReferenceId);
       if (!resolved) return res.status(404).json({ error: "Pose reference not found." });
-      resolvedPoseReferenceId = resolved.row.id;
-      poseSourcePath = resolved.absolutePath;
-    }
-
-    const id = crypto.randomUUID(); const posePath = storage.getGenerationPosePath(id, ".png"); const outputPath = storage.getGenerationOutputPath(id); const generationDir = path.dirname(storage.absolutePath(posePath));
-    await fs.promises.mkdir(generationDir, { recursive: true });
-    await normalizeToPng(poseSourcePath, storage.absolutePath(posePath));
-
-    const characterPaths = [];
-    for (const src of characterSources) {
-      const relPath = storage.getGenerationCharacterPath(id, src.position, ".png");
-      await normalizeToPng(src.sourcePath, storage.absolutePath(relPath));
-      characterPaths.push({ position: src.position, characterId: src.characterId, relPath, absolutePath: storage.absolutePath(relPath) });
+      poseSources.push({ referenceId: resolved.row.id, sourcePath: resolved.absolutePath, index: 0 });
     }
 
     const customInstructions = String(req.body.instructions || "").trim().slice(0, 600);
-    const prompt = buildMergePrompt({ characterCount: characterPaths.length, backgroundPresetFragment: background?.prompt_fragment, stylePresetFragment: style?.prompt_fragment, customInstructions: customInstructions || undefined });
-    await pool.query("INSERT INTO generations (id, pose_photo_path, pose_reference_id, engine, background_preset_id, style_preset_id, prompt) VALUES ($1,$2,$3,$4,$5,$6,$7)", [id, posePath, resolvedPoseReferenceId, engineKey, backgroundId, styleId, prompt]);
-    for (const cp of characterPaths) {
-      await pool.query("INSERT INTO generation_characters (generation_id, position, character_id, file_path) VALUES ($1,$2,$3,$4)", [id, cp.position, cp.characterId, cp.relPath]);
-    }
+    let parsedAdvanced = {};
+    try { parsedAdvanced = JSON.parse(String(req.body.advancedSettings || "{}")); } catch (_) { return res.status(400).json({ error: "Advanced settings must be valid JSON." }); }
+    const advancedSettings = sanitizeAdvancedSettings(parsedAdvanced, characterSources.length);
+    if (studioMode === "normal") advancedSettings.output.variantCount = 1;
+    const variantCount = collageEnabled ? poseSources.length : advancedSettings.output.variantCount;
+    advancedSettings.output.variantCount = variantCount;
+    advancedSettings.poseCollage = { ...advancedSettings.poseCollage, enabled: collageEnabled, count: collageEnabled ? poseSources.length : advancedSettings.poseCollage.count };
+    const batchId = variantCount > 1 ? crypto.randomUUID() : null;
+    const generationIds = [];
 
-    enqueue(id, async () => {
-      try {
-        await pool.query("UPDATE generations SET status = 'running', started_at = now() WHERE id = $1", [id]);
-        logger.info("engine execution started", { requestId: req.requestId, generationId: id, engine: engineKey, characterCount: characterPaths.length });
-        await engine.generate({ characterPhotoPaths: characterPaths.map((cp) => cp.absolutePath), posePhotoPath: storage.absolutePath(posePath), prompt, outputPath: storage.absolutePath(outputPath), apiKey: await getSetting(`${engineKey}_api_key`) });
-        await pool.query("UPDATE generations SET status = 'completed', output_path = $2, completed_at = now() WHERE id = $1", [id, outputPath]);
-        logger.info("generation completed", { requestId: req.requestId, generationId: id, engine: engineKey, outputPath });
-      } catch (err) {
-        logger.error("generation failed", { requestId: req.requestId, generationId: id, engine: engineKey, error: err.message });
-        await pool.query("UPDATE generations SET status = 'failed', error_message = $2, completed_at = now() WHERE id = $1", [id, err.message]);
+    for (let variantIndex = 0; variantIndex < variantCount; variantIndex++) {
+      const poseSource = collageEnabled ? poseSources[variantIndex] : poseSources[0];
+      const id = crypto.randomUUID();
+      const posePath = storage.getGenerationPosePath(id, ".png");
+      const outputPath = storage.getGenerationOutputPath(id);
+      const generationDir = path.dirname(storage.absolutePath(posePath));
+      await fs.promises.mkdir(generationDir, { recursive: true });
+      await normalizeToPng(poseSource.sourcePath, storage.absolutePath(posePath));
+
+      const characterPaths = [];
+      for (const src of characterSources) {
+        const relPath = storage.getGenerationCharacterPath(id, src.position, ".png");
+        await normalizeToPng(src.sourcePath, storage.absolutePath(relPath));
+        characterPaths.push({ position: src.position, characterId: src.characterId, relPath, absolutePath: storage.absolutePath(relPath) });
       }
-    });
-    logger.info("generation accepted", { requestId: req.requestId, generationId: id, engine: engineKey, status: "pending", characterCount: characterPaths.length });
-    res.status(202).json({ id, status: "pending" });
+
+      const variantDirection = collageEnabled
+        ? `Use pose cell ${variantIndex + 1} of ${variantCount} as the sole pose and composition reference for this output.`
+        : variantCount > 1
+          ? `This is variation ${variantIndex + 1} of ${variantCount}; create a distinct interpretation while preserving all requested identities and constraints.`
+        : "";
+      const advancedPromptFragment = studioMode === "advanced"
+        ? [buildAdvancedPromptFragment(advancedSettings), variantDirection].filter(Boolean).join(" ")
+        : variantDirection;
+      const prompt = buildMergePrompt({
+        characterCount: characterPaths.length,
+        backgroundPresetFragment: background?.prompt_fragment,
+        stylePresetFragment: style?.prompt_fragment,
+        advancedPromptFragment,
+        customInstructions: customInstructions || undefined,
+      });
+      const usageEstimate = estimateGenerationUsage({ engine: engineKey, prompt, imageCount: characterPaths.length + 1, quality: advancedSettings.output.quality, aspectRatio: advancedSettings.output.aspectRatio });
+      const generationSettings = { ...advancedSettings, poseCollage: { ...advancedSettings.poseCollage, activeIndex: collageEnabled ? variantIndex : null } };
+      await pool.query(
+        "INSERT INTO generations (id, pose_photo_path, pose_reference_id, engine, background_preset_id, style_preset_id, prompt, studio_mode, advanced_settings, batch_id, usage_metrics) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11::jsonb)",
+        [id, posePath, poseSource.referenceId, engineKey, backgroundId, styleId, prompt, studioMode, JSON.stringify(generationSettings), batchId, JSON.stringify(usageEstimate)]
+      );
+      for (const cp of characterPaths) {
+        await pool.query("INSERT INTO generation_characters (generation_id, position, character_id, file_path) VALUES ($1,$2,$3,$4)", [id, cp.position, cp.characterId, cp.relPath]);
+      }
+
+      enqueue(id, async () => {
+        try {
+          await pool.query("UPDATE generations SET status = 'running', started_at = now() WHERE id = $1", [id]);
+          logger.info("engine execution started", { requestId: req.requestId, generationId: id, engine: engineKey, characterCount: characterPaths.length });
+          const engineResult = await engine.generate({
+            characterPhotoPaths: characterPaths.map((cp) => cp.absolutePath),
+            posePhotoPath: storage.absolutePath(posePath),
+            prompt,
+            outputPath: storage.absolutePath(outputPath),
+            outputSettings: outputSettings(advancedSettings),
+            apiKey: await getSetting(`${engineKey}_api_key`),
+          });
+          const usage = mergeActualUsage(usageEstimate, engineResult?.usage);
+          await pool.query("UPDATE generations SET status = 'completed', output_path = $2, usage_metrics = $3::jsonb, completed_at = now() WHERE id = $1", [id, outputPath, JSON.stringify(usage)]);
+          logger.info("generation completed", { requestId: req.requestId, generationId: id, engine: engineKey, outputPath });
+        } catch (err) {
+          logger.error("generation failed", { requestId: req.requestId, generationId: id, engine: engineKey, error: err.message });
+          await pool.query("UPDATE generations SET status = 'failed', error_message = $2, completed_at = now() WHERE id = $1", [id, err.message]);
+        }
+      });
+      generationIds.push(id);
+      logger.info("generation accepted", { requestId: req.requestId, generationId: id, batchId, engine: engineKey, status: "pending", characterCount: characterPaths.length });
+    }
+    res.status(202).json({ id: generationIds[0], generationIds, batchId, status: "pending" });
   } finally {
     await cleanup(pose);
+    if (collageTempDir) await fs.promises.rm(collageTempDir, { recursive: true, force: true }).catch(() => {});
     await Promise.all(uploadedCharacterFiles.map(cleanup));
   }
 }));
+
+router.get("/estimate", (req, res) => {
+  const engine = ["codex", "openai", "replicate"].includes(req.query.engine) ? req.query.engine : "codex";
+  const quality = ["low", "medium", "high"].includes(req.query.quality) ? req.query.quality : "medium";
+  const aspectRatio = ["1:1", "4:5", "16:9", "9:16"].includes(req.query.aspectRatio) ? req.query.aspectRatio : "1:1";
+  const subjects = Math.min(Math.max(Number(req.query.subjects) || 1, 1), 4);
+  const variants = Math.min(Math.max(Number(req.query.variants) || 1, 1), 6);
+  const promptChars = Math.min(Math.max(Number(req.query.promptChars) || 600, 100), 4000);
+  res.json(batchEstimate({ engine, prompt: "x".repeat(promptChars), imageCount: subjects + 1, quality, aspectRatio }, variants));
+});
 
 router.get("/:id", asyncHandler(async (req, res) => {
   if (!isUuid(req.params.id)) return res.status(404).json({ error: "Generation not found." });

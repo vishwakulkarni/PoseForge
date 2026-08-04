@@ -28,7 +28,7 @@ test("database schema and seed data", async (t) => {
   }
 
   await t.test("core tables exist", async () => {
-    const tables = ["characters", "character_photos", "presets", "settings", "generations", "pose_references", "generation_characters"];
+    const tables = ["characters", "character_photos", "presets", "settings", "generations", "pose_references", "generation_characters", "studio_recipes"];
     for (const table of tables) {
       const result = await pool.query("SELECT to_regclass($1) AS exists", [table]);
       assert.ok(result.rows[0].exists, `expected table "${table}" to exist — did you run npm run migrate?`);
@@ -53,7 +53,19 @@ test("database schema and seed data", async (t) => {
 
   await t.test("pose reference seed data is present", async () => {
     const result = await pool.query("SELECT COUNT(*)::int AS count FROM pose_references WHERE is_custom = false");
-    assert.ok(result.rows[0].count >= 1, "expected at least one seeded, non-custom pose reference");
+    assert.ok(result.rows[0].count >= 70, "expected the original 20 plus 50 curated pose references");
+    const audiences = await pool.query("SELECT tag, COUNT(*)::int AS count FROM unnest(ARRAY['male','female','couple','family']) tag GROUP BY tag ORDER BY tag");
+    for (const audience of audiences.rows) {
+      const tagged = await pool.query("SELECT COUNT(*)::int AS count FROM pose_references WHERE $1 = ANY(tags)", [audience.tag]);
+      assert.ok(tagged.rows[0].count >= 10, `expected at least 10 ${audience.tag} pose references`);
+    }
+  });
+
+  await t.test("pose sources keep provider and canonical-page provenance", async () => {
+    const result = await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'pose_references' AND column_name = ANY($1::text[])`, [["source_provider", "source_page_url"]]);
+    assert.equal(result.rowCount, 2);
+    const unsplash = await pool.query("SELECT COUNT(*)::int AS count FROM pose_references WHERE source_provider = 'Unsplash' AND source_page_url LIKE 'https://unsplash.com/photos/%'");
+    assert.equal(unsplash.rows[0].count, 50);
   });
 
   await t.test("generations.pose_reference_id uses ON DELETE SET NULL", async () => {
@@ -85,6 +97,26 @@ test("database schema and seed data", async (t) => {
     `);
     const hasRangeCheck = result.rows.some((row) => /position/.test(row.def) && /[1-4]/.test(row.def));
     assert.ok(hasRangeCheck, "expected a CHECK constraint bounding generation_characters.position to 1-4");
+  });
+
+  await t.test("advanced Studio columns are available on generations", async () => {
+    const result = await pool.query(`
+      SELECT column_name, data_type FROM information_schema.columns
+      WHERE table_name = 'generations' AND column_name = ANY($1::text[])
+    `, [["studio_mode", "advanced_settings", "batch_id"]]);
+    const columns = Object.fromEntries(result.rows.map((row) => [row.column_name, row.data_type]));
+    assert.equal(columns.studio_mode, "text");
+    assert.equal(columns.advanced_settings, "jsonb");
+    assert.equal(columns.batch_id, "uuid");
+  });
+
+  await t.test("generation usage metadata is available", async () => {
+    const result = await pool.query(`
+      SELECT data_type, column_default FROM information_schema.columns
+      WHERE table_name = 'generations' AND column_name = 'usage_metrics'
+    `);
+    assert.equal(result.rows[0]?.data_type, "jsonb");
+    assert.match(result.rows[0]?.column_default || "", /jsonb/);
   });
 });
 

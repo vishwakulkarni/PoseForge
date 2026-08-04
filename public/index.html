@@ -1,179 +1,94 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>PoseForge — Your identity. Any pose.</title>
-<meta name="description" content="Transform your family photos into any pose, style, or composition using AI — perfect for your next Instagram post." />
-<link rel="stylesheet" href="/css/base.css" />
-<link rel="stylesheet" href="/css/landing.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="PoseForge turns your photos into any pose, portrait, or print-ready U.S. or Indian document photo from one private, local-first home studio." />
+  <title>PoseForge — Your photo. Any pose. Any portrait.</title>
+  <script src="/js/theme.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/landing.css" />
 </head>
 <body data-nav="index.html">
   <nav class="site-nav" id="site-nav"></nav>
-
   <main>
     <section class="hero">
-      <div class="container">
-        <span class="eyebrow">AI photo studio for families</span>
-        <h1>Your identity.<br />Any pose.</h1>
-        <p class="lede">Transform your photos into any pose, style, or composition using AI.</p>
-        <div class="hero-actions">
-          <a href="/studio.html" class="btn btn-primary btn-lg">Create a pose</a>
-          <a href="/gallery.html" class="btn btn-secondary btn-lg">See examples</a>
+      <div class="hero-gridlines" aria-hidden="true"></div>
+      <div class="container hero-layout">
+        <div class="hero-copy reveal in">
+          <div class="hero-pill"><i></i><span>One private, local-first home photo studio</span></div>
+          <h1>Your photo.<br /><em>Any pose.</em><br />Any portrait.</h1>
+          <p>Keep the person. Change everything else. PoseForge turns a familiar face into editorial portraits, family compositions, social images, and print-ready passport or visa photos—all from one workspace on your computer.</p>
+          <div class="hero-actions"><a href="/studio.html" class="btn btn-primary btn-lg">Transform a photo <span>→</span></a><a href="/passport.html" class="btn btn-secondary btn-lg">Make an ID photo</a></div>
+          <div class="hero-proof"><span><b>01</b>No account</span><span><b>02</b>HEIC ready</span><span><b>03</b>Normal + Advanced</span><span><b>04</b>Cost estimates</span></div>
         </div>
-        <p class="hero-note">No account needed · Runs on your own machine · Family-friendly by design</p>
 
-        <div class="hero-visual reveal">
-          <div class="hero-visual-inner">
-            <div class="hero-frame">
-              <img src="https://images.pexels.com/photos/32842395/pexels-photo-32842395.jpeg?auto=compress&cs=tinysrgb&w=500&h=650&fit=crop" alt="" loading="lazy" />
-              <span class="tag">Your family</span>
-            </div>
-            <svg class="hero-arrow" width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <div class="hero-frame">
-              <img src="https://images.pexels.com/photos/30680355/pexels-photo-30680355.jpeg?auto=compress&cs=tinysrgb&w=500&h=650&fit=crop" alt="" loading="lazy" />
-              <span class="tag">Your next post</span>
-            </div>
+        <div class="hero-stage reveal in" aria-label="A person transformed into three different portrait directions">
+          <div class="stage-label"><span>Identity locked</span><strong>3 directions</strong></div>
+          <div class="portrait-stack">
+            <figure class="portrait-card portrait-source"><img src="https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=520&h=680&fit=crop" alt="Source portrait" /><figcaption><span>01</span><strong>Your photo</strong></figcaption></figure>
+            <figure class="portrait-card portrait-result-one"><img src="https://images.pexels.com/photos/3763152/pexels-photo-3763152.jpeg?auto=compress&cs=tinysrgb&w=520&h=680&fit=crop" alt="Editorial portrait pose" /><figcaption><span>02</span><strong>Any pose</strong></figcaption></figure>
+            <figure class="portrait-card portrait-result-two"><img src="https://images.pexels.com/photos/3769021/pexels-photo-3769021.jpeg?auto=compress&cs=tinysrgb&w=520&h=680&fit=crop" alt="New portrait direction" /><figcaption><span>03</span><strong>Any portrait</strong></figcaption></figure>
           </div>
-          <img
-            class="hero-mascot"
-            src="/images/mascot-painter-dog.png"
-            onerror="this.onerror=null;this.src='/images/mascot-painter-dog.svg';"
-            alt="PoseForge's painter dog mascot, holding a palette and brush"
-          />
+          <div class="stage-command"><div><small>Direction</small><strong>Warm editorial · full body · 85mm</strong></div><span>Identity 88</span><button aria-hidden="true">Forge →</button></div>
+          <img class="hero-mascot" src="/images/mascot-painter-dog.png" onerror="this.onerror=null;this.src='/images/mascot-painter-dog.svg'" alt="PoseForge painter dog mascot" />
         </div>
       </div>
     </section>
 
-    <section class="section tight">
+    <section class="manifesto-strip"><div class="container"><span>POSE TRANSFORMER</span><i></i><span>PORTRAIT STUDIO</span><i></i><span>FAMILY COMPOSER</span><i></i><span>PASSPORT PHOTO MAKER</span><i></i><span>PRINT PREP</span></div></section>
+
+    <section class="section outcomes-section" id="what-you-can-make">
       <div class="container">
-        <div class="section-head reveal">
-          <h2>Built for family photoshoots</h2>
-          <p>Whether it's just the two kids or the whole crew of three, upload one photo per person and let the studio pose everyone together — no coordinating outfits, no wrangling toddlers for a reshoot.</p>
-        </div>
-        <div class="feature-grid">
-          <div class="card feature-card reveal">
-            <div class="feature-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.6"/><path d="M4 20c1.5-4 5-6 8-6s6.5 2 8 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-            </div>
-            <h3>Everyone, recognizably them</h3>
-            <p>Faces, features, and expressions stay faithful to each family member — no uncanny results, ever.</p>
-          </div>
-          <div class="card feature-card reveal">
-            <div class="feature-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M8 3v18M16 3v18M3 8h18M3 16h18" stroke="currentColor" stroke-width="1.4"/></svg>
-            </div>
-            <h3>Any scene, any pose</h3>
-            <p>Copy the pose, framing, and setting from any reference photo — playground, beach, or studio backdrop.</p>
-          </div>
-          <div class="card feature-card reveal">
-            <div class="feature-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 3l2.2 5.2L20 10l-5 3.6L16.5 20 12 16.5 7.5 20 9 13.6 4 10l5.8-1.8L12 3z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
-            </div>
-            <h3>Made for sharing</h3>
-            <p>Square, feed-ready results with simple notes for outfits, lighting, or the little details that matter.</p>
-          </div>
+        <div class="section-heading split-heading reveal"><div><span class="eyebrow">Your home studio, finally complete</span><h2>One face.<br />Every photo you need.</h2></div><p>Stop moving the same photo between disconnected apps. PoseForge carries identity, pose, direction, generation, and downloadable output through one private workflow.</p></div>
+        <div class="outcome-grid">
+          <a class="outcome-card outcome-large reveal" href="/studio.html"><span class="outcome-index">01 / Transform</span><div class="outcome-visual transform-visual"><div class="pose-silhouette"><i></i><b></b></div><div class="direction-line"></div><div class="identity-orbit">YOU</div></div><h3>Put your photo in any pose.</h3><p>Bring a pose reference from your library or camera roll. PoseForge transfers the body language while preserving the chosen identity.</p><strong class="card-link">Open pose studio →</strong></a>
+          <a class="outcome-card reveal" href="/studio.html?mode=advanced"><span class="outcome-index">02 / Direct</span><div class="control-mini"><span>Identity <b>90</b></span><i style="--value:90%"></i><span>Pose <b>82</b></span><i style="--value:82%"></i><div><em>85mm</em><em>Soft light</em><em>4:5</em></div></div><h3>Direct portraits precisely.</h3><p>Control age and hair fidelity, camera, aperture, light, composition, retouch, grain, sharpness, seeds, and variations.</p><strong class="card-link">Use Advanced mode →</strong></a>
+          <a class="outcome-card passport-outcome reveal" href="/passport.html"><span class="outcome-index">03 / Print</span><div class="passport-mini"><div><span></span></div><aside><i></i><i></i><i></i><i></i><i></i><i></i></aside></div><h3>Prepare document photos.</h3><p>Format U.S. and Indian passport, visa, e-Visa, and OCI photos locally beside dated official guidance and source links.</p><strong class="card-link">Open ID photo studio →</strong></a>
         </div>
       </div>
     </section>
 
-    <section class="section tight">
-      <div class="container">
-        <div class="section-head reveal">
-          <h2>How it works</h2>
-          <p>Four steps, one studio.</p>
-        </div>
-        <div class="steps">
-          <div class="step reveal">
-            <div class="num">01</div>
-            <h4>Add your family</h4>
-            <p>Upload a photo for each person, or pick faces you've already saved.</p>
-          </div>
-          <div class="step reveal">
-            <div class="num">02</div>
-            <h4>Choose a pose</h4>
-            <p>Upload any reference photo for the pose, scene, and composition.</p>
-          </div>
-          <div class="step reveal">
-            <div class="num">03</div>
-            <h4>Add direction</h4>
-            <p>Optional notes on outfits, background, lighting, or angle.</p>
-          </div>
-          <div class="step reveal">
-            <div class="num">04</div>
-            <h4>Transform</h4>
-            <p>Get a new photo of them, ready to post, posed exactly how you imagined.</p>
-          </div>
+    <section class="section workflow-section">
+      <div class="container workflow-layout">
+        <div class="workflow-copy reveal"><span class="eyebrow">From camera roll to finished image</span><h2>A complete workflow without the tool shuffle.</h2><p>PoseForge is designed as the control room for the photos you make at home—not a single-use prompt box.</p><a href="/studio.html" class="btn btn-primary">Start with your photo →</a></div>
+        <div class="workflow-steps">
+          <article class="workflow-step reveal"><span>01</span><div><h3>Add the people</h3><p>Upload JPG, PNG, HEIC, or HEIF. Save familiar faces as reusable characters with large, recognizable previews.</p></div><b>Identity</b></article>
+          <article class="workflow-step reveal"><span>02</span><div><h3>Choose the body language</h3><p>Upload any pose or send one directly from the pose library into Studio.</p></div><b>Pose</b></article>
+          <article class="workflow-step reveal"><span>03</span><div><h3>Direct the result</h3><p>Work in Normal mode for speed or open Advanced for professional camera, composition, fidelity, and finish controls.</p></div><b>Direction</b></article>
+          <article class="workflow-step reveal"><span>04</span><div><h3>Generate, inspect, download</h3><p>See token usage and rough cost, compare variants, download the best frame, and revisit every generation in History.</p></div><b>Output</b></article>
         </div>
       </div>
     </section>
 
-    <section class="section tight">
+    <section class="section capability-section">
       <div class="container">
-        <div class="insta-section reveal">
-          <div class="insta-grid">
-            <div class="insta-copy">
-              <span class="eyebrow">Instagram-ready</span>
-              <h2>Build your next Instagram post</h2>
-              <p>Give the studio a reference photo — a pose, a theme, a vibe you love — and see options for how your family's version could look before you commit to one.</p>
-              <ul>
-                <li><span class="check">✓</span> Preview a few directions before you generate</li>
-                <li><span class="check">✓</span> Square, feed-ready framing out of the box</li>
-                <li><span class="check">✓</span> Every result saved to your History for later</li>
-              </ul>
-              <div class="hero-actions" style="justify-content:flex-start; margin-top: var(--space-6);">
-                <a href="/studio.html" class="btn btn-primary">Start a post</a>
-              </div>
-            </div>
-            <div class="insta-preview-grid">
-              <div class="insta-preview-tile wide"><img src="https://images.pexels.com/photos/27659170/pexels-photo-27659170.jpeg?auto=compress&cs=tinysrgb&w=500&h=250&fit=crop" alt="" loading="lazy" /></div>
-              <div class="insta-preview-tile"><img src="https://images.pexels.com/photos/36090195/pexels-photo-36090195.jpeg?auto=compress&cs=tinysrgb&w=250&h=250&fit=crop" alt="" loading="lazy" /></div>
-              <div class="insta-preview-tile"><img src="https://images.pexels.com/photos/7880399/pexels-photo-7880399.jpeg?auto=compress&cs=tinysrgb&w=250&h=250&fit=crop" alt="" loading="lazy" /></div>
-              <div class="insta-preview-tile"><img src="https://images.pexels.com/photos/8457717/pexels-photo-8457717.jpeg?auto=compress&cs=tinysrgb&w=250&h=250&fit=crop" alt="" loading="lazy" /></div>
-              <div class="insta-preview-tile wide"><img src="https://images.pexels.com/photos/15648183/pexels-photo-15648183.jpeg?auto=compress&cs=tinysrgb&w=500&h=250&fit=crop" alt="" loading="lazy" /></div>
-            </div>
-          </div>
+        <div class="section-heading reveal"><span class="eyebrow">Built to replace a folder of little tools</span><h2>The details a home studio should already have.</h2></div>
+        <div class="capability-grid">
+          <article class="capability-card reveal"><span>4×</span><h3>Multi-person compositions</h3><p>Compose up to four identities and give every person their own wardrobe, placement, and expression direction.</p></article>
+          <article class="capability-card reveal"><span>HEIC</span><h3>Camera-roll native</h3><p>Preview and convert iPhone HEIC/HEIF photos automatically without preparing them in another app first.</p></article>
+          <article class="capability-card reveal"><span>3</span><h3>Choose your engine</h3><p>Run through local Codex CLI or configure OpenAI and Replicate when those engines fit the job better.</p></article>
+          <article class="capability-card reveal"><span>$</span><h3>Usage before surprise</h3><p>See rough tokens and expected cost before generation, then recorded or best-available usage with the result.</p></article>
+          <article class="capability-card reveal"><span>∞</span><h3>Reusable libraries</h3><p>Keep characters, poses, creative recipes, and generation history organized on your own machine.</p></article>
+          <article class="capability-card reveal"><span>300</span><h3>Print-ready output</h3><p>Passport files are prepared as exact 300 DPI PNG layouts for 2 × 2 download or standard 4 × 6 printing.</p></article>
         </div>
       </div>
     </section>
 
-    <section class="section tight">
-      <div class="container">
-        <div class="section-head reveal">
-          <h2>Made for real families</h2>
-          <p>Playful portraits, sibling shots, and keepsakes — always tasteful, always recognizably them.</p>
-          <p class="text-tertiary" style="font-size:12px;">Reference photos for inspiration, not actual PoseForge outputs — see <a href="https://github.com/yourusername/poseforge/blob/main/CREDITS.md" target="_blank" rel="noreferrer">CREDITS.md</a>.</p>
-        </div>
-        <div class="showcase-strip">
-          <div class="showcase-tile reveal"><img src="https://images.pexels.com/photos/8457717/pexels-photo-8457717.jpeg?auto=compress&cs=tinysrgb&w=500&h=500&fit=crop" alt="Sibling trio at the playground" loading="lazy" /><span>Sibling trio portrait</span></div>
-          <div class="showcase-tile reveal"><img src="https://images.pexels.com/photos/7880399/pexels-photo-7880399.jpeg?auto=compress&cs=tinysrgb&w=500&h=500&fit=crop" alt="Family in matching outfits" loading="lazy" /><span>Matching outfits</span></div>
-          <div class="showcase-tile reveal"><img src="https://images.pexels.com/photos/15648183/pexels-photo-15648183.jpeg?auto=compress&cs=tinysrgb&w=500&h=500&fit=crop" alt="Backyard golden-hour portrait" loading="lazy" /><span>Playground golden hour</span></div>
-          <div class="showcase-tile reveal"><img src="https://images.pexels.com/photos/6115919/pexels-photo-6115919.jpeg?auto=compress&cs=tinysrgb&w=500&h=500&fit=crop" alt="Family holiday card scene" loading="lazy" /><span>Holiday card</span></div>
-        </div>
+    <section class="section privacy-section">
+      <div class="container privacy-panel reveal">
+        <div class="privacy-mark"><svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M12 3 5 6v5c0 4.8 2.8 8.1 7 10 4.2-1.9 7-5.2 7-10V6l-7-3Z" stroke="currentColor" stroke-width="1.5"/><path d="m9 12 2 2 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div><span class="eyebrow">Local-first by architecture</span><h2>Your family photos stay under your control.</h2><p>The app, libraries, previews, and history live on your computer. Codex uses your local CLI workspace; when you deliberately select an API engine, only the references needed for that request are sent to that provider.</p></div>
+        <div class="privacy-facts"><span>No PoseForge account</span><span>No hosted PoseForge gallery</span><span>Transparent engine choice</span></div>
       </div>
     </section>
 
-    <section class="section">
-      <div class="container">
-        <div class="cta-band reveal">
-          <h2>Ready when you are.</h2>
-          <p>Your family's next post is a few clicks away.</p>
-          <div class="hero-actions">
-            <a href="/studio.html" class="btn btn-primary btn-lg">Create a pose</a>
-            <a href="/characters.html" class="btn btn-secondary btn-lg">Manage your family</a>
-          </div>
-        </div>
-      </div>
-    </section>
+    <section class="section final-cta"><div class="container"><div class="cta-panel reveal"><span class="eyebrow">The studio is already home</span><h2>Take the photo.<br /><em>Forge the possibility.</em></h2><p>Portraits, poses, family compositions, and print-ready document photos—one private workspace, with no second photo tool required.</p><div class="hero-actions"><a href="/studio.html" class="btn btn-primary btn-lg">Open PoseForge Studio</a><a href="/gallery.html" class="btn btn-secondary btn-lg">Browse pose ideas</a></div></div></div></section>
   </main>
-
-  <footer class="site-footer">
-    <div class="container">
-      <p>PoseForge — a local, private AI photo studio.</p>
-      <p>Built for family-friendly, everyday photos.</p>
-    </div>
-  </footer>
-
+  <footer class="site-footer"><div class="container"><p>PoseForge — your local-first home photo studio.</p><p>Light by default · Dark when you want it · Apache 2.0</p></div></footer>
   <script src="/js/base.js"></script>
 </body>
 </html>

@@ -29,7 +29,7 @@ router.post("/", upload.single("posePhoto"), asyncHandler(async (req, res) => {
     if (!req.file) return res.status(400).json({ error: "A pose photo is required." });
     const title = String(req.body.title || "").trim().slice(0, 80) || undefined;
     const category = String(req.body.category || "").trim().toLowerCase().slice(0, 40) || undefined;
-    const row = await poseLibrary.addPoseReference(req.file.path, { title, category, isCustom: true });
+    const row = await poseLibrary.addPoseReference(req.file.path, { title, category, isCustom: true, originalName: req.file.originalname, mimeType: req.file.mimetype });
     res.status(201).json(poseLibrary.shape(row));
   } finally { await cleanup(req.file); }
 }));
