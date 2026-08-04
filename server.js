@@ -24,6 +24,7 @@ app.use("/api/pose-references", require("./routes/pose-references"));
 app.use("/api/recipes", require("./routes/recipes"));
 app.use("/api/media", require("./routes/media"));
 app.use("/api/passport", require("./routes/passport"));
+app.use("/api/metrics", require("./routes/metrics"));
 
 app.use((req, res) => res.status(404).json({ error: "Not found." }));
 app.use((err, req, res, next) => {
