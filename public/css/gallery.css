@@ -1,4 +1,5 @@
-.filter-chips { display: flex; gap: var(--space-2); justify-content: center; flex-wrap: wrap; margin-bottom: var(--space-7); }
+.gallery-toolbar { display: flex; align-items: center; justify-content: center; gap: var(--space-4); margin-bottom: var(--space-7); flex-wrap: wrap; }
+.filter-chips { display: flex; gap: var(--space-2); justify-content: center; flex-wrap: wrap; margin-bottom: 0; }
 .filter-chip {
   font-size: 13px; font-weight: 600; padding: 8px 16px; border-radius: var(--radius-pill);
   border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-secondary);
@@ -28,20 +29,56 @@
 .example-visual {
   aspect-ratio: 1/1;
   position: relative;
-  display: grid; grid-template-columns: 1fr 1fr;
   overflow: hidden;
+  background: var(--bg-alt);
 }
-.example-visual .half { display: flex; align-items: center; justify-content: center; position: relative; }
-.example-visual .half.before { background: linear-gradient(160deg, var(--gray-300), var(--gray-200)); }
-.example-visual .half.after { background: linear-gradient(160deg, var(--gray-800), var(--gray-900)); }
-.example-visual .half .figure { width: 44%; height: 62%; border-radius: 40% 40% 30% 30%; background: rgba(255,255,255,0.5); }
-.example-visual .half.after .figure { background: rgba(255,255,255,0.7); transform: rotate(-6deg) scaleX(0.92); }
-.example-visual .label { position: absolute; top: 10px; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: rgba(255,255,255,0.85); background: rgba(0,0,0,0.35); padding: 3px 8px; border-radius: var(--radius-pill); }
-.example-visual .half.before .label { left: 10px; }
-.example-visual .half.after .label { right: 10px; }
+.example-visual img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transition: transform var(--dur-slow) var(--ease);
+}
+.example-card:hover .example-visual img { transform: scale(1.04); }
 
 .example-meta { padding: var(--space-4) var(--space-4) var(--space-5); }
-.example-meta h4 { font-size: 15px; margin-bottom: 4px; }
+.example-meta h4 { font-size: 15px; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
 .example-meta p { margin: 0; font-size: 13px; color: var(--text-tertiary); }
 .example-meta .tags { display: flex; gap: 6px; margin-top: var(--space-3); flex-wrap: wrap; }
 .example-meta .tag { font-size: 11px; font-weight: 600; color: var(--text-secondary); background: var(--bg-alt); padding: 3px 9px; border-radius: var(--radius-pill); }
+.example-meta .tagging-badge { font-size: 10px; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 2px 8px; border-radius: var(--radius-pill); }
+.example-actions { display: flex; gap: var(--space-2); margin-top: var(--space-4); }
+.example-actions .btn { flex: 1; }
+
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(10,10,11,0.4);
+  backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--space-5);
+}
+.modal-card { width: 100%; max-width: 420px; padding: var(--space-6); animation: modal-in var(--dur-med) var(--ease); }
+@keyframes modal-in { from { opacity: 0; transform: translateY(12px) scale(0.98); } to { opacity: 1; transform: none; } }
+.modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-4); }
+.modal-head h3 { font-size: 18px; margin: 0; }
+.modal-close { border: none; background: none; font-size: 22px; line-height: 1; color: var(--text-tertiary); cursor: pointer; padding: 0 4px; }
+.modal-close:hover { color: var(--text-primary); }
+
+.dropzone {
+  position: relative;
+  border-radius: var(--radius-md);
+  border: 1.5px dashed var(--border-strong);
+  background: var(--bg-alt);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  transition: border-color var(--dur-fast), background var(--dur-fast);
+  overflow: hidden;
+  text-align: center;
+  padding: var(--space-4);
+}
+.dropzone:hover { border-color: var(--text-tertiary); }
+.dropzone input { display: none; }
+.dropzone .dz-icon { width: 40px; height: 40px; border-radius: 50%; background: var(--surface); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--text-secondary); }
+.dropzone .dz-text { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.dropzone .dz-sub { font-size: 12px; color: var(--text-tertiary); }
+.dropzone.has-image { padding: 0; border-style: solid; }
+.dropzone.has-image img { width: 100%; height: 100%; object-fit: cover; }

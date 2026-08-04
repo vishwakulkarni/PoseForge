@@ -110,10 +110,15 @@ section.section.tight { padding: var(--space-8) 0; }
 .showcase-tile {
   aspect-ratio: 1/1; border-radius: var(--radius-md); overflow: hidden;
   position: relative; border: 1px solid var(--border);
-  background: linear-gradient(165deg, var(--gray-200), var(--gray-100));
+  background: var(--bg-alt);
   display: flex; align-items: flex-end;
 }
-.showcase-tile span { display: block; padding: var(--space-4); font-size: 13px; font-weight: 600; color: var(--text-primary); background: linear-gradient(0deg, var(--surface), transparent); width: 100%; }
+.showcase-tile img {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  transition: transform var(--dur-slow) var(--ease);
+}
+.showcase-tile:hover img { transform: scale(1.05); }
+.showcase-tile span { position: relative; display: block; padding: var(--space-4); font-size: 13px; font-weight: 600; color: #fff; background: linear-gradient(0deg, rgba(0,0,0,0.55), transparent); width: 100%; }
 
 .insta-section { background: var(--bg-alt); border-radius: var(--radius-xl); padding: var(--space-8); }
 .insta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-7); align-items: center; }

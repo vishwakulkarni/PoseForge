@@ -28,7 +28,7 @@ test("database schema and seed data", async (t) => {
   }
 
   await t.test("core tables exist", async () => {
-    const tables = ["characters", "character_photos", "presets", "settings", "generations"];
+    const tables = ["characters", "character_photos", "presets", "settings", "generations", "pose_references"];
     for (const table of tables) {
       const result = await pool.query("SELECT to_regclass($1) AS exists", [table]);
       assert.ok(result.rows[0].exists, `expected table "${table}" to exist — did you run npm run migrate?`);
@@ -49,6 +49,20 @@ test("database schema and seed data", async (t) => {
     `);
     const hasSetNull = result.rows.some((row) => row.confdeltype === "n");
     assert.ok(hasSetNull, "expected generations.character_id foreign key to be ON DELETE SET NULL");
+  });
+
+  await t.test("pose reference seed data is present", async () => {
+    const result = await pool.query("SELECT COUNT(*)::int AS count FROM pose_references WHERE is_custom = false");
+    assert.ok(result.rows[0].count >= 1, "expected at least one seeded, non-custom pose reference");
+  });
+
+  await t.test("generations.pose_reference_id uses ON DELETE SET NULL", async () => {
+    const result = await pool.query(`
+      SELECT confdeltype FROM pg_constraint
+      WHERE conrelid = 'generations'::regclass AND conname LIKE '%pose_reference_id%'
+    `);
+    const hasSetNull = result.rows.some((row) => row.confdeltype === "n");
+    assert.ok(hasSetNull, "expected generations.pose_reference_id foreign key to be ON DELETE SET NULL");
   });
 });
 

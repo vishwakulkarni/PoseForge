@@ -20,6 +20,7 @@ app.use("/api/presets", require("./routes/presets"));
 app.use("/api/engines", require("./routes/engines"));
 app.use("/api/settings", require("./routes/settings"));
 app.use("/api/generations", require("./routes/generations"));
+app.use("/api/pose-references", require("./routes/pose-references"));
 
 app.use((req, res) => res.status(404).json({ error: "Not found." }));
 app.use((err, req, res, next) => {

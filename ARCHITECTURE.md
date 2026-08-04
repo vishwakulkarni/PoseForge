@@ -23,9 +23,11 @@ server.js                 Express app entry point, mounts routers
 db/
   pool.js                 Shared pg.Pool built from DATABASE_URL
   migrate.js               Runs pending .sql files in db/migrations, tracked in schema_migrations
-  migrations/               001_init.sql (schema), 002/003_*_seed.sql (starter presets)
+  migrations/               001_init.sql (schema), 002/003_*_seed.sql (starter presets),
+                             004_pose_references.sql (pose library schema),
+                             005_pose_references_seed.sql (starter poses)
 routes/
-  characters.js, generations.js, presets.js, engines.js, settings.js
+  characters.js, generations.js, presets.js, engines.js, settings.js, pose-references.js
 engines/
   index.js                 Registry: engine key -> adapter module
   engineInterface.md        The adapter contract, documented
@@ -36,6 +38,8 @@ lib/
   generationQueue.js         In-memory FIFO single-flight job queue
   imageNormalizer.js         Normalizes uploads to PNG before generation
   logger.js                  Structured JSON request/event logging
+  poseLibrary.js             Persists/resolves pose reference images (see below)
+  poseTagger.js               Best-effort AI auto-tagging for pose references
 public/
   index.html, studio.html, characters.html, gallery.html, history.html, settings.html
   css/, js/                  Design system + per-screen logic, no bundler
@@ -46,7 +50,7 @@ storage/                    Runtime-created, gitignored: characters/, generation
 
 ## Data model
 
-Five tables, no ORM:
+Six tables, no ORM:
 
 - **`characters`** — a saved identity (name + timestamps).
 - **`character_photos`** — one or more reference photos per character, one
@@ -59,9 +63,16 @@ Five tables, no ORM:
   variables — see `SECURITY.md` for why keys live in the database instead.
 - **`generations`** — one row per generation attempt. Tracks `status`
   (`pending` → `running` → `completed`/`failed`), the resolved prompt, and
-  paths to the pose photo and output. `character_id` and
-  `character_photo_id` use `ON DELETE SET NULL`, so deleting a character
-  never deletes its generation history.
+  paths to the pose photo and output. `character_id`,
+  `character_photo_id`, and `pose_reference_id` all use `ON DELETE SET
+  NULL`, so deleting a character or a pose reference never deletes
+  generation history.
+- **`pose_references`** — the pose library shown in the Gallery and picked
+  from in Studio. Either seeded (curated Pexels photos, `is_custom: false`,
+  hotlinked via `source_url` until first used) or user-added (`is_custom:
+  true`, always has a local `file_path`). `tag_status` (`pending` →
+  `tagged`/`skipped`) tracks the best-effort AI auto-tagging pipeline —
+  see below.
 
 Run `npm run migrate` to apply `db/migrations/*.sql` in order; it tracks
 what's already applied in a `schema_migrations` table, so it's safe to run
@@ -122,6 +133,34 @@ doesn't block on it:
 Known limitation: the queue is in-memory only. A server restart mid-job
 leaves that row stuck in `running` — acceptable for a local single-user
 tool, but worth knowing if you're debugging a "stuck" generation.
+
+## The pose library
+
+Every pose a generation could use — seeded starters and anything a user
+uploads — lives in `pose_references`. There is deliberately no separate
+"save this pose" step: `POST /api/generations` with a raw `posePhoto`
+upload registers that photo as a new library entry (via
+`lib/poseLibrary.js#addPoseReference`) before using it, so a pose is never
+usable without also being reusable. The alternative is `poseReferenceId`,
+which points at an existing entry.
+
+Two things `lib/poseLibrary.js` handles that are easy to miss:
+
+- **Lazy caching for seeded/external poses.** Seed rows only have a
+  `source_url` (hotlinked, same pattern as the Gallery showcase photos —
+  see `CREDITS.md`). Browsing the library never downloads anything; only
+  `resolvePoseReferenceFile()` — called when a pose is actually used in a
+  generation — fetches and caches the image under `storage/pose-library/`,
+  after which `file_path` is set and it's served locally from then on.
+- **Best-effort AI tagging, always in the background.** `lib/poseTagger.js`
+  tries OpenAI's vision-capable chat completions API first (if a key is
+  configured in `settings`), falls back to asking the Codex CLI to inspect
+  the image and write a small JSON tag object, and returns `null` if
+  neither is available. `tagPoseReferenceInBackground()` fires this off
+  without being awaited by the request handler — a pose upload or
+  generation never waits on tagging, and a `pending`/`tagged`/`skipped`
+  `tag_status` lets the UI show a small "tagging…" indicator that clears
+  once (if) real tags land.
 
 ## Storage
 

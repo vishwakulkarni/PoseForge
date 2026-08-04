@@ -12,6 +12,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Open-source project scaffolding: Apache-2.0 license, `CONTRIBUTING.md`,
   `CODE_OF_CONDUCT.md`, `SECURITY.md`, `ARCHITECTURE.md`, issue/PR
   templates, CI workflow, and an initial test suite.
+- Pose library: the Gallery is now a functional, reusable pose picker
+  instead of a static showcase. Every pose photo uploaded in Studio is
+  automatically saved to the library (no separate "save" step) alongside a
+  curated starter set, and can be reused from a small thumbnail strip
+  directly in Studio or the full Gallery grid.
+- Best-effort AI auto-tagging for pose references (`lib/poseTagger.js`):
+  tries OpenAI vision, falls back to Codex CLI, and never blocks an upload
+  if neither is configured.
+- New `pose_references` table and `POST/GET/DELETE /api/pose-references`
+  endpoints; `POST /api/generations` now accepts a `poseReferenceId` as an
+  alternative to a raw `posePhoto` upload.
 
 ## [0.1.0] — 2026-08-03
 

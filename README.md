@@ -16,14 +16,15 @@ OpenAI, or Replicate) depending on what you have access to.
 
 ## Screens
 
-- **Studio** — upload a character and a pose reference, add optional
-  instructions (clothing, lighting, angle), pick a background/style preset
-  and an engine, and transform. Before/after comparison, download, share,
-  and regenerate.
+- **Studio** — upload a character and pick a pose (upload one, or click a
+  thumbnail from your pose library), add optional instructions (clothing,
+  lighting, angle), pick a background/style preset and an engine, and
+  transform. Before/after comparison, download, share, and regenerate.
 - **Characters** — a saved library of people you photograph often, so you
   never have to re-upload them.
-- **Gallery** — a curated look at what's possible (family portraits,
-  sibling shots, Instagram-square posts, seasonal cards).
+- **Gallery** — your pose library. Curated starter poses plus every pose
+  you've ever uploaded (auto-saved and AI-tagged, no extra step), filterable
+  by pose type, ready to reuse in Studio.
 - **History** — every generation you've actually run, filterable, with full
   detail and the ability to delete.
 - **Settings** — configure engine API keys and your default engine.

@@ -2,11 +2,21 @@ const state = {
   characterMode: "upload",
   characterFile: null,
   poseFile: null,
+  selectedPoseReferenceId: null,
   selectedCharacter: null, // { id, name, primaryPhotoUrl }
   characters: [],
+  poseReferences: [],
   engines: [],
   lastGeneration: null,
 };
+
+function setPoseImagePreview(url) {
+  const zone = $("poseDropzone");
+  zone.classList.add("has-image");
+  let img = zone.querySelector("img.preview-img");
+  if (!img) { img = document.createElement("img"); img.className = "preview-img"; zone.insertBefore(img, zone.firstChild); }
+  img.src = url;
+}
 
 function setupDropzone(zoneId, inputId, progressId, onFile) {
   const zone = $(zoneId);
@@ -62,7 +72,41 @@ function setupDropzone(zoneId, inputId, progressId, onFile) {
 }
 
 setupDropzone("characterDropzone", "characterPhoto", "characterProgress", (file) => { state.characterFile = file; });
-setupDropzone("poseDropzone", "posePhoto", "poseProgress", (file) => { state.poseFile = file; });
+setupDropzone("poseDropzone", "posePhoto", "poseProgress", (file) => {
+  state.poseFile = file;
+  state.selectedPoseReferenceId = null;
+  document.querySelectorAll("#poseThumbStrip .pose-thumb").forEach((t) => t.classList.remove("selected"));
+});
+
+async function loadPoseReferences(preselectId) {
+  const strip = $("poseThumbStrip");
+  try {
+    const data = await api("/api/pose-references");
+    state.poseReferences = (data.poseReferences || []).slice(0, 14);
+    if (!state.poseReferences.length) { strip.innerHTML = `<p class="status-line text-tertiary" style="font-size:12px;">No saved poses yet — upload one to start your library.</p>`; return; }
+    strip.innerHTML = state.poseReferences.map((p) => `
+      <div class="pose-thumb" data-id="${p.id}" title="${p.title}">
+        <img src="${p.imageUrl}" alt="${p.title}" loading="lazy" />
+        ${p.tagStatus === "pending" ? `<span class="pending-dot" title="Tagging…"></span>` : ""}
+      </div>
+    `).join("");
+    strip.querySelectorAll(".pose-thumb").forEach((thumb) => {
+      thumb.addEventListener("click", () => {
+        const pose = state.poseReferences.find((p) => p.id === thumb.dataset.id);
+        if (!pose) return;
+        strip.querySelectorAll(".pose-thumb").forEach((t) => t.classList.remove("selected"));
+        thumb.classList.add("selected");
+        state.poseFile = null;
+        state.selectedPoseReferenceId = pose.id;
+        $("posePhoto").value = "";
+        setPoseImagePreview(pose.imageUrl);
+      });
+    });
+    if (preselectId) strip.querySelector(`.pose-thumb[data-id="${preselectId}"]`)?.click();
+  } catch (err) {
+    strip.innerHTML = `<p class="status-line error" style="font-size:12px;">${err.message}</p>`;
+  }
+}
 
 // ---------------------------------------------------------------------
 // Character mode switch
@@ -168,13 +212,14 @@ $("studioForm").addEventListener("submit", async (event) => {
   if (!engineItem) return setStatus(statusEl, "Choose an engine.", "error");
   if (!engineItem.ready) return setStatus(statusEl, `${engineItem.reason || "Engine is not ready"}. Open Settings to configure it.`, "error");
 
-  if (!state.poseFile) return setStatus(statusEl, "Add a pose reference photo.", "error");
+  if (!state.poseFile && !state.selectedPoseReferenceId) return setStatus(statusEl, "Add a pose reference photo, or pick one from your library.", "error");
   const usingSaved = state.characterMode === "saved";
   if (usingSaved && !state.selectedCharacter) return setStatus(statusEl, "Select a saved character.", "error");
   if (!usingSaved && !state.characterFile) return setStatus(statusEl, "Add a character photo.", "error");
 
   const form = new FormData();
-  form.append("posePhoto", state.poseFile);
+  if (state.poseFile) form.append("posePhoto", state.poseFile);
+  else form.append("poseReferenceId", state.selectedPoseReferenceId);
   if (usingSaved) form.append("characterId", state.selectedCharacter.id);
   else form.append("characterPhoto", state.characterFile);
   form.append("engine", engineItem.key);
@@ -223,6 +268,7 @@ $("studioForm").addEventListener("submit", async (event) => {
         else { await navigator.clipboard.writeText(url); setStatus(statusEl, "Link copied to clipboard.", "ok"); }
       });
       $("regenerateBtn")?.addEventListener("click", () => $("studioForm").requestSubmit());
+      loadPoseReferences();
     } else {
       badge.textContent = "Failed";
       badge.className = "badge badge-error";
@@ -242,3 +288,4 @@ $("studioForm").addEventListener("submit", async (event) => {
 loadCharacters();
 loadPresets();
 loadEngines();
+loadPoseReferences(new URLSearchParams(location.search).get("pose"));
