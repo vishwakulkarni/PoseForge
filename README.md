@@ -30,11 +30,28 @@ OpenAI, or Replicate) depending on what you have access to.
   by pose type, ready to reuse in Studio.
 - **History** — every generation you've actually run, filterable, with full
   detail and the ability to delete.
+- **Metrics** — token usage, spend, latency percentiles, queue wait, engine
+  mix and grouped failure reasons across every run, with Session/Historical
+  scope and JSON/CSV export.
 - **Settings** — configure engine API keys and your default engine.
+- **Docs** — the project's own documentation, rendered in-app.
+
+## Architecture at a glance
+
+The UI and the API are separate processes:
+
+| Process | Port | Owns |
+|---|---|---|
+| Express (`server.js`) | 3004 | API, generation queue, engine adapters, file storage |
+| Next.js (`web/`) | 3000 | The entire UI, proxying `/api` and `/storage` to Express |
+
+The Next.js app holds no business logic. Every rule about what makes a valid
+generation is enforced in the Express layer; the React app mirrors those
+rules only to give faster feedback.
 
 ## Quickstart
 
-Prerequisites: Node.js 18+, Docker (for local Postgres), and optionally the
+Prerequisites: Node.js 20+, Docker (for local Postgres), and optionally the
 [Codex CLI](https://github.com/openai/codex) authenticated if you want to
 use that engine.
 
@@ -43,23 +60,40 @@ git clone https://github.com/yourusername/poseforge.git
 cd poseforge
 cp .env.example .env
 docker compose up -d postgres
-npm install
+npm run install:all      # installs both the API and web/ dependencies
 npm run migrate
-npm start
+npm run dev:all          # Express on :3004, Next.js on :3000
 ```
 
-Open http://localhost:3004. Configure OpenAI or Replicate keys from
-Settings — Codex CLI readiness is auto-detected from your `PATH`.
-
-For development with auto-restart and verbose JSON logs:
-
-```bash
-npm run dev
-```
+Open http://localhost:3000. Configure OpenAI, Gemini or Replicate keys from
+Settings — Codex, Antigravity and ComfyUI readiness is auto-detected.
 
 Development logs include request IDs, HTTP status/duration, generation
 queue transitions, and engine start/finish/failure events. API keys and
 image contents are never logged.
+
+### Useful scripts
+
+| Command | What it does |
+|---|---|
+| `npm run dev:all` | Both processes, with reload |
+| `npm run dev` | API only, on :3004 |
+| `npm run dev:web` | UI only, on :3000 |
+| `npm run test:all` | API tests and web unit/component tests |
+| `npm run test:e2e` | Playwright smoke suite (needs the API running) |
+| `npm run build:web` | Production build of the UI |
+
+## Testing
+
+| Layer | Tool | Location |
+|---|---|---|
+| API units | `node:test` | `tests/*.test.js` |
+| UI units, hooks, reducers | Vitest | `web/tests/*.test.ts` |
+| Components with mocked API | Vitest + RTL + MSW | `web/tests/*.test.tsx` |
+| End-to-end | Playwright | `web/e2e/*.spec.ts` |
+
+Some API tests require the native `sharp` module and will fail in
+environments where native addons cannot load.
 
 ## Generation engines
 

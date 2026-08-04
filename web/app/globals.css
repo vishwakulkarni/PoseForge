@@ -240,6 +240,25 @@
   }
 }
 
+/* Scroll reveal.
+   The hidden start state is applied in CSS rather than React so the element
+   is never hidden when JS is unavailable, and so honouring
+   prefers-reduced-motion needs no client-side state at all. */
+@media (prefers-reduced-motion: no-preference) {
+  .pf-reveal {
+    opacity: 0;
+    transform: translateY(18px);
+    transition:
+      opacity 550ms var(--ease-out-expo),
+      transform 550ms var(--ease-out-expo);
+  }
+
+  .pf-reveal.pf-reveal-in {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @keyframes pf-shimmer {
   to {
     transform: translateX(100%);

@@ -1,0 +1,118 @@
+name: Web
+
+# The existing ci.yml covers the Express API. This workflow covers the
+# Next.js UI in web/ and the end-to-end suite that exercises both together.
+
+on:
+  push:
+    branches: [main, reach-ui]
+    paths:
+      - 'web/**'
+      - 'routes/**'
+      - 'lib/**'
+      - '.github/workflows/web.yml'
+  pull_request:
+    paths:
+      - 'web/**'
+      - 'routes/**'
+      - 'lib/**'
+      - '.github/workflows/web.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Typecheck, lint, unit tests, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: npm ci
+
+      # fumadocs-mdx generates .source/, which typecheck and build both need.
+      - name: Generate MDX sources
+        run: npx fumadocs-mdx
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit and component tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-latest
+    needs: frontend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: poseforge
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d poseforge"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/poseforge
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install API dependencies
+        run: npm ci
+
+      - name: Apply migrations
+        run: npm run migrate
+
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Generate MDX sources
+        working-directory: web
+        run: npx fumadocs-mdx
+
+      - name: Install Playwright browsers
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Start the API
+        run: |
+          node server.js &
+          npx --yes wait-on http://127.0.0.1:3004/api/engines --timeout 60000
+
+      - name: Run Playwright
+        working-directory: web
+        # Chromium only in CI; the mobile project runs locally where it is cheap.
+        run: npx playwright test --project=chromium
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: web/playwright-report/
+          retention-days: 7

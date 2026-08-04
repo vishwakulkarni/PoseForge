@@ -1,6 +1,6 @@
 ---
-title: Engine interface
-description: The adapter contract every generation engine implements.
+title: "Engine interface"
+description: "The adapter contract every generation engine implements."
 ---
 
 Each engine exports `key`, `label`, `isReady()`, and `generate(&#123; characterPhotoPaths, posePhotoPath, prompt, outputPath, apiKey &#125;)`. `isReady()` returns `&#123; ready, reason? &#125;`; `generate` must write a PNG to `outputPath` or throw a clear `Error`.
