@@ -17,18 +17,25 @@
       <p>Add a character, choose a pose, and let the studio transform it.</p>
     </div>
 
+    <ol class="step-rail" id="stepRail">
+      <li class="step-rail-item active" data-step="1"><span class="step-num">1</span><span class="step-name">Family</span></li>
+      <li class="step-rail-item" data-step="2"><span class="step-num">2</span><span class="step-name">Pose</span></li>
+      <li class="step-rail-item" data-step="3"><span class="step-num">3</span><span class="step-name">Direction</span></li>
+      <li class="step-rail-item" data-step="4"><span class="step-num">4</span><span class="step-name">Generate</span></li>
+    </ol>
+
     <form id="studioForm">
       <div class="studio-grid">
         <!-- Characters (up to 4 people) -->
         <div class="card upload-card">
-          <div class="card-head"><h3>Your family</h3></div>
+          <div class="card-head"><h3><span class="step-chip">Step 1</span>Your family</h3><span class="badge badge-neutral" id="personCounter">1 of 4</span></div>
           <div id="characterSlots"></div>
           <button type="button" class="btn btn-secondary btn-sm hidden" id="addPersonBtn">+ Add another person</button>
         </div>
 
         <!-- Pose -->
         <div class="card upload-card">
-          <div class="card-head"><h3>Pose reference</h3></div>
+          <div class="card-head"><h3><span class="step-chip">Step 2</span>Pose reference</h3></div>
           <label class="dropzone" id="poseDropzone">
             <input type="file" id="posePhoto" accept="image/*" />
             <div class="dz-icon">
@@ -52,7 +59,7 @@
       </div>
 
       <div class="card controls-card">
-        <div class="panel-title">Creative direction</div>
+        <div class="panel-title"><span class="step-chip">Step 3</span>Creative direction</div>
         <div class="controls-row">
           <div>
             <label class="field-label" for="backgroundPreset">Background</label>
@@ -75,6 +82,7 @@
         <p class="status-line" id="engineHint"></p>
 
         <div class="transform-bar">
+          <span class="step-chip">Step 4</span>
           <button type="submit" class="btn btn-primary btn-lg" id="transformBtn">Transform photo</button>
         </div>
         <p class="status-line" id="generateStatus">Add a character and a pose photo to get started.</p>

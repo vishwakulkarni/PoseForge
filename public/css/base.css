@@ -295,6 +295,8 @@ select { appearance: none; -webkit-appearance: none; background-image: linear-gr
 .badge-ok { background: var(--success-bg); color: var(--success); }
 .badge-error { background: var(--error-bg); color: var(--error); }
 .badge-neutral { background: var(--accent-soft); color: var(--text-secondary); }
+.badge-running { background: var(--accent); color: var(--accent-contrast); animation: badge-pulse 1.6s ease-in-out infinite; }
+@keyframes badge-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
 .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
 /* ---------------------------------------------------------------------- */

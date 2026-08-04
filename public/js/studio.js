@@ -65,17 +65,18 @@ function renderSavedStrip(slot) {
     return;
   }
   strip.innerHTML = state.characters.map((c) => `
-    <div class="saved-chip ${slot.selectedCharacterId === c.id ? "selected" : ""}" data-id="${c.id}">
+    <button type="button" class="saved-chip ${slot.selectedCharacterId === c.id ? "selected" : ""}" data-id="${c.id}" aria-pressed="${slot.selectedCharacterId === c.id}" aria-label="Use ${c.name}">
       ${c.primaryPhotoUrl
-        ? `<img class="avatar" src="${c.primaryPhotoUrl}" alt="${c.name}" />`
-        : `<div class="avatar" style="display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:var(--text-tertiary);">${c.name.slice(0,1).toUpperCase()}</div>`}
+        ? `<img class="avatar" src="${c.primaryPhotoUrl}" alt="" />`
+        : `<div class="avatar" style="display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:var(--text-tertiary);" aria-hidden="true">${c.name.slice(0,1).toUpperCase()}</div>`}
       <span>${c.name}</span>
-    </div>
+    </button>
   `).join("");
   strip.querySelectorAll(".saved-chip").forEach((chip) => {
     chip.addEventListener("click", () => {
-      strip.querySelectorAll(".saved-chip").forEach((c) => c.classList.remove("selected"));
+      strip.querySelectorAll(".saved-chip").forEach((c) => { c.classList.remove("selected"); c.setAttribute("aria-pressed", "false"); });
       chip.classList.add("selected");
+      chip.setAttribute("aria-pressed", "true");
       const character = state.characters.find((c) => c.id === chip.dataset.id);
       slot.selectedCharacterId = character.id;
       slot.selectedCharacterName = character.name;
@@ -186,6 +187,40 @@ function updateAddPersonVisibility() {
   const last = state.slots[state.slots.length - 1];
   const canAdd = last && slotIsFilled(last) && state.slots.length < MAX_CHARACTERS;
   btn.classList.toggle("hidden", !canAdd);
+  updatePersonCounter();
+  updateStepRail();
+}
+
+function updatePersonCounter() {
+  const counter = $("personCounter");
+  if (!counter) return;
+  counter.textContent = `${state.slots.length} of ${MAX_CHARACTERS}`;
+}
+
+// ---------------------------------------------------------------------
+// Step rail — reflects progress through Family → Pose → Direction → Generate
+// ---------------------------------------------------------------------
+function updateStepRail() {
+  const rail = $("stepRail");
+  if (!rail) return;
+  const hasFamily = Boolean(state.slots.length && slotIsFilled(state.slots[0]));
+  const hasPose = Boolean(state.poseFile || state.selectedPoseReferenceId);
+  const hasDirection = Boolean(
+    $("instructions")?.value.trim() || $("backgroundPreset")?.value || $("stylePreset")?.value
+  );
+  const generated = Boolean(state.lastGeneration);
+
+  const doneFlags = { 1: hasFamily, 2: hasPose, 3: hasDirection, 4: generated };
+  let current = 1;
+  if (hasFamily) current = 2;
+  if (hasFamily && hasPose) current = 3;
+  if (hasFamily && hasPose) current = 4; // direction is optional, so pose completion unlocks Generate too
+
+  rail.querySelectorAll(".step-rail-item").forEach((item) => {
+    const step = Number(item.dataset.step);
+    item.classList.toggle("done", Boolean(doneFlags[step]));
+    item.classList.toggle("active", step === current);
+  });
 }
 
 $("addPersonBtn").addEventListener("click", addSlot);
@@ -261,6 +296,7 @@ setupDropzone("poseDropzone", "posePhoto", "poseProgress", (file) => {
   state.poseFile = file;
   state.selectedPoseReferenceId = null;
   document.querySelectorAll("#poseThumbStrip .pose-thumb").forEach((t) => t.classList.remove("selected"));
+  updateStepRail();
 });
 
 async function loadPoseReferences(preselectId) {
@@ -270,21 +306,23 @@ async function loadPoseReferences(preselectId) {
     state.poseReferences = (data.poseReferences || []).slice(0, 14);
     if (!state.poseReferences.length) { strip.innerHTML = `<p class="status-line text-tertiary" style="font-size:12px;">No saved poses yet — upload one to start your library.</p>`; return; }
     strip.innerHTML = state.poseReferences.map((p) => `
-      <div class="pose-thumb" data-id="${p.id}" title="${p.title}">
-        <img src="${p.imageUrl}" alt="${p.title}" loading="lazy" />
-        ${p.tagStatus === "pending" ? `<span class="pending-dot" title="Tagging…"></span>` : ""}
-      </div>
+      <button type="button" class="pose-thumb" data-id="${p.id}" aria-pressed="${state.selectedPoseReferenceId === p.id}" aria-label="Use pose: ${p.title}${p.tagStatus === "pending" ? " (tagging in progress)" : ""}">
+        <img src="${p.imageUrl}" alt="" loading="lazy" />
+        ${p.tagStatus === "pending" ? `<span class="pending-dot" aria-hidden="true"></span>` : ""}
+      </button>
     `).join("");
     strip.querySelectorAll(".pose-thumb").forEach((thumb) => {
       thumb.addEventListener("click", () => {
         const pose = state.poseReferences.find((p) => p.id === thumb.dataset.id);
         if (!pose) return;
-        strip.querySelectorAll(".pose-thumb").forEach((t) => t.classList.remove("selected"));
+        strip.querySelectorAll(".pose-thumb").forEach((t) => { t.classList.remove("selected"); t.setAttribute("aria-pressed", "false"); });
         thumb.classList.add("selected");
+        thumb.setAttribute("aria-pressed", "true");
         state.poseFile = null;
         state.selectedPoseReferenceId = pose.id;
         $("posePhoto").value = "";
         setPoseImagePreview(pose.imageUrl);
+        updateStepRail();
       });
     });
     if (preselectId) strip.querySelector(`.pose-thumb[data-id="${preselectId}"]`)?.click();
@@ -323,6 +361,10 @@ function updateEngineHint() {
   }
 }
 $("engine").addEventListener("change", updateEngineHint);
+["instructions", "backgroundPreset", "stylePreset"].forEach((id) => {
+  $(id)?.addEventListener("input", updateStepRail);
+  $(id)?.addEventListener("change", updateStepRail);
+});
 
 // ---------------------------------------------------------------------
 // Transform
@@ -366,13 +408,17 @@ $("studioForm").addEventListener("submit", async (event) => {
     do {
       await new Promise((r) => setTimeout(r, 1500));
       record = await api(`/api/generations/${created.id}`);
-      const label = record.status === "running" ? "Generating… this can take a minute." : "Queued…";
+      const running = record.status === "running";
+      const label = running ? "Generating… this can take a minute." : "Queued…";
       const loaderText = $("loaderText");
       if (loaderText) loaderText.textContent = label;
+      badge.textContent = running ? "Generating" : "Queued";
+      badge.className = running ? "badge badge-running" : "badge badge-neutral";
       setStatus(statusEl, label);
     } while (["pending", "running"].includes(record.status));
 
     state.lastGeneration = record;
+    updateStepRail();
 
     if (record.status === "completed") {
       badge.textContent = "Done";
@@ -421,3 +467,4 @@ loadCharacters();
 loadPresets();
 loadEngines();
 loadPoseReferences(new URLSearchParams(location.search).get("pose"));
+updateStepRail();

@@ -18,14 +18,14 @@ Photos used (by [Pexels](https://www.pexels.com) photo ID):
 
 | ID | Used for | Photo |
 |---|---|---|
-| [7880399](https://www.pexels.com/photo/7880399/) | Family, matching outfits | pexels.com/photo/7880399 |
-| [8457717](https://www.pexels.com/photo/8457717/) | Siblings, playground | pexels.com/photo/8457717 |
-| [30680355](https://www.pexels.com/photo/30680355/) | Instagram square, golden hour | pexels.com/photo/30680355 |
+| [7880399](https://www.pexels.com/photo/7880399/) | Family, matching outfits (showcase strip + Instagram preview grid) | pexels.com/photo/7880399 |
+| [8457717](https://www.pexels.com/photo/8457717/) | Siblings, playground (showcase strip + Instagram preview grid) | pexels.com/photo/8457717 |
+| [30680355](https://www.pexels.com/photo/30680355/) | Hero visual, "after" frame | pexels.com/photo/30680355 |
 | [6115919](https://www.pexels.com/photo/6115919/) | Holiday card | pexels.com/photo/6115919 |
-| [32842395](https://www.pexels.com/photo/32842395/) | Multi-generational family portrait | pexels.com/photo/32842395 |
-| [36090195](https://www.pexels.com/photo/36090195/) | Siblings, sunset walk | pexels.com/photo/36090195 |
-| [27659170](https://www.pexels.com/photo/27659170/) | Instagram grid opener | pexels.com/photo/27659170 |
-| [15648183](https://www.pexels.com/photo/15648183/) | Backyard golden-hour portrait | pexels.com/photo/15648183 |
+| [32842395](https://www.pexels.com/photo/32842395/) | Hero visual, "before" frame | pexels.com/photo/32842395 |
+| [36090195](https://www.pexels.com/photo/36090195/) | Instagram preview grid | pexels.com/photo/36090195 |
+| [27659170](https://www.pexels.com/photo/27659170/) | Instagram preview grid opener | pexels.com/photo/27659170 |
+| [15648183](https://www.pexels.com/photo/15648183/) | Backyard golden-hour portrait (showcase strip + Instagram preview grid) | pexels.com/photo/15648183 |
 
 If you swap these out or add your own, keep the same disclosure pattern —
 gallery examples should never be presented as if they were real generated
