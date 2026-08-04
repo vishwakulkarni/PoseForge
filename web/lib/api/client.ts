@@ -8,6 +8,8 @@ import type {
   GenerationStatus,
   MetricsResponse,
   MetricsScope,
+  PassportAccepted,
+  PassportConfig,
   PoseReference,
   Preset,
   Recipe,
@@ -165,6 +167,12 @@ export const api = {
     get: () => request<Settings>('/api/settings'),
     update: (patch: Record<string, unknown>) =>
       request<Settings>('/api/settings', { method: 'PUT', body: JSON.stringify(patch) }),
+  },
+
+  passport: {
+    config: () => request<PassportConfig>('/api/passport/config'),
+    create: (form: FormData) =>
+      request<PassportAccepted>('/api/passport', { method: 'POST', body: form }),
   },
 
   metrics: {

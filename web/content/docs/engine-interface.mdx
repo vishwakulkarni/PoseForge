@@ -1,0 +1,8 @@
+---
+title: Engine interface
+description: The adapter contract every generation engine implements.
+---
+
+Each engine exports `key`, `label`, `isReady()`, and `generate(&#123; characterPhotoPaths, posePhotoPath, prompt, outputPath, apiKey &#125;)`. `isReady()` returns `&#123; ready, reason? &#125;`; `generate` must write a PNG to `outputPath` or throw a clear `Error`.
+
+`characterPhotoPaths` is an array of 1-4 local file paths (one per person in the generation, in order — this is also the order the prompt text refers to them by, e.g. "Image 1", "Image 2"). Every path must be included in the request to the underlying model; dropping any of them means that person won't appear in the output. `prompt` (built by `lib/promptTemplate.js`) already accounts for however many paths were given, so adapters don't need to reason about the count themselves — just forward every image, in order, followed by the pose reference.

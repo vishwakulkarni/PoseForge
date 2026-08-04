@@ -1,5 +1,70 @@
 ---
-title: Placeholder
+title: PoseForge docs
+description: How PoseForge works, how to run it, and how to extend it with a new generation engine.
 ---
 
-Placeholder.
+PoseForge is a local-first photo studio. It takes a person you have saved and a
+pose you have chosen, and returns that person in that pose — along with
+portraits, family compositions, and print-ready document photos.
+
+Everything runs on your machine. There is no PoseForge account, no hosted
+gallery, and no upload step you did not ask for.
+
+## Start here
+
+<Cards>
+  <Card
+    title="Architecture"
+    href="/docs/architecture"
+    description="The stack, the data model, and how a generation flows from request to file."
+  />
+  <Card
+    title="Engine interface"
+    href="/docs/engine-interface"
+    description="The adapter contract. Read this first if you are adding a generation engine."
+  />
+  <Card
+    title="Contributing"
+    href="/docs/contributing"
+    description="Local setup, migrations, tests, and what a good pull request looks like."
+  />
+  <Card
+    title="Security"
+    href="/docs/security"
+    description="Why API keys live in the database, what leaves your machine, and how to report an issue."
+  />
+</Cards>
+
+## The shape of the system
+
+Two processes run side by side in development:
+
+| Process | Port | Owns |
+| --- | --- | --- |
+| Express (`server.js`) | 3004 | The API, the generation queue, engine adapters, and file storage |
+| Next.js (`web/`) | 3000 | The entire user interface, proxying `/api` and `/storage` to Express |
+
+The UI holds no business logic of its own. Every rule about what makes a valid
+generation lives in the Express layer and is enforced there; the React app
+mirrors those rules only to give faster feedback, never to replace them.
+
+## Running both
+
+```bash
+npm install          # Express dependencies
+npm run migrate      # apply db/migrations/*.sql
+npm run dev:all      # Express on :3004 and Next on :3000
+```
+
+Open `localhost:3000`. The API is reachable directly on `:3004` if you want to
+inspect it with `curl`.
+
+## Where the numbers come from
+
+The Metrics dashboard reads one table: `generations`. Every run records its
+engine, status, timestamps, and a `usage_metrics` JSON blob holding token
+counts and cost.
+
+Cost is shown as **recorded** where the provider returns real usage, and as an
+**estimate** otherwise — the dashboard tells you which share is which, because
+an estimate that looks like a measurement is worse than no number at all.
