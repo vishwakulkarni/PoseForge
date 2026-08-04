@@ -25,7 +25,8 @@ db/
   migrate.js               Runs pending .sql files in db/migrations, tracked in schema_migrations
   migrations/               001_init.sql (schema), 002/003_*_seed.sql (starter presets),
                              004_pose_references.sql (pose library schema),
-                             005_pose_references_seed.sql (starter poses)
+                             005_pose_references_seed.sql (starter poses),
+                             006_generation_characters.sql (up to 4 people per generation)
 routes/
   characters.js, generations.js, presets.js, engines.js, settings.js, pose-references.js
 engines/
@@ -50,7 +51,7 @@ storage/                    Runtime-created, gitignored: characters/, generation
 
 ## Data model
 
-Six tables, no ORM:
+Seven tables, no ORM:
 
 - **`characters`** — a saved identity (name + timestamps).
 - **`character_photos`** — one or more reference photos per character, one
@@ -63,10 +64,18 @@ Six tables, no ORM:
   variables — see `SECURITY.md` for why keys live in the database instead.
 - **`generations`** — one row per generation attempt. Tracks `status`
   (`pending` → `running` → `completed`/`failed`), the resolved prompt, and
-  paths to the pose photo and output. `character_id`,
-  `character_photo_id`, and `pose_reference_id` all use `ON DELETE SET
-  NULL`, so deleting a character or a pose reference never deletes
-  generation history.
+  paths to the pose photo and output. `pose_reference_id` uses `ON DELETE
+  SET NULL`, so deleting a pose reference never deletes generation
+  history. The legacy `character_id`/`character_photo_id` columns are
+  still present (nullable, unused by new rows) so pre-migration
+  generations still resolve their single character — every new generation
+  is written through `generation_characters` instead.
+- **`generation_characters`** — one row per person in a generation (1-4,
+  `position` 1-4, `UNIQUE (generation_id, position)`). Each points at
+  either a saved `character_id` (`ON DELETE SET NULL` — deleting a
+  character never deletes past generations) or is null when that slot was
+  a one-off upload; either way `file_path` always has the normalized copy
+  actually used. Deleting a generation cascades and removes its rows here.
 - **`pose_references`** — the pose library shown in the Gallery and picked
   from in Studio. Either seeded (curated Pexels photos, `is_custom: false`,
   hotlinked via `source_url` until first used) or user-added (`is_custom:
@@ -90,11 +99,23 @@ Codex CLI, OpenAI, Replicate, or a future one — implements the same shape:
   async isReady() {
     // return { ready: true } or { ready: false, reason: "..." }
   },
-  async generate({ characterPhotoPath, posePhotoPath, prompt, outputPath, apiKey }) {
+  async generate({ characterPhotoPaths, posePhotoPath, prompt, outputPath, apiKey }) {
     // write a PNG to outputPath, or throw an Error with a clear message
   },
 }
 ```
+
+`characterPhotoPaths` is an array of 1-4 local paths — one per person in
+the generation (dad, mom, kid, ...), in the same order the prompt text
+refers to them by ("Image 1", "Image 2", ...). Every adapter needs to
+forward all of them, not just the first — `codexEngine.js` adds one `-i`
+flag per path, `openaiEngine.js` adds one `image[]` entry per path (both
+straightforward since their underlying APIs already accept multiple
+images). `replicateEngine.js` is the interesting case: the
+`flux-kontext-pro` model's schema only accepts a single `input_image`, so
+with more than one character photo it composites them into a side-by-side
+montage locally (via `sharp`) before sending — an imperfect but reasonable
+fallback, documented inline in that file.
 
 `engines/index.js` holds the registry (`{ codex, openai, replicate }`) and
 `listEngines()`, which calls `isReady()` on each — that's what powers both

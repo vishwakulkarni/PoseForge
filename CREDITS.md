@@ -50,6 +50,12 @@ Photo IDs used (by [Pexels](https://www.pexels.com) photo ID): 16277445,
 37218533, 14666379, 8188775, 34134058, 5861289, 32163232, 15813831,
 10339049, 6668809, 7276013, 8217535.
 
+A second batch (`db/migrations/007_family_pose_seed.sql`) adds group/family
+poses (2-4 people) to pair with Studio's multi-character support — photo
+IDs 32842408, 15463925, 35838611, 9479569, 12750677, 18649763, 6388343,
+9385084. Each of these was checked on its own Pexels page (not just a
+search-result thumbnail) before inclusion.
+
 Any pose photo *you* upload through Studio or the Gallery's "+ Add pose"
 is saved locally under `storage/pose-library/` and is yours — it's never
 sent anywhere except to whichever AI tagging engine you've configured (if

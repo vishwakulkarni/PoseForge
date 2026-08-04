@@ -10,6 +10,11 @@ async function loadFilters() {
   data.characters.forEach((item) => select.add(new Option(item.name, item.id)));
 }
 
+function characterLabel(item) {
+  if (!item.characters || !item.characters.length) return "Unsaved character";
+  return item.characters.map((c) => c.name || `Person ${c.position}`).join(", ");
+}
+
 function statusBadge(status) {
   const map = {
     completed: '<span class="badge badge-ok">Completed</span>',
@@ -26,10 +31,11 @@ function card(item) {
   el.className = "history-card";
   el.innerHTML = `
     <div class="history-thumb">
-      ${item.outputUrl ? `<img src="${item.outputUrl}" alt="Result for ${esc(item.characterName || "character")}" />` : `<div class="skeleton" style="width:100%;height:100%;"></div>`}
+      ${item.outputUrl ? `<img src="${item.outputUrl}" alt="Result for ${esc(characterLabel(item))}" />` : `<div class="skeleton" style="width:100%;height:100%;"></div>`}
+      ${item.characters && item.characters.length > 1 ? `<span class="badge badge-neutral history-count-badge">${item.characters.length} people</span>` : ""}
     </div>
     <div class="history-meta">
-      <h4>${esc(item.characterName || "Unsaved character")}</h4>
+      <h4>${esc(characterLabel(item))}</h4>
       <div class="row"><span>${esc(item.engine)} · ${relativeTime(item.createdAt)}</span>${statusBadge(item.status)}</div>
     </div>
   `;
@@ -59,9 +65,11 @@ async function openDetail(id) {
   const item = await api(`/api/generations/${id}`);
   const overlay = $("detailOverlay");
   const panel = $("detailPanel");
+  const thumbRow = (item.characters || []).map((c) => `<img src="${c.photoUrl}" alt="${esc(c.name || `Person ${c.position}`)}" title="${esc(c.name || `Person ${c.position}`)}" />`).join("");
   panel.innerHTML = `
     ${item.outputUrl ? `<img class="detail-image" src="${item.outputUrl}" alt="Result" />` : ""}
-    <div class="kv"><b>Character</b><span>${esc(item.characterName || "Unsaved character")}</span></div>
+    ${thumbRow ? `<div class="detail-people">${thumbRow}</div>` : ""}
+    <div class="kv"><b>People</b><span>${esc(characterLabel(item))}</span></div>
     <div class="kv"><b>Engine</b><span>${esc(item.engine)}</span></div>
     <div class="kv"><b>Status</b><span>${statusBadge(item.status)}</span></div>
     <div class="kv"><b>Background</b><span>${esc(item.backgroundPreset?.name || "None")}</span></div>

@@ -15,17 +15,22 @@ const engine = {
       ? { ready: false, reason: "Codex CLI is not installed or not on PATH" }
       : { ready: true };
   },
-  generate({ characterPhotoPath, posePhotoPath, prompt, outputPath }) {
+  generate({ characterPhotoPaths, posePhotoPath, prompt, outputPath }) {
     return new Promise((resolve, reject) => {
-      const fullPrompt = `${prompt}\n\nThe two attached images are the references: attachment 1 is the character and attachment 2 is the pose. Use the image-generation tool directly. Do not inspect skill documentation, run exploratory shell commands, or ask for clarification.\n\nOUTPUT CONTRACT: Generate the image now and write a valid PNG to this exact path:\n${outputPath}\nAfter the file exists, finish immediately.`;
+      const paths = Array.isArray(characterPhotoPaths) ? characterPhotoPaths : [characterPhotoPaths];
+      const attachmentList = paths.length === 1
+        ? "attachment 1 is the character and attachment 2 is the pose"
+        : `attachments 1-${paths.length} are the characters (in order) and attachment ${paths.length + 1} is the pose`;
+      const fullPrompt = `${prompt}\n\nThe attached images are the references: ${attachmentList}. Use the image-generation tool directly. Do not inspect skill documentation, run exploratory shell commands, or ask for clarification.\n\nOUTPUT CONTRACT: Generate the image now and write a valid PNG to this exact path:\n${outputPath}\nAfter the file exists, finish immediately.`;
       let child;
       const startedAt = Date.now();
-      logger.info("starting Codex CLI", { characterPhotoPath, posePhotoPath, outputPath, timeoutMs: TIMEOUT_MS });
+      logger.info("starting Codex CLI", { characterPhotoPaths: paths, posePhotoPath, outputPath, timeoutMs: TIMEOUT_MS });
       try {
+        const imageFlags = [...paths, posePhotoPath].flatMap((p) => ["-i", p]);
         child = spawn(CODEX_BIN, [
           "exec", "--sandbox", "workspace-write", "--skip-git-repo-check", "--ephemeral",
           "--ignore-user-config", "--ignore-rules", "-C", path.dirname(outputPath),
-          "-i", characterPhotoPath, "-i", posePhotoPath,
+          ...imageFlags,
           "-c", "sandbox_workspace_write.network_access=true", fullPrompt,
         ], { stdio: ["ignore", "pipe", "pipe"] });
       } catch (err) { return reject(new Error(`Failed to start Codex CLI: ${err.message}`)); }

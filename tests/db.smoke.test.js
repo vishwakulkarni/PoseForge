@@ -28,7 +28,7 @@ test("database schema and seed data", async (t) => {
   }
 
   await t.test("core tables exist", async () => {
-    const tables = ["characters", "character_photos", "presets", "settings", "generations", "pose_references"];
+    const tables = ["characters", "character_photos", "presets", "settings", "generations", "pose_references", "generation_characters"];
     for (const table of tables) {
       const result = await pool.query("SELECT to_regclass($1) AS exists", [table]);
       assert.ok(result.rows[0].exists, `expected table "${table}" to exist — did you run npm run migrate?`);
@@ -63,6 +63,28 @@ test("database schema and seed data", async (t) => {
     `);
     const hasSetNull = result.rows.some((row) => row.confdeltype === "n");
     assert.ok(hasSetNull, "expected generations.pose_reference_id foreign key to be ON DELETE SET NULL");
+  });
+
+  await t.test("generation_characters.generation_id cascades on delete, character_id sets null", async () => {
+    const genResult = await pool.query(`
+      SELECT confdeltype FROM pg_constraint
+      WHERE conrelid = 'generation_characters'::regclass AND conname LIKE '%generation_id%'
+    `);
+    assert.ok(genResult.rows.some((row) => row.confdeltype === "c"), "expected generation_characters.generation_id to be ON DELETE CASCADE");
+    const charResult = await pool.query(`
+      SELECT confdeltype FROM pg_constraint
+      WHERE conrelid = 'generation_characters'::regclass AND conname LIKE '%character_id%' AND conname NOT LIKE '%generation_id%'
+    `);
+    assert.ok(charResult.rows.some((row) => row.confdeltype === "n"), "expected generation_characters.character_id to be ON DELETE SET NULL");
+  });
+
+  await t.test("generation_characters.position is constrained to 1-4", async () => {
+    const result = await pool.query(`
+      SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint
+      WHERE conrelid = 'generation_characters'::regclass AND contype = 'c'
+    `);
+    const hasRangeCheck = result.rows.some((row) => /position/.test(row.def) && /[1-4]/.test(row.def));
+    assert.ok(hasRangeCheck, "expected a CHECK constraint bounding generation_characters.position to 1-4");
   });
 });
 

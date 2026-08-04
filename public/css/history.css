@@ -22,6 +22,7 @@
 
 .history-thumb { aspect-ratio: 3/4; background: var(--bg-alt); display: flex; align-items: center; justify-content: center; position: relative; }
 .history-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.history-count-badge { position: absolute; top: 8px; right: 8px; font-size: 11px; }
 
 .history-meta { padding: var(--space-4); }
 .history-meta h4 { font-size: 14px; margin-bottom: 4px; }
@@ -42,6 +43,8 @@
   animation: modal-in var(--dur-med) var(--ease);
 }
 .detail-panel img.detail-image { width: 100%; border-radius: var(--radius-md); margin-bottom: var(--space-4); border: 1px solid var(--border); }
+.detail-people { display: flex; gap: 6px; margin-bottom: var(--space-4); }
+.detail-people img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border); }
 .detail-panel .kv { display: flex; gap: var(--space-2); font-size: 13px; margin-bottom: var(--space-2); }
 .detail-panel .kv b { min-width: 110px; color: var(--text-secondary); }
 .detail-panel pre { white-space: pre-wrap; font-family: inherit; font-size: 12px; color: var(--text-secondary); background: var(--bg-alt); border-radius: var(--radius-sm); padding: var(--space-3); margin-top: var(--space-3); }

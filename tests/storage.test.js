@@ -24,10 +24,18 @@ test("getGenerationOutputPath is always a PNG regardless of input", () => {
 
 test("getGenerationPosePath and getGenerationCharacterPath live under the same generation folder", () => {
   const pose = storage.getGenerationPosePath("gen-1", "pose.jpg");
-  const character = storage.getGenerationCharacterPath("gen-1", "character.jpg");
+  const character = storage.getGenerationCharacterPath("gen-1", 1, "character.jpg");
   assert.equal(path.dirname(pose), path.dirname(character));
   assert.equal(pose, "generations/gen-1/pose.jpg");
-  assert.equal(character, "generations/gen-1/character.jpg");
+  assert.equal(character, "generations/gen-1/character-1.jpg");
+});
+
+test("getGenerationCharacterPath is unique per position", () => {
+  const one = storage.getGenerationCharacterPath("gen-1", 1, "photo.jpg");
+  const two = storage.getGenerationCharacterPath("gen-1", 2, "photo.jpg");
+  assert.notEqual(one, two);
+  assert.equal(one, "generations/gen-1/character-1.jpg");
+  assert.equal(two, "generations/gen-1/character-2.jpg");
 });
 
 test("absolutePath resolves a relative path inside STORAGE_ROOT", () => {

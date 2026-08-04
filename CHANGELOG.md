@@ -23,6 +23,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New `pose_references` table and `POST/GET/DELETE /api/pose-references`
   endpoints; `POST /api/generations` now accepts a `poseReferenceId` as an
   alternative to a raw `posePhoto` upload.
+- Second pose-library seed batch (`007_family_pose_seed.sql`): 8 real,
+  license-compliant group/family poses (2-4 people) from Pexels, tagged
+  `category: group`, to pair with multi-character generations.
+- Multi-character generations: Studio now supports up to 4 people per
+  photo (progressive "+ Add another person" slots, each upload-or-saved
+  like before). New `generation_characters` table backs this; all three
+  engine adapters and the prompt template were updated to handle 1-4
+  character references instead of exactly one.
+
+### Changed
+
+- **Breaking:** `POST /api/generations` no longer accepts singular
+  `characterId`/`characterPhoto` fields — use `characterId_1..4` /
+  `characterPhoto_1..4` instead (slots must be filled contiguously from
+  1). The response shape's `characterId`/`characterName`/
+  `characterPhotoUrl` fields are replaced by a `characters` array.
 
 ## [0.1.0] — 2026-08-03
 

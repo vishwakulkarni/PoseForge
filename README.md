@@ -16,10 +16,13 @@ OpenAI, or Replicate) depending on what you have access to.
 
 ## Screens
 
-- **Studio** — upload a character and pick a pose (upload one, or click a
+- **Studio** — add up to 4 people (dad, mom, kids — upload a photo for
+  each, or pick a saved character; "+ Add another person" appears once
+  the current slot is filled) and pick a pose (upload one, or click a
   thumbnail from your pose library), add optional instructions (clothing,
   lighting, angle), pick a background/style preset and an engine, and
-  transform. Before/after comparison, download, share, and regenerate.
+  transform into one photo with everyone posed together. Before/after
+  comparison, download, share, and regenerate.
 - **Characters** — a saved library of people you photograph often, so you
   never have to re-upload them.
 - **Gallery** — your pose library. Curated starter poses plus every pose
