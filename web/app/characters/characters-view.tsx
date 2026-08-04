@@ -20,23 +20,17 @@ import { EmptyState, ErrorState, LoadingRegion, Skeleton } from '@/components/ui
 import { useToast } from '@/components/ui/toast';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
-function AddCharacterDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+/**
+ * The form lives in its own component rendered *inside* DialogContent, which
+ * Radix unmounts on close. That means every open starts from fresh state with
+ * no reset effect — and no stale name or preview from the previous attempt.
+ */
+function AddCharacterForm({ onDone }: { onDone: () => void }) {
   const [name, setName] = React.useState('');
   const [formError, setFormError] = React.useState<string | null>(null);
   const preview = useImagePreview();
   const create = useCreateCharacter();
   const toast = useToast();
-
-  // Reset whenever the dialog closes so reopening never shows stale input.
-  React.useEffect(() => {
-    if (!open) {
-      setName('');
-      setFormError(null);
-      preview.clear();
-    }
-    // preview.clear is stable (useCallback with a stable dep).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -53,24 +47,23 @@ function AddCharacterDialog({ open, onOpenChange }: { open: boolean; onOpenChang
     try {
       await create.mutateAsync(form);
       toast.success('Character saved', `${trimmed} is ready to use in Studio.`);
-      onOpenChange(false);
+      onDone();
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'Could not save that character.');
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add a character</DialogTitle>
-          <DialogDescription>
-            Save a face once and reuse it across every generation. The photo is normalised to PNG
-            and stored on this machine.
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <DialogHeader>
+        <DialogTitle>Add a character</DialogTitle>
+        <DialogDescription>
+          Save a face once and reuse it across every generation. The photo is normalised to PNG and
+          stored on this machine.
+        </DialogDescription>
+      </DialogHeader>
 
-        <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
+      <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
           <Field label="Name" htmlFor="character-name" help="How this person appears in pickers.">
             <Input
               id="character-name"
@@ -103,15 +96,30 @@ function AddCharacterDialog({ open, onOpenChange }: { open: boolean; onOpenChang
             </p>
           ) : null}
 
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary" loading={create.isPending}>
-              Save character
-            </Button>
-          </DialogFooter>
-        </form>
+        <DialogFooter>
+          <Button type="button" variant="ghost" onClick={onDone}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="primary" loading={create.isPending}>
+            Save character
+          </Button>
+        </DialogFooter>
+      </form>
+    </>
+  );
+}
+
+function AddCharacterDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <AddCharacterForm onDone={() => onOpenChange(false)} />
       </DialogContent>
     </Dialog>
   );

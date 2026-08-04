@@ -76,15 +76,15 @@ export function PassportView() {
 
   const [profileId, setProfileId] = React.useState<string>('us-passport');
   const [mode, setMode] = React.useState<ProcessingMode>('local');
-  const [engine, setEngine] = React.useState('');
+  const [engineChoice, setEngineChoice] = React.useState<string | null>(null);
   const [resultId, setResultId] = React.useState<string | null>(null);
   const [formError, setFormError] = React.useState<string | null>(null);
 
   const { data: generation } = useGenerationPolling(resultId);
 
-  React.useEffect(() => {
-    if (!engine && engineData?.defaultEngine) setEngine(engineData.defaultEngine);
-  }, [engineData?.defaultEngine, engine]);
+  // Derived rather than synced into state via an effect: null means "the user
+  // has not chosen", so the server default applies and updates if it changes.
+  const engine = engineChoice ?? engineData?.defaultEngine ?? '';
 
   const profile = config?.profiles.find((item) => item.id === profileId) ?? config?.profiles[0];
 
@@ -195,7 +195,7 @@ export function PassportView() {
           {mode === 'ai' ? (
             <div className="mt-4 flex flex-col gap-3">
               <Field label="Engine" htmlFor="passport-engine">
-                <Select value={engine} onValueChange={setEngine}>
+                <Select value={engine} onValueChange={setEngineChoice}>
                   <SelectTrigger id="passport-engine">
                     <SelectValue placeholder="Select an engine" />
                   </SelectTrigger>

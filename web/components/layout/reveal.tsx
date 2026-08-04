@@ -7,10 +7,14 @@ import { cn } from '@/lib/utils';
  * Scroll-triggered fade-and-rise, replacing the legacy `.reveal` +
  * IntersectionObserver pair in base.js.
  *
- * Two behaviours the original lacked:
- *   - Content is visible by default and only hidden once we know the observer
- *     will run, so JS failures or bots never leave a blank page.
- *   - `prefers-reduced-motion` short-circuits the animation entirely.
+ * The hidden start state lives in CSS (`.pf-reveal`, see globals.css) rather
+ * than in React state. That gives three things the original lacked:
+ *
+ *   - Content is visible when JS is unavailable, instead of a blank page.
+ *   - `prefers-reduced-motion` is honoured by the media query alone, with no
+ *     client-side branching.
+ *   - No setState during an effect — the only state update comes from the
+ *     IntersectionObserver callback, which is the pattern effects are for.
  */
 export function Reveal({
   children,
@@ -24,19 +28,17 @@ export function Reveal({
   as?: 'div' | 'section' | 'li' | 'article';
 }) {
   const ref = React.useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = React.useState(true);
-  const [armed, setArmed] = React.useState(false);
+  const [visible, setVisible] = React.useState(false);
 
   React.useEffect(() => {
     const node = ref.current;
     if (!node) return;
 
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reducedMotion || !('IntersectionObserver' in window)) return;
-
-    // Only hide once we are certain the observer can reveal it again.
-    setArmed(true);
-    setVisible(false);
+    if (!('IntersectionObserver' in window)) {
+      // No observer: reveal on the next frame so nothing stays hidden.
+      const id = requestAnimationFrame(() => setVisible(true));
+      return () => cancelAnimationFrame(id);
+    }
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -57,12 +59,8 @@ export function Reveal({
   return (
     <Tag
       ref={ref as React.Ref<never>}
-      style={armed ? { transitionDelay: `${delay}ms` } : undefined}
-      className={cn(
-        armed && 'transition-[opacity,transform] duration-[550ms] ease-[cubic-bezier(0.22,1,0.36,1)]',
-        armed && !visible && 'translate-y-[18px] opacity-0',
-        className,
-      )}
+      style={delay ? { transitionDelay: `${delay}ms` } : undefined}
+      className={cn('pf-reveal', visible && 'pf-reveal-in', className)}
     >
       {children}
     </Tag>

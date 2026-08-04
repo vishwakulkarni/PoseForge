@@ -26,23 +26,17 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { EmptyState, ErrorState, LoadingRegion, Skeleton } from '@/components/ui/feedback';
 import { useToast } from '@/components/ui/toast';
 
-function AddPoseDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+/**
+ * Rendered inside DialogContent, which Radix unmounts on close — so state
+ * resets naturally on every open, with no reset effect.
+ */
+function AddPoseForm({ onDone }: { onDone: () => void }) {
   const [title, setTitle] = React.useState('');
   const [category, setCategory] = React.useState('');
   const [formError, setFormError] = React.useState<string | null>(null);
   const preview = useImagePreview();
   const create = useCreatePoseReference();
   const toast = useToast();
-
-  React.useEffect(() => {
-    if (!open) {
-      setTitle('');
-      setCategory('');
-      setFormError(null);
-      preview.clear();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -57,23 +51,22 @@ function AddPoseDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
     try {
       await create.mutateAsync(form);
       toast.success('Pose added', 'Auto-tagging runs in the background.');
-      onOpenChange(false);
+      onDone();
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'Could not add that pose.');
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add a pose reference</DialogTitle>
-          <DialogDescription>
-            Any photo works as a pose source — only the body language is used, never the face.
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <DialogHeader>
+        <DialogTitle>Add a pose reference</DialogTitle>
+        <DialogDescription>
+          Any photo works as a pose source — only the body language is used, never the face.
+        </DialogDescription>
+      </DialogHeader>
 
-        <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
+      <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
           <Field label="Pose photo" error={preview.error ?? undefined}>
             <Dropzone
               previewUrl={preview.url}
@@ -112,15 +105,30 @@ function AddPoseDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
             </p>
           ) : null}
 
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary" loading={create.isPending}>
-              Add pose
-            </Button>
-          </DialogFooter>
-        </form>
+        <DialogFooter>
+          <Button type="button" variant="ghost" onClick={onDone}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="primary" loading={create.isPending}>
+            Add pose
+          </Button>
+        </DialogFooter>
+      </form>
+    </>
+  );
+}
+
+function AddPoseDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <AddPoseForm onDone={() => onOpenChange(false)} />
       </DialogContent>
     </Dialog>
   );

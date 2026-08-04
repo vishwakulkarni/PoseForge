@@ -21,12 +21,6 @@ export const NAV_ITEMS = [
 
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = React.useState(false);
-
-  // next-themes resolves on the client only; rendering the icon before mount
-  // would produce a hydration mismatch.
-  React.useEffect(() => setMounted(true), []);
-
   const isDark = resolvedTheme === 'dark';
 
   return (
@@ -34,10 +28,20 @@ function ThemeToggle() {
       size="icon"
       variant="secondary"
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
-      aria-label={mounted ? (isDark ? 'Switch to light theme' : 'Switch to dark theme') : 'Toggle theme'}
-      title={mounted ? (isDark ? 'Switch to light theme' : 'Switch to dark theme') : undefined}
+      // The label depends on resolvedTheme, which is undefined during SSR.
+      // suppressHydrationWarning keeps the attribute mismatch from warning
+      // while still giving the correct label once next-themes resolves.
+      suppressHydrationWarning
+      aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+      title={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
     >
-      {mounted && isDark ? <Sun /> : <Moon />}
+      {/*
+        Both icons are rendered and toggled by CSS on the `dark` class that
+        next-themes writes to <html> before paint. This avoids the usual
+        mount-guard effect (and its flash of the wrong icon) entirely.
+      */}
+      <Moon className="dark:hidden" />
+      <Sun className="hidden dark:block" />
     </Button>
   );
 }
@@ -56,10 +60,6 @@ function BrandMark() {
 export function SiteNav() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = React.useState(false);
-
-  // Route changes should always close the drawer, otherwise it stays open
-  // over the new page — a bug in the legacy nav.
-  React.useEffect(() => setMobileOpen(false), [pathname]);
 
   const isActive = React.useCallback(
     (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href)),
@@ -136,6 +136,10 @@ export function SiteNav() {
             <Link
               key={item.href}
               href={item.href}
+              // Closing here rather than in a pathname effect: navigating to
+              // the page you are already on still needs to dismiss the drawer,
+              // and an effect keyed on pathname would not fire in that case.
+              onClick={() => setMobileOpen(false)}
               aria-current={isActive(item.href) ? 'page' : undefined}
               className={cn(
                 'block rounded-[10px] px-3.5 py-3 text-sm font-[650] transition-colors',

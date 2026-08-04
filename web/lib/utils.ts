@@ -48,12 +48,15 @@ export function relativeTime(iso: string | null | undefined): string {
   if (!iso) return '';
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return '';
-  const mins = Math.round((Date.now() - then) / 60000);
+  // Floor, not round: "1m ago" should mean a full minute has elapsed.
+  // Rounding made anything over 30s read as "1m ago" — a bug inherited from
+  // the legacy base.js helper.
+  const mins = Math.floor((Date.now() - then) / 60000);
   if (mins < 1) return 'just now';
   if (mins < 60) return `${mins}m ago`;
-  const hours = Math.round(mins / 60);
+  const hours = Math.floor(mins / 60);
   if (hours < 24) return `${hours}h ago`;
-  const days = Math.round(hours / 24);
+  const days = Math.floor(hours / 24);
   if (days < 30) return `${days}d ago`;
   return new Date(iso).toLocaleDateString(undefined, {
     month: 'short',
