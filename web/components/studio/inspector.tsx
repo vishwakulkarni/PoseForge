@@ -157,6 +157,7 @@ export interface InspectorProps {
   onReset: () => void;
   estimate: UsageEstimate | undefined;
   capabilityNote: string | null;
+  onModeChange: (mode: StudioMode) => void;
 }
 
 export function Inspector({
@@ -178,6 +179,7 @@ export function Inspector({
   onReset,
   estimate,
   capabilityNote,
+  onModeChange,
 }: InspectorProps) {
   const advanced = mode === 'advanced';
 
@@ -193,6 +195,27 @@ export function Inspector({
         </button>
       </div>
 
+      <div className="inspector-mode-switch">
+        <div className="mode-switch" role="group" aria-label="Studio experience level">
+          <button
+            type="button"
+            className={mode === 'normal' ? 'active' : undefined}
+            aria-pressed={mode === 'normal'}
+            onClick={() => onModeChange('normal')}
+          >
+            Normal
+          </button>
+          <button
+            type="button"
+            className={mode === 'advanced' ? 'active' : undefined}
+            aria-pressed={mode === 'advanced'}
+            onClick={() => onModeChange('advanced')}
+          >
+            Advanced <span className="pro-dot" aria-hidden />
+          </button>
+        </div>
+      </div>
+
       <div className="inspector-scroll">
         {advanced ? (
           <section className="recipe-bar">
@@ -204,15 +227,29 @@ export function Inspector({
             </div>
             <StudioSelect
               value={activeRecipeId}
-              aria-label="Apply a saved recipe"
+              aria-label="Apply a recipe"
               onChange={(event) => onApplyRecipe(event.target.value)}
             >
               <option value="">Custom setup</option>
-              {recipes.map((recipe) => (
-                <option key={recipe.id} value={recipe.id}>
-                  {recipe.name}
-                </option>
-              ))}
+              <optgroup label="PoseForge recipes">
+                <option value="builtin:studio-portrait">Studio portrait</option>
+                <option value="builtin:golden-hour">Golden hour</option>
+                <option value="builtin:family-lifestyle">Family lifestyle</option>
+                <option value="builtin:editorial">Editorial</option>
+                <option value="builtin:cinematic-story">Cinematic story</option>
+                <option value="builtin:social-square">Social square</option>
+                <option value="builtin:black-and-white">Black &amp; white</option>
+                <option value="builtin:action">Action</option>
+              </optgroup>
+              {recipes.length ? (
+                <optgroup label="Saved recipes">
+                  {recipes.map((recipe) => (
+                    <option key={recipe.id} value={recipe.id}>
+                      {recipe.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
             </StudioSelect>
           </section>
         ) : null}

@@ -62,10 +62,17 @@ describe('Studio workbench layout', () => {
     expect(screen.getByText('1 / 4')).toBeInTheDocument();
   });
 
-  it('shows the empty canvas prompt before any source is added', async () => {
+  it('shows the empty workflow equation before any source is added', async () => {
     renderWithProviders(<StudioView />);
-    expect(await screen.findByText(/build your composition/i)).toBeInTheDocument();
-    expect(screen.getByText(/ready to compose/i)).toBeInTheDocument();
+    const canvas = screen.getByLabelText(/composition canvas/i);
+    expect(await within(canvas).findByText(/add a character/i)).toBeInTheDocument();
+    expect(within(canvas).getByText(/add a pose/i)).toBeInTheDocument();
+    expect(within(canvas).getByText(/result will appear here/i)).toBeInTheDocument();
+    expect(within(canvas).getByLabelText('plus')).toBeInTheDocument();
+    expect(within(canvas).getByLabelText('equals')).toBeInTheDocument();
+    expect(within(screen.getByLabelText(/creative controls/i)).getByRole('group', {
+      name: 'Studio experience level',
+    })).toBeInTheDocument();
   });
 
   it('keeps generate disabled until sources and a ready engine exist', async () => {
@@ -73,6 +80,34 @@ describe('Studio workbench layout', () => {
     const generate = await screen.findByRole('button', { name: /generate transformation/i });
     expect(generate).toBeDisabled();
     expect(screen.getByText('Add sources to begin')).toBeInTheDocument();
+  });
+
+  it('resizes and independently collapses both side panels', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<StudioView />);
+
+    const sourcesResize = await screen.findByRole('separator', { name: /resize sources panel/i });
+    expect(sourcesResize).toHaveAttribute('aria-valuenow', '280');
+    sourcesResize.focus();
+    await user.keyboard('{ArrowRight}');
+    expect(sourcesResize).toHaveAttribute('aria-valuenow', '292');
+
+    await user.click(screen.getByRole('button', { name: /collapse sources panel/i }));
+    expect(screen.getByRole('button', { name: /expand sources panel/i })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+
+    await user.click(screen.getByRole('button', { name: /collapse direction panel/i }));
+    expect(screen.getByRole('button', { name: /expand direction panel/i })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    await user.click(screen.getByRole('button', { name: /expand direction panel/i }));
+    expect(screen.getByRole('button', { name: /collapse direction panel/i })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
   });
 });
 
@@ -108,6 +143,19 @@ describe('mode switching', () => {
       expect(screen.getByText(group)).toBeInTheDocument();
     }
     expect(screen.getByText('Multi-pose collage')).toBeInTheDocument();
+  });
+
+  it('applies a built-in recipe across the advanced controls', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<StudioView />);
+    await user.click(await screen.findByRole('button', { name: /advanced/i }));
+
+    await user.selectOptions(screen.getByLabelText('Apply a recipe'), 'builtin:cinematic-story');
+
+    expect(screen.getByRole('button', { name: 'Story · 9:16' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 
   it('labels the generate button by mode', async () => {
@@ -156,22 +204,44 @@ describe('subject slots', () => {
     await user.click(screen.getByRole('button', { name: 'Saved' }));
     await user.click(await screen.findByRole('button', { name: /Anika/ }));
 
-    // The slot subtitle switches from the placeholder to the character name.
-    await waitFor(() => expect(screen.getByText('Anika')).toBeInTheDocument());
+    // Both the source control and visual workflow mirror the selected identity.
+    const sources = screen.getByLabelText(/source assets/i);
+    const canvas = screen.getByLabelText(/composition canvas/i);
+    await waitFor(() => expect(within(sources).getByText('Anika')).toBeInTheDocument());
+    expect(within(canvas).getByText('Anika')).toBeInTheDocument();
     expect(screen.queryByText('Add identity photo')).not.toBeInTheDocument();
+  });
+
+  it('shows multiple selected characters in order with plus operators', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<StudioView />);
+
+    await user.click(await screen.findByRole('button', { name: 'Saved' }));
+    await user.click(await screen.findByRole('button', { name: /Anika/ }));
+    await user.click(screen.getByRole('button', { name: /add another subject/i }));
+    await user.click(screen.getByRole('button', { name: 'Saved' }));
+    await user.click(await screen.findByRole('button', { name: /Ravi/ }));
+
+    const canvas = screen.getByLabelText(/composition canvas/i);
+    expect(within(canvas).getByText('Anika')).toBeInTheDocument();
+    expect(within(canvas).getByText('Ravi')).toBeInTheDocument();
+    // Anika + Ravi + the pose placeholder.
+    expect(within(canvas).getAllByLabelText('plus')).toHaveLength(2);
   });
 });
 
 describe('pose reference', () => {
-  it('selects a pose from the thumbnail strip and shows the composition', async () => {
+  it('selects a pose from the thumbnail strip and adds it to the equation', async () => {
     withPoses();
     const user = userEvent.setup();
     renderWithProviders(<StudioView />);
 
     await user.click(await screen.findByRole('button', { name: 'Arms crossed' }));
 
-    expect(await screen.findByText('Source composition')).toBeInTheDocument();
-    expect(screen.getByText(/0 subjects · pose ready/i)).toBeInTheDocument();
+    const canvas = screen.getByLabelText(/composition canvas/i);
+    expect(await within(canvas).findByText('Arms crossed')).toBeInTheDocument();
+    expect(within(canvas).getByText(/add a character/i)).toBeInTheDocument();
+    expect(within(canvas).getByLabelText('equals')).toBeInTheDocument();
   });
 
   it('offers collage splitting only for an uploaded sheet', async () => {
@@ -271,7 +341,9 @@ describe('inspector', () => {
     await user.click(portrait);
 
     await waitFor(() => expect(portrait).toHaveAttribute('aria-pressed', 'true'));
-    // The canvas toolbar mirrors the selected ratio.
-    expect(within(screen.getByLabelText(/composition canvas/i)).getByText('4:5')).toBeInTheDocument();
+    // The workflow result card mirrors the selected ratio.
+    expect(
+      screen.getByLabelText(/composition canvas/i).querySelector('[data-aspect="4:5"]'),
+    ).toBeInTheDocument();
   });
 });

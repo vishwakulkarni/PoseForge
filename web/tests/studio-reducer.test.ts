@@ -6,7 +6,7 @@ import {
   validateStudioState,
   type StudioState,
 } from '@/lib/studio/reducer';
-import { MAX_CHARACTERS, defaultAdvancedSettings } from '@/lib/studio/settings';
+import { builtInRecipe, builtInRecipes, MAX_CHARACTERS, defaultAdvancedSettings } from '@/lib/studio/settings';
 
 function file(name = 'photo.png') {
   return new File(['x'], name, { type: 'image/png' });
@@ -137,6 +137,16 @@ describe('mode switching', () => {
 });
 
 describe('recipes', () => {
+  it('provides built-in recipes with complete, subject-aware settings', () => {
+    const recipes = builtInRecipes(2);
+    expect(recipes).toHaveLength(8);
+
+    const cinematic = builtInRecipe('builtin:cinematic-story', 2);
+    expect(cinematic?.settings.subjects).toHaveLength(2);
+    expect(cinematic?.settings.output.aspectRatio).toBe('9:16');
+    expect(cinematic?.settings.lighting).toBe('dramatic');
+  });
+
   it('resizes an applied recipe to the current people count', () => {
     let state = run(initialStudioState(), { type: 'addSlot' });
     const recipe = defaultAdvancedSettings(4);
