@@ -53,6 +53,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Hardened Next.js hydration and responsive navigation across the app and
   Fumadocs, including desktop and mobile Docs navigation.
+- Combined Express and Next.js behind one local server and one origin; local
+  development now uses `npm run dev` and production uses `npm start`.
 - Made production builds offline-friendly by replacing build-time Google Font
   downloads with polished system font stacks.
 - Expanded CI and Playwright coverage to include documentation changes and

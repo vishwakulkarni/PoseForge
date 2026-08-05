@@ -49,27 +49,26 @@ to their provider.
 
 ## The shape of the system
 
-Two processes run side by side in development:
+One Node.js server owns the complete local application:
 
-| Process | Port | Owns |
+| Surface | Path | Owns |
 | --- | --- | --- |
-| Express (`server.js`) | 3004 | The API, the generation queue, engine adapters, and file storage |
-| Next.js (`web/`) | 3000 | The entire user interface, proxying `/api` and `/storage` to Express |
+| Express | `/api/*`, `/storage/*` | The API, generation queue, engine adapters, and file storage |
+| Next.js (`web/`) | Page and asset routes | The entire user interface |
 
 The UI holds no business logic of its own. Every rule about what makes a valid
 generation lives in the Express layer and is enforced there; the React app
 mirrors those rules only to give faster feedback, never to replace them.
 
-## Running both
+## Running PoseForge
 
 ```bash
 npm run install:all  # Express and Next.js dependencies
 npm run migrate      # apply db/migrations/*.sql
-npm run dev:all      # Express on :3004 and Next on :3000
+npm run dev          # start the complete development server
 ```
 
-Open `localhost:3000`. The API is reachable directly on `:3004` if you want to
-inspect it with `curl`.
+Open `localhost:3000`. The API is available from the same origin under `/api`.
 
 ## Where the numbers come from
 

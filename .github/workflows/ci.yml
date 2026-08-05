@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [18, 20]
+        node-version: [20, 22]
 
     services:
       postgres:
@@ -29,8 +29,6 @@ jobs:
 
     env:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/poseforge
-      PORT: 3004
-
     steps:
       - uses: actions/checkout@v4
 

@@ -91,6 +91,5 @@ beside each engine in Settings.
 - If a generation fails, open History for the recorded error and request ID.
 - If a cloud engine rejects an image, confirm its size, format, and provider
   policy; try a JPG or PNG if its API does not accept HEIC directly.
-- If the UI cannot load data, confirm the API is running on port 3004 and the
-  Next.js UI is running on port 3000.
-
+- If the UI cannot load data, restart the single PoseForge process with
+  `npm run dev` and review its terminal output.

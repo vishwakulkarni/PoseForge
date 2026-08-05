@@ -1,7 +1,7 @@
 name: Web
 
 # The existing ci.yml covers the Express API. This workflow covers the
-# Next.js UI in web/ and the end-to-end suite that exercises both together.
+# Next.js UI and the end-to-end suite against the combined local server.
 
 on:
   push:
@@ -122,11 +122,6 @@ jobs:
       - name: Install Playwright browsers
         working-directory: web
         run: npx playwright install --with-deps chromium
-
-      - name: Start the API
-        run: |
-          node server.js &
-          npx --yes wait-on http://127.0.0.1:3004/api/engines --timeout 60000
 
       - name: Run Playwright
         working-directory: web

@@ -1,57 +1,128 @@
+const DEV_MODE = process.argv.includes("--dev");
+if (DEV_MODE) {
+  process.env.NODE_ENV = "development";
+  process.env.LOG_LEVEL ||= "debug";
+} else {
+  process.env.NODE_ENV ||= "production";
+}
+
 require("dotenv").config({ quiet: true });
 const express = require("express");
+const http = require("http");
 const multer = require("multer");
 const path = require("path");
+const { createRequire } = require("module");
 const storage = require("./lib/storage");
 const logger = require("./lib/logger");
 
-const app = express();
-const PORT = process.env.PORT || 3004;
-storage.ensureStorage();
+const WEB_DIR = path.join(__dirname, "web");
+const requireFromWeb = createRequire(path.join(WEB_DIR, "package.json"));
 
-const WEB_ORIGIN = process.env.POSEFORGE_WEB_ORIGIN || "http://localhost:3000";
+/**
+ * Mount the existing API and local file storage ahead of Next's request
+ * handler. The browser therefore talks to one origin and one server; Express
+ * remains the source of truth for business rules without needing a proxy.
+ */
+function createApplication(nextHandler) {
+  storage.ensureStorage();
+  const app = express();
 
-app.use(logger.requestLogger);
-app.use(express.json({ limit: "1mb" }));
-app.use("/api", (req, res, next) => { res.setHeader("Cache-Control", "no-store"); next(); });
+  app.use(logger.requestLogger);
+  app.use(express.json({ limit: "1mb" }));
+  app.use("/api", (req, res, next) => {
+    res.setHeader("Cache-Control", "no-store");
+    next();
+  });
 
-// This process serves the API and generated files only. The user interface is
-// the Next.js app in web/, which proxies /api and /storage back here.
-// `public/` now holds just the shared brand assets the UI links to.
-app.use(express.static(path.join(__dirname, "public"), { index: false }));
-app.use("/storage", express.static(storage.STORAGE_ROOT, { fallthrough: true }));
+  app.use(express.static(path.join(__dirname, "public"), { index: false }));
+  app.use("/storage", express.static(storage.STORAGE_ROOT, { fallthrough: true }));
 
-app.use("/api/characters", require("./routes/characters"));
-app.use("/api/presets", require("./routes/presets"));
-app.use("/api/engines", require("./routes/engines"));
-app.use("/api/settings", require("./routes/settings"));
-app.use("/api/generations", require("./routes/generations"));
-app.use("/api/pose-references", require("./routes/pose-references"));
-app.use("/api/recipes", require("./routes/recipes"));
-app.use("/api/media", require("./routes/media"));
-app.use("/api/passport", require("./routes/passport"));
-app.use("/api/metrics", require("./routes/metrics"));
+  app.use("/api/characters", require("./routes/characters"));
+  app.use("/api/presets", require("./routes/presets"));
+  app.use("/api/engines", require("./routes/engines"));
+  app.use("/api/settings", require("./routes/settings"));
+  app.use("/api/generations", require("./routes/generations"));
+  app.use("/api/pose-references", require("./routes/pose-references"));
+  app.use("/api/recipes", require("./routes/recipes"));
+  app.use("/api/media", require("./routes/media"));
+  app.use("/api/passport", require("./routes/passport"));
+  app.use("/api/metrics", require("./routes/metrics"));
 
-// A browser hitting the API port directly used to get the old dashboard.
-// Point it at the real UI instead of returning a bare 404.
-app.get("/", (req, res) => {
-  if (req.accepts("html")) return res.redirect(302, WEB_ORIGIN);
-  res.json({ service: "poseforge-api", ui: WEB_ORIGIN });
-});
+  // Unknown API requests remain JSON errors instead of falling through to the
+  // Next.js HTML 404 page.
+  app.use("/api", (req, res) => res.status(404).json({ error: "Not found." }));
 
-app.use((req, res) => res.status(404).json({ error: "Not found." }));
-app.use((err, req, res, next) => {
-  logger.error("request failed", { requestId: req.requestId, error: err.message, stack: err.stack });
-  if (err instanceof multer.MulterError) return res.status(400).json({ error: err.code === "LIMIT_FILE_SIZE" ? "That file is too large (25MB max)." : err.message });
-  res.status(err.statusCode || 500).json({ error: err.message || "Unexpected error." });
-});
+  app.use((err, req, res, next) => {
+    logger.error("request failed", {
+      requestId: req.requestId,
+      error: err.message,
+      stack: err.stack,
+    });
+    if (err instanceof multer.MulterError) {
+      return res.status(400).json({
+        error: err.code === "LIMIT_FILE_SIZE" ? "That file is too large (25MB max)." : err.message,
+      });
+    }
+    return res.status(err.statusCode || 500).json({ error: err.message || "Unexpected error." });
+  });
 
-app.listen(PORT, "127.0.0.1", () => logger.info("server started", {
-  url: `http://127.0.0.1:${PORT}`,
-  ui: WEB_ORIGIN,
-  environment: process.env.NODE_ENV || "production",
-  databaseConfigured: Boolean(process.env.DATABASE_URL),
-  codexBinary: process.env.CODEX_BIN || "codex",
-  codexTimeoutMs: Number(process.env.CODEX_TIMEOUT_MS || 300000),
-}));
-module.exports = app;
+  app.all("*", (req, res) => nextHandler(req, res));
+  return app;
+}
+
+async function start() {
+  const port = Number(process.env.PORT || 3000);
+  const hostname = process.env.HOST || "127.0.0.1";
+  const dev = DEV_MODE || process.env.NODE_ENV === "development";
+
+  // Next and Fumadocs resolve project-relative generated imports from cwd.
+  // Express, storage, and database paths use __dirname, so the complete app
+  // can safely run with the web project as its working directory.
+  process.chdir(WEB_DIR);
+
+  const next = requireFromWeb("next");
+  const nextApp = next({ dev, dir: WEB_DIR, hostname, port });
+
+  await nextApp.prepare();
+
+  const app = createApplication(nextApp.getRequestHandler());
+  const server = http.createServer(app);
+  const upgrade = nextApp.getUpgradeHandler?.();
+  if (upgrade) server.on("upgrade", upgrade);
+
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(port, hostname, resolve);
+  });
+
+  logger.info("server started", {
+    url: `http://${hostname}:${port}`,
+    environment: dev ? "development" : "production",
+    databaseConfigured: Boolean(process.env.DATABASE_URL),
+    codexBinary: process.env.CODEX_BIN || "codex",
+    codexTimeoutMs: Number(process.env.CODEX_TIMEOUT_MS || 300000),
+  });
+
+  let closing = false;
+  const shutdown = async (signal) => {
+    if (closing) return;
+    closing = true;
+    logger.info("server stopping", { signal });
+    await nextApp.close();
+    await new Promise((resolve) => server.close(resolve));
+  };
+
+  process.once("SIGINT", () => void shutdown("SIGINT"));
+  process.once("SIGTERM", () => void shutdown("SIGTERM"));
+
+  return server;
+}
+
+if (require.main === module) {
+  start().catch((error) => {
+    logger.error("server failed to start", { error: error.message, stack: error.stack });
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { createApplication, start };
