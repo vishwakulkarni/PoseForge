@@ -3,6 +3,9 @@
   "root": true,
   "pages": [
     "index",
+    "---Using PoseForge---",
+    "user-guide",
+    "metrics",
     "---Reference---",
     "architecture",
     "engine-interface",

@@ -544,6 +544,7 @@ export function Inspector({
                     <button
                       key={ratio}
                       type="button"
+                      aria-label={`${label} · ${ratio}`}
                       className={settings.output.aspectRatio === ratio ? 'active' : undefined}
                       aria-pressed={settings.output.aspectRatio === ratio}
                       onClick={() =>

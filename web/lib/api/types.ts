@@ -181,7 +181,7 @@ export interface DocumentProfile {
   label: string;
   retrievedOn: string;
   sourceVersionLabel: string;
-  sourceUpdatedOn: string;
+  sourceUpdatedOn: string | null;
   officialLinks: Array<{ label: string; url: string }>;
   requirements: string[];
   output: {
@@ -191,6 +191,7 @@ export interface DocumentProfile {
     printWidthMm: number;
     printHeightMm: number;
     sheet: boolean;
+    minBytes?: number;
     maxBytes?: number;
   };
   prompt: string;

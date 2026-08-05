@@ -18,8 +18,8 @@ the goal is to keep it approachable for both users and contributors.
 ## Development setup
 
 ```bash
-git clone https://github.com/yourusername/poseforge.git
-cd poseforge
+git clone https://github.com/vishwakulkarni/PoseForge.git
+cd PoseForge
 cp .env.example .env
 docker compose up -d postgres
 npm run install:all   # API dependencies, then web/
@@ -55,7 +55,12 @@ Route-level tests that need a database skip themselves gracefully when
 `DATABASE_URL` isn't reachable, so `npm test` works without Postgres
 running, just with reduced coverage.
 
-Before opening a PR, the same checks CI runs:
+Playwright starts the Next.js development server itself, but the Express API
+must already be available on port 3004. The CI workflow starts both and runs
+the desktop Chromium project; run the default command locally to cover both
+desktop and mobile viewports.
+
+Before opening a PR, run the same quality gates CI uses:
 
 ```bash
 npm run check                       # API syntax
@@ -63,7 +68,9 @@ npm test                            # API tests
 npm --prefix web run typecheck
 npm --prefix web run lint
 npm --prefix web test
+npm run docs:check
 npm run build:web
+npm run test:e2e
 ```
 
 ## Working on the UI
@@ -89,11 +96,35 @@ is a good reference for a cloud API-based engine) as a template:
   key: "your-engine",
   label: "Your Engine",
   async isReady() { /* return { ready, reason? } */ },
-  async generate({ characterPhotoPath, posePhotoPath, prompt, outputPath, apiKey }) {
+  async generate({
+    characterPhotoPaths,
+    posePhotoPath,
+    prompt,
+    outputPath,
+    outputSettings,
+    apiKey,
+    model,
+  }) {
     /* write a PNG to outputPath, or throw */
   },
 }
 ```
+
+`characterPhotoPaths` contains one to four subjects in prompt order.
+`outputSettings` and `model` may be omitted by the caller, so adapters must
+provide safe defaults. See `engines/engineInterface.md` for the full contract.
+
+## Updating documentation
+
+The repository Markdown files are the source of truth. `scripts/sync-docs.js`
+copies the contributor and user documentation into the in-app Docs site:
+
+```bash
+npm run docs:sync   # regenerate web/content/docs/*.mdx
+npm run docs:check  # verify that committed copies are current
+```
+
+Commit the source Markdown and its generated MDX copy in the same change.
 
 Register it in `engines/index.js`, and it will automatically show up in the
 Studio's engine dropdown and the Settings screen.

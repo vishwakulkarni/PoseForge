@@ -20,6 +20,18 @@ const OUT_DIR = path.join(ROOT, "web", "content", "docs");
 
 const DOCUMENTS = [
   {
+    src: "docs/USER_GUIDE.md",
+    slug: "user-guide",
+    title: "User guide",
+    description: "Studio, ID Photos, libraries, engines, privacy, and troubleshooting.",
+  },
+  {
+    src: "docs/METRICS.md",
+    slug: "metrics",
+    title: "Metrics reference",
+    description: "Definitions for cost, tokens, latency, scopes, estimates, and exports.",
+  },
+  {
     src: "ARCHITECTURE.md",
     slug: "architecture",
     title: "Architecture",

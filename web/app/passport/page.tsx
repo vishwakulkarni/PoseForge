@@ -13,8 +13,8 @@ export default function PassportPage() {
   return (
     <PageShell
       eyebrow="Document photos"
-      title="Print-ready, to the millimetre."
-      description="Exact pixel dimensions at 300 DPI, with a 4×6 print sheet and the official requirements shown next to the tool — not buried in a help article."
+      title="One photo. Ready for the application."
+      description="Crop, resize, and prepare U.S. and Indian passport, visa, e-Visa, and OCI photos locally—with dated official guidance beside every decision."
     >
       <ErrorBoundary>
         <PassportView />

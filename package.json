@@ -6,13 +6,13 @@
   "main": "server.js",
   "license": "Apache-2.0",
   "author": "Vishwa Kulkarni",
-  "homepage": "https://github.com/yourusername/poseforge#readme",
+  "homepage": "https://github.com/vishwakulkarni/PoseForge#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yourusername/poseforge.git"
+    "url": "git+https://github.com/vishwakulkarni/PoseForge.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/poseforge/issues"
+    "url": "https://github.com/vishwakulkarni/PoseForge/issues"
   },
   "keywords": [
     "ai",
@@ -25,7 +25,7 @@
     "codex-cli"
   ],
   "engines": {
-    "node": ">=18"
+    "node": ">=20.9.0"
   },
   "scripts": {
     "start": "node server.js",

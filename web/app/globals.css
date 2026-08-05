@@ -9,12 +9,11 @@
  * ------------------------------------------------------------------ */
 
 @theme {
-  /* next/font injects the --font-* variables on <html>; the literal names are
-     kept as fallbacks so the tokens still resolve in tests and Storybook-less
-     unit renders where next/font is stubbed. */
-  --font-sans: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-display: var(--font-manrope), 'Manrope', 'Inter', -apple-system, sans-serif;
-  --font-mono: var(--font-jetbrains), 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* System stacks keep production builds deterministic and offline-friendly.
+     The first choices preserve the clean geometric feel of the original UI. */
+  --font-sans: 'Inter', 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Manrope', 'Avenir Next', 'SF Pro Display', 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
 
   --radius-xs: 8px;
   --radius-sm: 12px;
@@ -102,6 +101,43 @@
 
   --pf-nav-h: 68px;
   --pf-container: 1240px;
+}
+
+/* Fumadocs ships a second Tailwind-generated stylesheet on /docs. Unique
+   responsive classes keep its utility rules from overriding the shared app
+   navigation at the lg breakpoint. */
+.pf-primary-nav,
+.pf-desktop-cta {
+  display: none !important;
+}
+
+.pf-mobile-nav-toggle {
+  display: inline-flex !important;
+}
+
+.pf-mobile-nav-panel {
+  display: block !important;
+}
+
+@media (min-width: 64rem) {
+  .pf-site-nav-grid {
+    grid-template-columns: auto minmax(0, 1fr) auto !important;
+  }
+
+  .pf-primary-nav {
+    display: flex !important;
+  }
+
+  .pf-mobile-nav-toggle,
+  .pf-mobile-nav-panel {
+    display: none !important;
+  }
+}
+
+@media (min-width: 80rem) {
+  .pf-desktop-cta {
+    display: inline-flex !important;
+  }
 }
 
 .dark {

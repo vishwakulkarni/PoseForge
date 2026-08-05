@@ -1,13 +1,17 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { renderWithProviders } from './helpers/render';
 import { charactersFixture, server } from './helpers/server';
 import { CharactersView } from '@/app/characters/characters-view';
+import { api } from '@/lib/api/client';
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
-afterEach(() => server.resetHandlers());
+afterEach(() => {
+  server.resetHandlers();
+  vi.restoreAllMocks();
+});
 afterAll(() => server.close());
 
 describe('CharactersView', () => {
@@ -68,20 +72,20 @@ describe('CharactersView', () => {
     // callback, and would otherwise narrow these `let`s to `null`.
     const received: { name?: string; photo?: { size: number; type: string } } = {};
 
-    server.use(
-      http.post('/api/characters', async ({ request }) => {
-        const form = await request.formData();
-        received.name = form.get('name') as string;
-        // MSW parses the body in a different realm, so `instanceof File` is
-        // unreliable here. The payload shape is what actually matters.
-        const photo = form.get('characterPhoto') as Blob | null;
-        if (photo) received.photo = { size: photo.size, type: photo.type };
-        return HttpResponse.json(
-          { id: 'new-id', name: received.name, primaryPhotoUrl: '/storage/new.png' },
-          { status: 201 },
-        );
-      }),
-    );
+    // Inspect before fetch serialization. jsdom File and Node/Undici FormData
+    // are different realms; asking MSW to reparse that multipart body tests
+    // Undici internals rather than our component contract.
+    vi.spyOn(api.characters, 'create').mockImplementation(async (form) => {
+      received.name = form.get('name') as string;
+      const photo = form.get('characterPhoto') as Blob | null;
+      if (photo) received.photo = { size: photo.size, type: photo.type };
+      return {
+        id: 'new-id',
+        name: received.name,
+        primaryPhotoUrl: '/storage/new.png',
+        createdAt: new Date().toISOString(),
+      };
+    });
 
     renderWithProviders(<CharactersView />);
     await user.click(await screen.findByRole('button', { name: /add character/i }));

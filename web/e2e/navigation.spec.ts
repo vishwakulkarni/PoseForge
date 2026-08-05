@@ -5,7 +5,7 @@ const PAGES = [
   { path: '/studio', heading: /sources/i },
   { path: '/characters', heading: /people you photograph/i },
   { path: '/poses', heading: /body language/i },
-  { path: '/passport', heading: /print-ready/i },
+  { path: '/passport', heading: /one photo\. ready for the application/i },
   { path: '/history', heading: /everything you have made/i },
   { path: '/metrics', heading: /what your studio/i },
   { path: '/docs', heading: /poseforge docs/i },

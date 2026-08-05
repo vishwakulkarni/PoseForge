@@ -10,12 +10,30 @@ on:
       - 'web/**'
       - 'routes/**'
       - 'lib/**'
+      - 'docs/**'
+      - 'scripts/sync-docs.js'
+      - 'README.md'
+      - 'CONTRIBUTING.md'
+      - 'ARCHITECTURE.md'
+      - 'SECURITY.md'
+      - 'CREDITS.md'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/web.yml'
   pull_request:
     paths:
       - 'web/**'
       - 'routes/**'
       - 'lib/**'
+      - 'docs/**'
+      - 'scripts/sync-docs.js'
+      - 'README.md'
+      - 'CONTRIBUTING.md'
+      - 'ARCHITECTURE.md'
+      - 'SECURITY.md'
+      - 'CREDITS.md'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/web.yml'
 
 concurrency:
@@ -112,8 +130,7 @@ jobs:
 
       - name: Run Playwright
         working-directory: web
-        # Chromium only in CI; the mobile project runs locally where it is cheap.
-        run: npx playwright test --project=chromium
+        run: npx playwright test
 
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}

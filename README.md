@@ -10,10 +10,11 @@ that pose — same identity, new composition. Built with family photoshoots
 and Instagram-ready posts in mind, but useful for any character-in-pose
 transformation.
 
-It runs entirely on your own machine. No account, no cloud dependency
-required — pick from six interchangeable generation engines (Codex CLI,
-Antigravity CLI, ComfyUI, OpenAI, Gemini, or Replicate) depending on what
-you have access to.
+Your workspace, database, and generated files stay on your machine. ComfyUI
+can keep inference fully local; cloud API engines and signed-in CLI engines
+send the selected reference images and prompt to their provider. PoseForge
+supports six interchangeable engines: Codex CLI, Antigravity CLI, ComfyUI,
+OpenAI, Gemini, and Replicate.
 
 ## Screens
 
@@ -32,6 +33,9 @@ you have access to.
   by category and tag, ready to reuse in Studio.
 - **History** — every generation you've actually run, filterable, with full
   detail and the ability to delete.
+- **ID Photos** — locally crop and format U.S. and Indian passport, visa,
+  e-Visa, and OCI photos beside dated requirements and official source links;
+  optional AI assistance is clearly separated from the safer local workflow.
 - **Metrics** — token usage, spend, latency percentiles, queue wait, engine
   mix and grouped failure reasons across every run, with Session/Historical
   scope and JSON/CSV export.
@@ -53,13 +57,13 @@ rules only to give faster feedback.
 
 ## Quickstart
 
-Prerequisites: Node.js 20+, Docker (for local Postgres), and optionally the
+Prerequisites: Node.js 20.9+, Docker (for local Postgres), and optionally the
 [Codex CLI](https://github.com/openai/codex) authenticated if you want to
 use that engine.
 
 ```bash
-git clone https://github.com/yourusername/poseforge.git
-cd poseforge
+git clone https://github.com/vishwakulkarni/PoseForge.git
+cd PoseForge
 cp .env.example .env
 docker compose up -d postgres
 npm run install:all      # installs both the API and web/ dependencies
@@ -84,6 +88,8 @@ image contents are never logged.
 | `npm run test:all` | API tests and web unit/component tests |
 | `npm run test:e2e` | Playwright smoke suite (needs the API running) |
 | `npm run build:web` | Production build of the UI |
+| `npm run docs:sync` | Regenerate in-app docs from repository Markdown |
+| `npm run docs:check` | Fail when generated in-app docs are stale |
 
 ## Testing
 
@@ -144,19 +150,30 @@ loopback addresses unless `COMFYUI_ALLOW_REMOTE=true` is explicitly set.
 Database-backed API keys and workflows are stored as plain text — see
 `SECURITY.md` before running this anywhere but your own machine.
 
-## Testing
-
-```bash
-npm test
-```
-
 ## Project docs
 
+- [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) — Studio, ID Photos, libraries,
+  Settings, and local/cloud privacy boundaries
+- [`docs/METRICS.md`](docs/METRICS.md) — metric definitions, estimates, scopes,
+  and export behavior
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — stack, data model, and the engine
   adapter pattern
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — dev setup, testing, how to add an engine
 - [`SECURITY.md`](SECURITY.md) — threat model and how to report vulnerabilities
 - [`CHANGELOG.md`](CHANGELOG.md) — notable changes, by version
+
+## Production
+
+Build the Next.js UI, then run the API and UI together:
+
+```bash
+npm run build:web
+npm run start:all
+```
+
+PoseForge binds the UI to port 3000 and the API to port 3004 by default. It is
+designed as a trusted local application; read [`SECURITY.md`](SECURITY.md)
+before exposing either process to another machine or the public internet.
 
 ## License
 
