@@ -14,13 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   canvas, and an engine-aware generation dock.
 - Advanced creative controls for per-person direction, identity and pose
   fidelity, camera, lighting, negative direction, aspect ratio, quality,
-  and batches of up to four queued variants.
+  and batches of up to six queued variants.
 - Reusable Studio recipes via the new `studio_recipes` table and
   `GET/POST/DELETE /api/recipes` endpoints.
 - Generation provenance for `studio_mode`, JSONB advanced settings, and
   multi-variant `batch_id` grouping.
 - A creator-focused redesign across Landing, Characters, Pose Library,
   History, and Settings, with a persistent theme toggle.
+- A rebuilt ID Photos workflow for U.S. and Indian passport, visa, e-Visa,
+  and OCI photos, with local formatting, optional AI assistance, 4×6 sheets,
+  dated requirements, and official authority links.
+- In-app User Guide and Metrics reference generated from repository Markdown.
 
 - Open-source project scaffolding: Apache-2.0 license, `CONTRIBUTING.md`,
   `CODE_OF_CONDUCT.md`, `SECURITY.md`, `ARCHITECTURE.md`, issue/PR
@@ -46,6 +50,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   character references instead of exactly one.
 
 ### Changed
+
+- Hardened Next.js hydration and responsive navigation across the app and
+  Fumadocs, including desktop and mobile Docs navigation.
+- Made production builds offline-friendly by replacing build-time Google Font
+  downloads with polished system font stacks.
+- Expanded CI and Playwright coverage to include documentation changes and
+  both desktop and mobile browser projects.
 
 - **Breaking:** `POST /api/generations` no longer accepts singular
   `characterId`/`characterPhoto` fields — use `characterId_1..4` /

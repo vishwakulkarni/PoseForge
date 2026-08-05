@@ -1,28 +1,6 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Manrope, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
-
-const inter = Inter({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-inter',
-  display: 'swap',
-});
-
-const manrope = Manrope({
-  subsets: ['latin'],
-  weight: ['600', '700', '800'],
-  variable: '--font-manrope',
-  display: 'swap',
-});
-
-const mono = JetBrains_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
-  variable: '--font-jetbrains',
-  display: 'swap',
-});
 
 export const metadata: Metadata = {
   title: {
@@ -44,11 +22,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang="en"
-      suppressHydrationWarning
-      className={`${inter.variable} ${manrope.variable} ${mono.variable}`}
-    >
+    <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
       <body>
         <Providers>{children}</Providers>
       </body>

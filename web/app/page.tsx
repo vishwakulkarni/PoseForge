@@ -86,7 +86,7 @@ const CAPABILITIES = [
   {
     mark: '300',
     title: 'Print-ready output',
-    body: 'Passport files are prepared as exact 300 DPI PNG layouts for 2 × 2 download or standard 4 × 6 printing.',
+    body: 'Document photos are prepared at the selected authority’s exact dimensions, with a standard 4 × 6 print sheet where supported.',
   },
 ];
 

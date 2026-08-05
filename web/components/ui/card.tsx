@@ -56,10 +56,10 @@ export function CardDescription({ className, ...props }: React.HTMLAttributes<HT
   );
 }
 
-/** The uppercase micro-label used above panels throughout the app. */
-export function PanelTitle({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+/** The uppercase panel heading used throughout the app. */
+export function PanelTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
   return (
-    <div
+    <h2
       className={cn(
         'mb-4 text-[11px] font-[750] uppercase tracking-[0.1em] text-[var(--pf-text-tertiary)]',
         className,

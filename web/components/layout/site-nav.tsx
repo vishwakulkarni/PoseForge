@@ -79,7 +79,7 @@ export function SiteNav() {
         className="sticky top-0 z-[100] h-[var(--pf-nav-h)] border-b border-[var(--pf-border)] bg-[color-mix(in_srgb,var(--pf-bg)_82%,transparent)] backdrop-blur-[18px] backdrop-saturate-150"
         aria-label="Primary"
       >
-        <div className="pf-container grid h-full grid-cols-[1fr_auto] items-center gap-6 xl:grid-cols-[1fr_auto_1fr]">
+        <div className="pf-container pf-site-nav-grid grid h-full grid-cols-[1fr_auto] items-center gap-4 xl:gap-6">
           <Link
             href="/"
             className="flex items-center gap-2.5 justify-self-start font-[var(--font-display)] text-[15px] font-[750] tracking-[-0.025em]"
@@ -88,14 +88,14 @@ export function SiteNav() {
             <span>PoseForge</span>
           </Link>
 
-          <ul className="hidden items-center gap-1 justify-self-center rounded-full border border-[var(--pf-border)] bg-[var(--pf-surface-muted)] p-1 xl:flex">
+          <ul className="pf-primary-nav items-center gap-0.5 justify-self-center rounded-full border border-[var(--pf-border)] bg-[var(--pf-surface-muted)] p-1 xl:gap-1">
             {NAV_ITEMS.map((item) => (
               <li key={item.href}>
                 <Link
                   href={item.href}
                   aria-current={isActive(item.href) ? 'page' : undefined}
                   className={cn(
-                    'block rounded-full px-3 py-2 text-[12px] font-[650] transition-colors duration-150',
+                    'block rounded-full px-2.5 py-2 text-[11px] font-[650] transition-colors duration-150 xl:px-3 xl:text-[12px]',
                     isActive(item.href)
                       ? 'bg-[var(--pf-surface)] text-[var(--pf-text-primary)] shadow-[var(--pf-shadow-xs)]'
                       : 'text-[var(--pf-text-secondary)] hover:text-[var(--pf-text-primary)]',
@@ -109,13 +109,13 @@ export function SiteNav() {
 
           <div className="flex items-center gap-2 justify-self-end">
             <ThemeToggle />
-            <Button asChild variant="inverse" size="sm" className="hidden xl:inline-flex">
+            <Button asChild variant="inverse" size="sm" className="pf-desktop-cta">
               <Link href="/studio">Open Studio</Link>
             </Button>
             <Button
               size="icon"
               variant="secondary"
-              className="xl:hidden"
+              className="pf-mobile-nav-toggle"
               aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
               aria-expanded={mobileOpen}
               aria-controls="mobile-nav"
@@ -128,9 +128,10 @@ export function SiteNav() {
       </nav>
 
       {mobileOpen ? (
-        <div
+        <nav
           id="mobile-nav"
-          className="fixed inset-x-3 top-[calc(var(--pf-nav-h)+8px)] z-[99] rounded-[16px] border border-[var(--pf-border)] bg-[var(--pf-surface)] p-2.5 shadow-[var(--pf-shadow-lg)] xl:hidden"
+          aria-label="Mobile"
+          className="pf-mobile-nav-panel fixed inset-x-3 top-[calc(var(--pf-nav-h)+8px)] z-[99] rounded-[16px] border border-[var(--pf-border)] bg-[var(--pf-surface)] p-2.5 shadow-[var(--pf-shadow-lg)]"
         >
           {NAV_ITEMS.map((item) => (
             <Link
@@ -151,7 +152,7 @@ export function SiteNav() {
               {item.label}
             </Link>
           ))}
-        </div>
+        </nav>
       ) : null}
     </>
   );

@@ -7,12 +7,24 @@ PoseForge is a local-first photo studio. It takes a person you have saved and a
 pose you have chosen, and returns that person in that pose — along with
 portraits, family compositions, and print-ready document photos.
 
-Everything runs on your machine. There is no PoseForge account, no hosted
-gallery, and no upload step you did not ask for.
+Your workspace, database, and generated files live on your machine. There is
+no PoseForge account or hosted gallery. ComfyUI can keep inference fully local;
+cloud and signed-in CLI engines send only the references and prompt you choose
+to their provider.
 
 ## Start here
 
 <Cards>
+  <Card
+    title="User guide"
+    href="/docs/user-guide"
+    description="Studio, ID Photos, libraries, engines, privacy, and troubleshooting."
+  />
+  <Card
+    title="Metrics reference"
+    href="/docs/metrics"
+    description="What every cost, token, reliability, latency, and usage number means."
+  />
   <Card
     title="Architecture"
     href="/docs/architecture"
@@ -51,7 +63,7 @@ mirrors those rules only to give faster feedback, never to replace them.
 ## Running both
 
 ```bash
-npm install          # Express dependencies
+npm run install:all  # Express and Next.js dependencies
 npm run migrate      # apply db/migrations/*.sql
 npm run dev:all      # Express on :3004 and Next on :3000
 ```

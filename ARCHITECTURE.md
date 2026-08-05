@@ -21,7 +21,7 @@ the two testable in isolation.
 
 | Layer | Choice | Why |
 |---|---|---|
-| Runtime | Node.js 20+ | No framework lock-in, easy to run anywhere |
+| Runtime | Node.js 20.9+ | No framework lock-in, easy to run anywhere |
 | API framework | Express | Small surface area, well understood |
 | Database | PostgreSQL | Real relational data (characters, presets, generation history) with simple foreign-key relationships |
 | Migrations | Plain `.sql` files, custom runner | No ORM needed at this schema size — see `db/migrate.js` |

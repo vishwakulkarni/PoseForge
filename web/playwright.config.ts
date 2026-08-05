@@ -12,7 +12,10 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${PORT}`;
  */
 export default defineConfig({
   testDir: './e2e',
-  fullyParallel: true,
+  // Keep tests within each file serial. Fully parallel browser contexts can
+  // stampede the single local API/proxy during cold Next.js compilation and
+  // turn a healthy page into a loading-skeleton timeout.
+  fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
@@ -37,7 +40,11 @@ export default defineConfig({
   webServer: process.env.PLAYWRIGHT_NO_SERVER
     ? undefined
     : {
-        command: `npx next dev --turbopack -p ${PORT}`,
+        // Webpack is deliberate here. In this stack, Turbopack occasionally
+        // serves empty 403 responses for client chunks under a real browser,
+        // leaving an SSR shell that never hydrates. That makes every click
+        // appear broken and turns the suite into a false-positive factory.
+        command: `npx next dev --webpack -p ${PORT}`,
         url: BASE_URL,
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,

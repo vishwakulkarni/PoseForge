@@ -29,6 +29,16 @@ export function Providers({ children }: { children: React.ReactNode }) {
   // across requests during SSR.
   const [queryClient] = React.useState(makeQueryClient);
 
+  React.useEffect(() => {
+    // SSR makes the interface visible before event handlers are attached.
+    // This marker gives browser automation and support diagnostics an exact,
+    // framework-independent readiness signal instead of relying on a timeout.
+    document.documentElement.dataset.poseforgeHydrated = 'true';
+    return () => {
+      delete document.documentElement.dataset.poseforgeHydrated;
+    };
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider
