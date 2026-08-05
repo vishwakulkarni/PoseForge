@@ -157,3 +157,150 @@ export function resizeSubjects(
     ),
   };
 }
+
+export interface BuiltInRecipe {
+  id: string;
+  name: string;
+  description: string;
+  settings: AdvancedSettings;
+}
+
+/**
+ * Curated starting points for common PoseForge shoots. They deliberately use
+ * the same AdvancedSettings contract as saved recipes, so selecting one can
+ * update every relevant control without a separate prompt-only code path.
+ */
+export function builtInRecipes(characterCount: number): BuiltInRecipe[] {
+  const base = () => defaultAdvancedSettings(characterCount);
+
+  return [
+    {
+      id: 'builtin:studio-portrait',
+      name: 'Studio portrait',
+      description: 'Clean close-up with soft, polished studio light.',
+      settings: {
+        ...base(),
+        identityFidelity: 93,
+        poseFidelity: 85,
+        camera: { framing: 'close-up', angle: 'eye-level', lens: '85mm', depthOfField: 'shallow', aperture: 'f/2.8' },
+        lighting: 'soft-studio',
+        lightingTemperature: 'neutral',
+        composition: { spacing: 'tight', crop: 'safe', backgroundSeparation: 'strong', mirrorPose: false },
+        finish: { retouch: 'polished', colorGrade: 'neutral', grain: 'none', sharpness: 64 },
+        output: { ...base().output, aspectRatio: '4:5', quality: 'high', variationStrength: 18 },
+      },
+    },
+    {
+      id: 'builtin:golden-hour',
+      name: 'Golden hour',
+      description: 'Warm outdoor portrait with natural sunset light.',
+      settings: {
+        ...base(),
+        camera: { framing: 'medium', angle: 'eye-level', lens: '50mm', depthOfField: 'shallow', aperture: 'f/2.8' },
+        lighting: 'golden-hour',
+        lightingTemperature: 'warm',
+        timeOfDay: 'sunset',
+        composition: { spacing: 'natural', crop: 'safe', backgroundSeparation: 'subtle', mirrorPose: false },
+        finish: { retouch: 'natural', colorGrade: 'warm-film', grain: 'subtle', sharpness: 54 },
+        output: { ...base().output, aspectRatio: '4:5', quality: 'high', variationStrength: 32 },
+      },
+    },
+    {
+      id: 'builtin:family-lifestyle',
+      name: 'Family lifestyle',
+      description: 'Relaxed full-body composition for one or more people.',
+      settings: {
+        ...base(),
+        identityFidelity: 90,
+        poseFidelity: 88,
+        camera: { framing: 'full-body', angle: 'eye-level', lens: '35mm', depthOfField: 'balanced', aperture: 'f/4' },
+        lighting: 'window-light',
+        lightingTemperature: 'neutral',
+        timeOfDay: 'morning',
+        composition: { spacing: 'airy', crop: 'safe', backgroundSeparation: 'subtle', mirrorPose: false },
+        finish: { retouch: 'natural', colorGrade: 'neutral', grain: 'none', sharpness: 52 },
+        output: { ...base().output, aspectRatio: '4:5', quality: 'high', variationStrength: 28 },
+      },
+    },
+    {
+      id: 'builtin:editorial',
+      name: 'Editorial',
+      description: 'Refined fashion framing with cool, intentional styling.',
+      settings: {
+        ...base(),
+        identityFidelity: 92,
+        camera: { framing: 'medium', angle: 'high-angle', lens: '85mm', depthOfField: 'shallow', aperture: 'f/2.8' },
+        lighting: 'soft-studio',
+        lightingTemperature: 'cool',
+        timeOfDay: 'midday',
+        composition: { spacing: 'natural', crop: 'dynamic', backgroundSeparation: 'strong', mirrorPose: false },
+        finish: { retouch: 'polished', colorGrade: 'cool-editorial', grain: 'subtle', sharpness: 62 },
+        output: { ...base().output, aspectRatio: '4:5', quality: 'high', variationStrength: 24 },
+      },
+    },
+    {
+      id: 'builtin:cinematic-story',
+      name: 'Cinematic story',
+      description: 'Dramatic vertical frame for a bold visual narrative.',
+      settings: {
+        ...base(),
+        poseFidelity: 90,
+        camera: { framing: 'full-body', angle: 'low-angle', lens: '35mm', depthOfField: 'deep', aperture: 'f/4' },
+        lighting: 'dramatic',
+        lightingTemperature: 'cool',
+        timeOfDay: 'night',
+        composition: { spacing: 'airy', crop: 'dynamic', backgroundSeparation: 'strong', mirrorPose: false },
+        finish: { retouch: 'natural', colorGrade: 'cinematic', grain: 'medium', sharpness: 58 },
+        output: { ...base().output, aspectRatio: '9:16', quality: 'high', variationStrength: 42 },
+      },
+    },
+    {
+      id: 'builtin:social-square',
+      name: 'Social square',
+      description: 'Balanced square composition for profiles and feeds.',
+      settings: {
+        ...base(),
+        camera: { framing: 'medium', angle: 'eye-level', lens: '50mm', depthOfField: 'balanced', aperture: 'f/4' },
+        lighting: 'soft-studio',
+        lightingTemperature: 'warm',
+        composition: { spacing: 'natural', crop: 'safe', backgroundSeparation: 'subtle', mirrorPose: false },
+        finish: { retouch: 'polished', colorGrade: 'warm-film', grain: 'none', sharpness: 58 },
+        output: { ...base().output, aspectRatio: '1:1', quality: 'high', variationStrength: 26 },
+      },
+    },
+    {
+      id: 'builtin:black-and-white',
+      name: 'Black & white',
+      description: 'High-contrast monochrome portrait with classic depth.',
+      settings: {
+        ...base(),
+        identityFidelity: 92,
+        camera: { framing: 'close-up', angle: 'eye-level', lens: '85mm', depthOfField: 'shallow', aperture: 'f/1.8' },
+        lighting: 'dramatic',
+        lightingTemperature: 'neutral',
+        composition: { spacing: 'tight', crop: 'safe', backgroundSeparation: 'strong', mirrorPose: false },
+        finish: { retouch: 'natural', colorGrade: 'black-and-white', grain: 'subtle', sharpness: 66 },
+        output: { ...base().output, aspectRatio: '4:5', quality: 'high', variationStrength: 20 },
+      },
+    },
+    {
+      id: 'builtin:action',
+      name: 'Action',
+      description: 'Wide, energetic framing that keeps a dynamic pose clear.',
+      settings: {
+        ...base(),
+        poseFidelity: 94,
+        camera: { framing: 'wide', angle: 'low-angle', lens: '24mm', depthOfField: 'deep', aperture: 'f/8' },
+        lighting: 'dramatic',
+        lightingTemperature: 'neutral',
+        composition: { spacing: 'airy', crop: 'dynamic', backgroundSeparation: 'strong', mirrorPose: false },
+        finish: { retouch: 'none', colorGrade: 'cinematic', grain: 'none', sharpness: 72 },
+        output: { ...base().output, aspectRatio: '16:9', quality: 'high', variationStrength: 50 },
+      },
+    },
+  ];
+}
+
+export function builtInRecipe(id: string, characterCount: number): BuiltInRecipe | null {
+  return builtInRecipes(characterCount).find((recipe) => recipe.id === id) ?? null;
+}

@@ -10,21 +10,23 @@
 
 .studio-page {
   overflow-x: hidden;
-  padding-bottom: 108px;
+  padding-bottom: 96px;
 }
 
 .studio-shell {
-  width: min(100%, 1600px);
+  width: 100%;
   margin: 0 auto;
-  padding: 14px 20px 0;
+  padding: 6px 8px 0;
 }
 
 /* --------------------------------------------------------- workbench */
 
 .studio-workbench {
   display: grid;
-  grid-template-columns: 330px minmax(420px, 1fr) 350px;
-  height: calc(100vh - 174px);
+  grid-template-columns:
+    var(--studio-left-width, 280px) 12px minmax(420px, 1fr) 12px
+    var(--studio-right-width, 310px);
+  height: calc(100dvh - var(--pf-nav-h) - 16px);
   min-height: 590px;
   overflow: hidden;
   border: 1px solid var(--pf-border);
@@ -48,6 +50,68 @@
   flex-direction: column;
   overflow: hidden;
   border-left: 1px solid var(--pf-border);
+}
+
+.panel-resizer {
+  position: relative;
+  z-index: 5;
+  min-width: 0;
+  display: grid;
+  place-items: center;
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+  background: color-mix(in srgb, var(--pf-surface) 78%, var(--pf-bg));
+}
+
+.panel-resizer::before {
+  content: '';
+  width: 1px;
+  height: 100%;
+  background: var(--pf-border);
+  transition: width 0.15s, background 0.15s;
+}
+
+.panel-resizer:hover::before,
+.panel-resizer:focus-visible::before {
+  width: 2px;
+  background: var(--pf-accent);
+}
+
+.panel-resizer-toggle {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  width: 22px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--pf-border-strong);
+  border-radius: 8px;
+  color: var(--pf-text-secondary);
+  background: var(--pf-surface);
+  box-shadow: var(--pf-shadow-xs);
+  cursor: pointer;
+  transform: translateX(-50%);
+  font-size: 17px;
+  line-height: 1;
+}
+
+.panel-resizer-toggle:hover,
+.panel-resizer-toggle:focus-visible {
+  border-color: var(--pf-accent);
+  color: var(--pf-accent);
+  outline: none;
+}
+
+@media (min-width: 1181px) {
+  .studio-workbench.left-panel-collapsed > .asset-panel,
+  .studio-workbench.right-panel-collapsed > .inspector-panel {
+    visibility: hidden;
+    overflow: hidden;
+    pointer-events: none;
+  }
 }
 
 .panel-head {
@@ -603,50 +667,6 @@
   background: color-mix(in srgb, var(--pf-bg) 72%, var(--pf-surface));
 }
 
-.canvas-toolbar {
-  height: 65px;
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 0 17px;
-  border-bottom: 1px solid var(--pf-border);
-  background: color-mix(in srgb, var(--pf-surface) 68%, transparent);
-}
-
-.canvas-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--pf-text-secondary);
-  font-size: 10px;
-  font-weight: 650;
-}
-
-.canvas-status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--pf-text-tertiary);
-}
-
-.canvas-status-dot.ready {
-  background: var(--pf-success);
-  box-shadow: 0 0 0 3px var(--pf-success-bg);
-}
-
-.canvas-status-dot.running {
-  background: var(--pf-accent);
-  animation: statusPulse 1.4s infinite;
-}
-
-@keyframes statusPulse {
-  50% {
-    opacity: 0.35;
-  }
-}
-
 .mode-switch {
   display: inline-flex;
   padding: 4px;
@@ -673,6 +693,21 @@
   box-shadow: var(--pf-shadow-xs);
 }
 
+.inspector-mode-switch {
+  padding: 9px 15px;
+  border-bottom: 1px solid var(--pf-border);
+  background: color-mix(in srgb, var(--pf-surface) 82%, var(--pf-surface-muted));
+}
+
+.inspector-mode-switch .mode-switch {
+  width: 100%;
+}
+
+.inspector-mode-switch .mode-switch button {
+  flex: 1;
+  min-width: 0;
+}
+
 .pro-dot {
   display: inline-block;
   width: 5px;
@@ -681,34 +716,6 @@
   border-radius: 50%;
   background: var(--pf-accent);
   vertical-align: middle;
-}
-
-.canvas-tools {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.canvas-meta {
-  padding: 5px 8px;
-  border: 1px solid var(--pf-border);
-  border-radius: 8px;
-  color: var(--pf-text-tertiary);
-  background: var(--pf-surface);
-  font-size: 9px;
-  font-weight: 700;
-}
-
-.canvas-tool {
-  width: 28px;
-  height: 28px;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--pf-border);
-  border-radius: 8px;
-  color: var(--pf-text-tertiary);
-  background: var(--pf-surface);
-  cursor: pointer;
 }
 
 .canvas-viewport {
@@ -997,6 +1004,324 @@
   font-weight: 750;
 }
 
+/* ------------------------------------------------ workflow canvas */
+
+.canvas-viewport {
+  position: relative;
+  display: block;
+  place-items: initial;
+  padding: 0;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  overscroll-behavior: contain;
+  user-select: none;
+  background-color: color-mix(in srgb, var(--pf-bg) 82%, var(--pf-surface));
+  background-image: radial-gradient(var(--pf-border-strong) 0.75px, transparent 0.75px);
+  background-size: 18px 18px;
+}
+
+.canvas-viewport.is-panning {
+  cursor: grabbing;
+}
+
+.workflow-world {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: max-content;
+  min-height: 330px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 34px;
+  transform-origin: 0 0;
+}
+
+.workflow-inputs,
+.workflow-outputs,
+.workflow-equation-bridge {
+  display: flex;
+  align-items: center;
+}
+
+.workflow-inputs {
+  gap: 11px;
+}
+
+.workflow-outputs {
+  gap: 14px;
+  padding: 18px;
+  border: 1px dashed color-mix(in srgb, var(--pf-accent) 44%, var(--pf-border-strong));
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--pf-surface) 56%, transparent);
+  box-shadow: 0 16px 42px rgba(13, 15, 20, 0.07);
+}
+
+.workflow-outputs.is-grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(2, auto);
+}
+
+.workflow-equation-bridge {
+  gap: 7px;
+}
+
+.workflow-connector {
+  width: 34px;
+  border-top: 2px dashed color-mix(in srgb, var(--pf-accent) 55%, var(--pf-border-strong));
+}
+
+.workflow-operator {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--pf-border);
+  border-radius: 50%;
+  color: var(--pf-text-tertiary);
+  background: color-mix(in srgb, var(--pf-surface) 88%, transparent);
+  box-shadow: var(--pf-shadow-xs);
+  font-size: 19px;
+  font-weight: 500;
+}
+
+.workflow-equals {
+  width: 36px;
+  height: 36px;
+  border-color: color-mix(in srgb, var(--pf-accent) 52%, var(--pf-border));
+  color: var(--pf-accent);
+  background: var(--pf-accent-soft);
+  font-weight: 750;
+}
+
+.workflow-card {
+  position: relative;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border: 1px solid var(--pf-border-strong);
+  border-radius: 17px;
+  background: var(--pf-surface);
+  box-shadow: 0 14px 34px rgba(13, 15, 20, 0.1);
+}
+
+.workflow-card.is-empty {
+  border-style: dashed;
+  box-shadow: none;
+}
+
+.workflow-input-card {
+  width: 132px;
+}
+
+.workflow-input-card:not(.is-empty) {
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.workflow-card-media {
+  height: 154px;
+  margin: 7px 7px 0;
+  overflow: hidden;
+  border-radius: 11px;
+  background: var(--pf-surface-muted);
+}
+
+.workflow-input-card:not(.is-empty) .workflow-card-media {
+  margin: 0;
+  background: transparent;
+}
+
+.workflow-card-media img,
+.workflow-output-select > img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+}
+
+.workflow-card-placeholder {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--pf-text-tertiary);
+  background:
+    linear-gradient(135deg, transparent 48%, color-mix(in srgb, var(--pf-border) 55%, transparent) 49%, transparent 51%);
+}
+
+.workflow-card-copy {
+  min-width: 0;
+  padding: 10px 11px 12px;
+}
+
+.workflow-input-card:not(.is-empty) .workflow-card-copy {
+  padding: 9px 2px 0;
+  text-align: center;
+}
+
+.workflow-card-copy span,
+.workflow-card-copy strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-card-copy span {
+  color: var(--pf-text-tertiary);
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.workflow-card-copy strong {
+  margin-top: 4px;
+  color: var(--pf-text-primary);
+  font-size: 10px;
+}
+
+.workflow-output-card {
+  width: 196px;
+  border-color: color-mix(in srgb, var(--pf-accent) 22%, var(--pf-border-strong));
+}
+
+.workflow-output-card.is-selected {
+  border-color: var(--pf-accent);
+  box-shadow:
+    0 0 0 3px var(--pf-accent-soft),
+    0 16px 38px rgba(13, 15, 20, 0.13);
+}
+
+.workflow-output-card.is-failed {
+  border-color: color-mix(in srgb, var(--pf-error) 58%, var(--pf-border));
+}
+
+.workflow-output-select {
+  width: 100%;
+  height: 196px;
+  display: block;
+  padding: 7px;
+  overflow: hidden;
+  border: 0;
+  border-bottom: 1px solid var(--pf-border);
+  background: var(--pf-surface-muted);
+  color: inherit;
+  cursor: pointer;
+}
+
+.workflow-output-select > img,
+.workflow-result-state {
+  border-radius: 11px;
+}
+
+.workflow-output-card[data-aspect='4:5'] .workflow-output-select {
+  height: 245px;
+}
+
+.workflow-output-card[data-aspect='16:9'] {
+  width: 224px;
+}
+
+.workflow-output-card[data-aspect='16:9'] .workflow-output-select {
+  height: 126px;
+}
+
+.workflow-output-card[data-aspect='9:16'] {
+  width: 148px;
+}
+
+.workflow-output-card[data-aspect='9:16'] .workflow-output-select {
+  height: 263px;
+}
+
+.workflow-result-state {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 18px;
+  border: 1px dashed var(--pf-border-strong);
+  color: var(--pf-text-tertiary);
+  background: color-mix(in srgb, var(--pf-surface-muted) 80%, transparent);
+  text-align: center;
+}
+
+.workflow-result-state strong,
+.workflow-result-state small {
+  display: block;
+}
+
+.workflow-result-state strong {
+  color: var(--pf-text-secondary);
+  font-size: 10px;
+}
+
+.workflow-result-state small {
+  max-width: 155px;
+  overflow: hidden;
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.workflow-spinner {
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--pf-border);
+  border-top-color: var(--pf-accent);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+.workflow-failure-mark {
+  width: 27px;
+  height: 27px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--pf-error);
+  background: var(--pf-error-bg);
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.workflow-result-actions {
+  display: flex;
+  gap: 5px;
+  padding: 0 9px 10px;
+}
+
+.workflow-result-actions a,
+.workflow-result-actions button {
+  flex: 1;
+  padding: 6px;
+  border: 1px solid var(--pf-border);
+  border-radius: 7px;
+  color: var(--pf-text-secondary);
+  background: var(--pf-surface-muted);
+  cursor: pointer;
+  text-align: center;
+  font-size: 7px;
+  font-weight: 750;
+}
+
+.canvas-navigation-hint {
+  margin-left: auto;
+  color: var(--pf-text-tertiary);
+  font-size: 8px;
+  white-space: nowrap;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -1054,13 +1379,13 @@
 }
 
 .canvas-footer {
-  min-height: 43px;
+  min-height: 34px;
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 15px;
-  padding: 8px 15px;
+  padding: 5px 15px;
   border-top: 1px solid var(--pf-border);
   background: var(--pf-surface);
 }
@@ -1442,15 +1767,15 @@
   position: fixed;
   z-index: 120;
   left: 50%;
-  bottom: 12px;
-  width: min(calc(100% - 40px), 1560px);
+  bottom: 7px;
+  width: min(calc(100% - 24px), 980px);
   display: grid;
-  grid-template-columns: minmax(240px, 0.9fr) 1fr auto;
+  grid-template-columns: minmax(165px, 0.75fr) minmax(180px, 1fr) auto;
   align-items: center;
-  gap: 16px;
-  padding: 10px 10px 10px 14px;
+  gap: 9px;
+  padding: 6px 7px 6px 9px;
   border: 1px solid var(--pf-border-strong);
-  border-radius: 17px;
+  border-radius: 13px;
   background: color-mix(in srgb, var(--pf-surface) 94%, transparent);
   box-shadow: var(--pf-shadow-lg);
   backdrop-filter: blur(18px);
@@ -1460,29 +1785,29 @@
 .engine-control {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 7px;
 }
 
 .engine-icon {
-  flex: 0 0 36px;
-  width: 36px;
-  height: 36px;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
-  border-radius: 11px;
+  border-radius: 8px;
   color: var(--pf-accent);
   background: var(--pf-accent-soft);
 }
 
 .engine-control > div {
-  min-width: 110px;
+  min-width: 88px;
 }
 
 .engine-control label {
   display: block;
-  margin-bottom: 2px;
+  margin-bottom: 1px;
   color: var(--pf-text-tertiary);
-  font-size: 8px;
+  font-size: 7px;
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -1493,7 +1818,7 @@
   border: 0;
   color: var(--pf-text-primary);
   background-color: transparent;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 750;
   cursor: pointer;
   appearance: none;
@@ -1539,7 +1864,7 @@
 
 .generate-summary {
   min-width: 0;
-  padding-left: 16px;
+  padding-left: 9px;
   border-left: 1px solid var(--pf-border);
 }
 
@@ -1553,28 +1878,28 @@
 }
 
 .generate-summary strong {
-  font-size: 10px;
+  font-size: 9px;
 }
 
 .generate-summary > span {
-  margin-top: 4px;
+  display: none;
   color: var(--pf-text-tertiary);
   font-size: 8px;
 }
 
 .dock-usage {
-  margin-top: 4px;
+  display: none;
   color: var(--pf-accent);
   font-size: 8px;
   font-weight: 700;
 }
 
 .dock-status {
-  margin: 5px 6px 0;
-  min-height: 12px;
+  margin: 2px 0 0;
+  min-height: 0;
   color: var(--pf-text-tertiary);
   font-size: 8px;
-  text-align: right;
+  text-align: left;
 }
 
 .dock-status.error {
@@ -1584,11 +1909,11 @@
 .generate-button {
   display: flex;
   align-items: center;
-  gap: 20px;
-  min-width: 265px;
-  padding: 11px 12px 11px 16px;
+  gap: 9px;
+  min-width: 185px;
+  padding: 7px 8px 7px 11px;
   border: 0;
-  border-radius: 13px;
+  border-radius: 10px;
   color: white;
   background: linear-gradient(135deg, var(--pf-accent), #786fff);
   box-shadow: 0 10px 28px var(--pf-accent-glow);
@@ -1619,7 +1944,7 @@
 }
 
 .generate-button small {
-  margin-bottom: 3px;
+  margin-bottom: 2px;
   color: rgba(255, 255, 255, 0.65);
   font-size: 7px;
   font-weight: 700;
@@ -1627,21 +1952,25 @@
 }
 
 .generate-button strong {
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .generate-arrow {
-  width: 34px;
-  height: 34px;
+  width: 26px;
+  height: 26px;
   display: grid;
   place-items: center;
-  border-radius: 10px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.16);
 }
 
 /* ------------------------------------------------------- responsive */
 
 @media (max-width: 1180px) {
+  .panel-resizer {
+    display: none;
+  }
+
   .studio-workbench {
     height: auto;
     min-height: 0;

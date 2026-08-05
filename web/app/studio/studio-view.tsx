@@ -22,8 +22,12 @@ import {
   studioReducer,
   validateStudioState,
 } from '@/lib/studio/reducer';
-import { defaultAdvancedSettings, type AdvancedSettings } from '@/lib/studio/settings';
-import { formatCompact, formatCurrency } from '@/lib/utils';
+import {
+  builtInRecipe,
+  defaultAdvancedSettings,
+  type AdvancedSettings,
+} from '@/lib/studio/settings';
+import { cn, formatCompact, formatCurrency } from '@/lib/utils';
 import { useToast } from '@/components/ui/toast';
 import {
   Dialog,
@@ -45,6 +49,95 @@ const TIPS = [
   'Pose references only contribute body language — never the face.',
   'Advanced mode adds camera, lighting and multi-variant control.',
 ];
+
+const LEFT_PANEL_MIN = 250;
+const LEFT_PANEL_MAX = 460;
+const RIGHT_PANEL_MIN = 300;
+const RIGHT_PANEL_MAX = 520;
+
+function clampPanelWidth(width: number, side: 'left' | 'right') {
+  const min = side === 'left' ? LEFT_PANEL_MIN : RIGHT_PANEL_MIN;
+  const max = side === 'left' ? LEFT_PANEL_MAX : RIGHT_PANEL_MAX;
+  return Math.min(Math.max(width, min), max);
+}
+
+function PanelResizeHandle({
+  side,
+  width,
+  collapsed,
+  onResize,
+  onToggle,
+}: {
+  side: 'left' | 'right';
+  width: number;
+  collapsed: boolean;
+  onResize: (width: number) => void;
+  onToggle: () => void;
+}) {
+  const drag = React.useRef<{ pointerId: number; clientX: number; width: number } | null>(null);
+  const label = side === 'left' ? 'Sources panel' : 'Direction panel';
+  const direction = side === 'left' ? 1 : -1;
+
+  return (
+    <div
+      className={cn('panel-resizer', `panel-resizer-${side}`, collapsed && 'is-collapsed')}
+      role="separator"
+      aria-label={`Resize ${label.toLowerCase()}`}
+      aria-orientation="vertical"
+      aria-valuemin={side === 'left' ? LEFT_PANEL_MIN : RIGHT_PANEL_MIN}
+      aria-valuemax={side === 'left' ? LEFT_PANEL_MAX : RIGHT_PANEL_MAX}
+      aria-valuenow={width}
+      aria-disabled={collapsed}
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (collapsed) return;
+        const amount = event.shiftKey ? 40 : 12;
+        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+          event.preventDefault();
+          const horizontal = event.key === 'ArrowRight' ? 1 : -1;
+          onResize(clampPanelWidth(width + horizontal * direction * amount, side));
+        } else if (event.key === 'Home') {
+          event.preventDefault();
+          onResize(side === 'left' ? LEFT_PANEL_MIN : RIGHT_PANEL_MIN);
+        } else if (event.key === 'End') {
+          event.preventDefault();
+          onResize(side === 'left' ? LEFT_PANEL_MAX : RIGHT_PANEL_MAX);
+        }
+      }}
+      onPointerDown={(event) => {
+        if (collapsed || event.button !== 0) return;
+        const target = event.target as HTMLElement;
+        if (target.closest('button')) return;
+        drag.current = { pointerId: event.pointerId, clientX: event.clientX, width };
+        event.currentTarget.setPointerCapture(event.pointerId);
+      }}
+      onPointerMove={(event) => {
+        const current = drag.current;
+        if (!current || current.pointerId !== event.pointerId) return;
+        const delta = (event.clientX - current.clientX) * direction;
+        onResize(clampPanelWidth(current.width + delta, side));
+      }}
+      onPointerUp={(event) => {
+        if (drag.current?.pointerId !== event.pointerId) return;
+        drag.current = null;
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }}
+      onPointerCancel={() => {
+        drag.current = null;
+      }}
+    >
+      <button
+        type="button"
+        className="panel-resizer-toggle"
+        aria-label={`${collapsed ? 'Expand' : 'Collapse'} ${label.toLowerCase()}`}
+        aria-expanded={!collapsed}
+        onClick={onToggle}
+      >
+        {side === 'left' ? (collapsed ? '›' : '‹') : collapsed ? '‹' : '›'}
+      </button>
+    </div>
+  );
+}
 
 function SaveRecipeDialog({
   open,
@@ -123,6 +216,10 @@ export function StudioView() {
   const [errors, setErrors] = React.useState<string[]>([]);
   const [recipeOpen, setRecipeOpen] = React.useState(false);
   const [activeRecipeId, setActiveRecipeId] = React.useState('');
+  const [leftPanelWidth, setLeftPanelWidth] = React.useState(280);
+  const [rightPanelWidth, setRightPanelWidth] = React.useState(310);
+  const [leftPanelCollapsed, setLeftPanelCollapsed] = React.useState(false);
+  const [rightPanelCollapsed, setRightPanelCollapsed] = React.useState(false);
 
   const { data: characters } = useCharacters();
   const { data: engineData } = useEngines();
@@ -177,6 +274,22 @@ export function StudioView() {
 
   const filledSlots = state.slots.filter((slot) => slot.characterId || slot.file);
   const hasPose = Boolean(state.poseFile || state.poseReferenceId);
+  const canvasSubjects = state.slots.flatMap((slot, index) =>
+    slot.characterId || slot.file
+      ? [{
+          id: slot.key,
+          label: slot.name ?? slot.file?.name ?? `Person ${index + 1}`,
+          imageUrl: slot.previewUrl,
+        }]
+      : [],
+  );
+  const selectedPose = poses?.find((pose) => pose.id === state.poseReferenceId);
+  const canvasPose = hasPose && state.posePreviewUrl
+    ? {
+        label: state.poseFile?.name ?? selectedPose?.title ?? 'Pose reference',
+        imageUrl: state.posePreviewUrl,
+      }
+    : null;
   const allSlotsFilled = filledSlots.length === state.slots.length && filledSlots.length > 0;
   const collageNeedsUpload =
     state.mode === 'advanced' && state.advanced.poseCollage.enabled && !state.poseFile;
@@ -213,8 +326,6 @@ export function StudioView() {
         ? 'ready'
         : 'idle';
 
-  const statusLabel = collageNeedsUpload && !generating ? 'Upload pose collage' : undefined;
-
   const patch = React.useCallback(
     (updater: (current: AdvancedSettings) => AdvancedSettings) =>
       dispatch({ type: 'patchAdvanced', patch: updater }),
@@ -225,7 +336,7 @@ export function StudioView() {
 
   const selectSlotFile = async (key: string, file: File) => {
     try {
-      const previewUrl = await api.media.previewUrl(file);
+      const previewUrl = await api.media.previewUrl(file, { fullResolution: true });
       dispatch({ type: 'setSlotFile', key, file, previewUrl });
     } catch (cause) {
       toast.error('Could not preview that photo', cause instanceof Error ? cause.message : undefined);
@@ -234,7 +345,7 @@ export function StudioView() {
 
   const selectPoseFile = async (file: File) => {
     try {
-      const previewUrl = await api.media.previewUrl(file);
+      const previewUrl = await api.media.previewUrl(file, { fullResolution: true });
       dispatch({ type: 'setPoseFile', file, previewUrl });
     } catch (cause) {
       toast.error('Could not preview that pose', cause instanceof Error ? cause.message : undefined);
@@ -265,6 +376,12 @@ export function StudioView() {
   const applyRecipe = (id: string) => {
     setActiveRecipeId(id);
     if (!id) return;
+    const builtIn = builtInRecipe(id, state.slots.length);
+    if (builtIn) {
+      dispatch({ type: 'applyRecipe', settings: builtIn.settings });
+      toast.success('Recipe applied', builtIn.name);
+      return;
+    }
     const recipe = recipes?.find((item) => item.id === id);
     if (!recipe) return;
     dispatch({ type: 'applyRecipe', settings: recipe.settings as unknown as AdvancedSettings });
@@ -339,10 +456,22 @@ export function StudioView() {
       ? 'Multiple identities are passed to the engine in order; some engines combine them into a reference montage.'
       : null;
 
+  const workbenchStyle = {
+    '--studio-left-width': leftPanelCollapsed ? '0px' : `${leftPanelWidth}px`,
+    '--studio-right-width': rightPanelCollapsed ? '0px' : `${rightPanelWidth}px`,
+  } as React.CSSProperties;
+
   return (
     <form onSubmit={submit} noValidate>
       <div className="studio-shell">
-        <div className="studio-workbench">
+        <div
+          className={cn(
+            'studio-workbench',
+            leftPanelCollapsed && 'left-panel-collapsed',
+            rightPanelCollapsed && 'right-panel-collapsed',
+          )}
+          style={workbenchStyle}
+        >
           <SourcesPanel
             mode={state.mode}
             slots={state.slots}
@@ -373,23 +502,33 @@ export function StudioView() {
             onClearPose={() => dispatch({ type: 'clearPose' })}
           />
 
+          <PanelResizeHandle
+            side="left"
+            width={leftPanelWidth}
+            collapsed={leftPanelCollapsed}
+            onResize={setLeftPanelWidth}
+            onToggle={() => setLeftPanelCollapsed((current) => !current)}
+          />
+
           <CanvasPanel
-            mode={state.mode}
-            onModeChange={(mode) => dispatch({ type: 'setMode', mode })}
             aspectRatio={state.advanced.output.aspectRatio}
             status={canvasStatus}
-            statusLabel={statusLabel}
-            posePreviewUrl={state.posePreviewUrl}
-            subjectPreviews={filledSlots
-              .map((slot) => slot.previewUrl)
-              .filter((url): url is string => Boolean(url))}
-            subjectCount={filledSlots.length}
-            hasPose={hasPose}
+            subjects={canvasSubjects}
+            pose={canvasPose}
             generations={generations}
+            plannedOutputs={plannedOutputs}
             activeIndex={state.activeResultIndex}
             onSelectVariant={(index) => dispatch({ type: 'setActiveResultIndex', index })}
             onRegenerate={() => void submit(new Event('submit') as unknown as React.FormEvent)}
             tip={TIPS[state.mode === 'advanced' ? 2 : filledSlots.length ? 1 : 0]}
+          />
+
+          <PanelResizeHandle
+            side="right"
+            width={rightPanelWidth}
+            collapsed={rightPanelCollapsed}
+            onResize={setRightPanelWidth}
+            onToggle={() => setRightPanelCollapsed((current) => !current)}
           />
 
           <Inspector
@@ -411,6 +550,7 @@ export function StudioView() {
             onReset={reset}
             estimate={estimate}
             capabilityNote={capabilityNote}
+            onModeChange={(mode) => dispatch({ type: 'setMode', mode })}
           />
         </div>
       </div>
