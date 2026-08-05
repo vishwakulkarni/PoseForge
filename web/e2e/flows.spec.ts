@@ -50,12 +50,14 @@ test.describe('studio', () => {
     await expect(page.locator('html[data-poseforge-hydrated="true"]')).toBeAttached();
   });
 
-  test('renders the three-column workbench and the docked action bar', async ({ page }) => {
+  test('renders the three-column workbench and visual workflow', async ({ page }) => {
     await expect(page.getByRole('heading', { name: 'Sources' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Direction' })).toBeVisible();
     await expect(page.getByLabel('Composition canvas')).toBeVisible();
     await expect(page.getByRole('button', { name: /generate transformation/i })).toBeVisible();
-    await expect(page.getByText('Build your composition')).toBeVisible();
+    await expect(page.getByLabel('Generation inputs')).toBeVisible();
+    await expect(page.getByLabel('equals')).toBeVisible();
+    await expect(page.getByLabel('Generated variations')).toBeVisible();
   });
 
   test('keeps generate disabled until sources exist', async ({ page }) => {
@@ -91,12 +93,15 @@ test.describe('studio', () => {
     await expect(page.getByText('1 / 4')).toBeVisible();
   });
 
-  test('aspect ratio selection updates the canvas readout', async ({ page }) => {
+  test('aspect ratio selection updates the selected output setting', async ({ page }) => {
     await page.getByRole('button', { name: /^Advanced/ }).click();
     await page.getByText('Output', { exact: true }).click();
     await page.getByRole('button', { name: /^Portrait · 4:5$/i }).click();
 
-    await expect(page.getByLabel('Composition canvas').getByText('4:5')).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Portrait · 4:5$/i })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 });
 
