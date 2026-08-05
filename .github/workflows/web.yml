@@ -39,6 +39,11 @@ jobs:
 
       - run: npm ci
 
+      # Fails if the committed MDX has drifted from the source markdown.
+      - name: Check docs are in sync
+        working-directory: .
+        run: node scripts/sync-docs.js --check
+
       # fumadocs-mdx generates .source/, which typecheck and build both need.
       - name: Generate MDX sources
         run: npx fumadocs-mdx

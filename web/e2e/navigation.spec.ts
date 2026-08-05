@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 const PAGES = [
   { path: '/', heading: /any pose/i },
-  { path: '/studio', heading: /keep the person/i },
+  { path: '/studio', heading: /sources/i },
   { path: '/characters', heading: /people you photograph/i },
   { path: '/poses', heading: /body language/i },
   { path: '/passport', heading: /print-ready/i },

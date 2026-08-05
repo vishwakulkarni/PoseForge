@@ -2,8 +2,10 @@
 
 /* ------------------------------------------------------------------ *
  * PoseForge design tokens.
- * Ported 1:1 from the legacy public/css/base.css so the re-architected
- * UI is visually continuous with what shipped before.
+ *
+ * Single source of truth for colour, radius, shadow and type. Tailwind's
+ * @theme maps these onto utility classes, so a utility and a hand-written
+ * rule always resolve to the same value. Add a colour here, once.
  * ------------------------------------------------------------------ */
 
 @theme {

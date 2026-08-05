@@ -6,14 +6,31 @@ touching the data model.
 
 ## Stack
 
+PoseForge runs as two processes: an Express API and a Next.js UI.
+
+| Process | Port | Owns |
+|---|---|---|
+| Express (`server.js`) | 3004 | The JSON API, the generation queue, engine adapters, and file storage |
+| Next.js (`web/`) | 3000 | The entire user interface, proxying `/api` and `/storage` to Express |
+
+The UI holds no business logic. Every rule about what makes a valid
+generation is enforced in the Express layer; the React app mirrors a few of
+those rules only to give faster feedback, never to replace them. That
+boundary is what lets the API be exercised directly with `curl` and keeps
+the two testable in isolation.
+
 | Layer | Choice | Why |
 |---|---|---|
-| Runtime | Node.js 18+ | No framework lock-in, easy to run anywhere |
-| Web framework | Express | Small surface area, well understood |
+| Runtime | Node.js 20+ | No framework lock-in, easy to run anywhere |
+| API framework | Express | Small surface area, well understood |
 | Database | PostgreSQL | Real relational data (characters, presets, generation history) with simple foreign-key relationships |
 | Migrations | Plain `.sql` files, custom runner | No ORM needed at this schema size — see `db/migrate.js` |
 | File storage | Local filesystem under `storage/` | Postgres stores paths and metadata only, never image bytes |
-| Frontend | Plain HTML/CSS/JS, no build step | Keeps the project approachable — clone and run, no bundler required |
+| UI framework | Next.js 16 (App Router) + React 19 | Server components for static shells, client components for the workbench |
+| Styling | Tailwind CSS 4 with CSS-first `@theme` | One token source shared by utilities and hand-written component CSS |
+| Components | Radix primitives + CVA variants | Accessible behaviour by default; variants stay declarative and typed |
+| Data fetching | TanStack Query | Caching, polling with backoff, and consistent error/loading states |
+| Documentation | Fumadocs, served at `/docs` | The repo's own markdown, rendered in the app |
 | Generation engines | Pluggable adapters behind a common interface | See below — this is the project's main extension point |
 
 ## Directory layout
@@ -42,12 +59,38 @@ lib/
   logger.js                  Structured JSON request/event logging
   poseLibrary.js             Persists/resolves pose reference images (see below)
   poseTagger.js               Best-effort AI auto-tagging for pose references
+  metricsAggregator.js       Pure rollups for the Metrics dashboard
 public/
-  index.html, studio.html, characters.html, gallery.html, history.html, settings.html
-  css/, js/                  Design system + per-screen logic, no bundler
+  images/                    Brand assets the UI links to; no HTML is served here
+web/                        The Next.js application — see "Frontend" below
 scripts/
   generate-mascot.js         One-off Codex CLI call that produces the mascot artwork
 storage/                    Runtime-created, gitignored: characters/, generations/, upload-v2/
+```
+
+### Inside `web/`
+
+```
+app/
+  layout.tsx                 Root layout, fonts, providers
+  providers.tsx              TanStack Query, next-themes, tooltips, toasts
+  page.tsx                   Landing
+  studio/                    The workbench (page.tsx, studio-view.tsx, studio.css)
+  characters/ poses/ passport/ history/ metrics/ settings/
+  docs/[[...slug]]/          Fumadocs renderer
+components/
+  ui/                        Radix + CVA primitives shared across pages
+  layout/                    Nav, footer, page shell
+  studio/                    Workbench panels (sources, canvas, inspector, dock)
+  metrics/                   KPI cards, trend chart, engine table
+lib/
+  api/client.ts              Typed fetch wrapper; every response shape lives here
+  api/hooks.ts               One hook per resource, plus polling helpers
+  studio/reducer.ts          Studio state machine, validation, form serialization
+  studio/settings.ts         Mirror of lib/studioSettings.js option lists
+tests/                       Vitest + Testing Library + MSW
+e2e/                         Playwright specs
+content/docs/                MDX sourced from the repo's own markdown
 ```
 
 ## Data model
@@ -220,17 +263,46 @@ serves `storage/` read-only at `/storage`.
 
 ## Frontend
 
-No build step, no framework — plain HTML/CSS/JS per screen, sharing a
-design system (`public/css/base.css`, `public/js/base.js`) for typography,
-color tokens, the nav bar, and common fetch/status helpers. Each screen
-(`studio.js`, `characters.js`, `gallery.js`, `history.js`, `settings.js`)
-is self-contained and talks to the JSON API directly via `fetch`.
+The UI lives entirely in `web/` as a Next.js App Router application.
+
+**Design tokens.** `app/globals.css` declares every colour, radius, shadow
+and font as a `--pf-*` custom property, with a `.dark` block overriding the
+palette. Tailwind's `@theme` maps those onto utility classes, so a utility
+and a hand-written rule always resolve to the same value. Adding a colour
+means adding it in one place.
+
+**Components.** `components/ui/` wraps Radix primitives with Class Variance
+Authority variants. Radix supplies focus trapping, roving tabindex, and ARIA
+wiring; CVA keeps the variant matrix typed and declarative. Nothing in the
+app should hand-roll a dialog, select, or toggle group.
+
+**Data.** `lib/api/client.ts` is the only place that calls `fetch`. It
+throws a typed `ApiError` carrying the HTTP status, so callers branch on
+`isNotFound` / `isConflict` instead of matching message strings.
+`lib/api/hooks.ts` wraps that in TanStack Query — one hook per resource,
+plus `useGenerationsPolling`, which polls a batch of in-flight generations
+with a backoff that widens as a run ages.
+
+**Studio.** The workbench is the one screen complex enough to need its own
+state machine. `lib/studio/reducer.ts` owns it: slot management, the
+mutually-exclusive rules (a subject is *either* a saved character *or* an
+upload; a pose is *either* an upload *or* a library reference), validation
+mirroring the server's acceptance rules, and multipart serialization. The
+reducer is a pure function, so the whole interaction model is unit tested
+without rendering anything.
+
+Its layout is deliberate: `web/app/studio/studio.css` is plain CSS rather
+than utility classes. The three-column workbench has enough precise sizing
+that a stylesheet reads better than a wall of arbitrary values — it still
+resolves through the same `--pf-*` tokens as everything else.
+
+**Testing.** Vitest with Testing Library and MSW covers components and
+hooks; Playwright covers the flows end to end. See `CONTRIBUTING.md`.
 
 ## What we'd want before a 1.0
 
-- An automated test suite with real coverage (see `tests/` for the current
-  starting point — pure-function tests for `promptTemplate` and `storage`,
-  meant to grow).
 - Recovery for generations stuck in `running` after a restart.
 - An opt-in auth layer, if PoseForge is ever meant to run somewhere other
   than localhost (see `SECURITY.md`).
+- Persisted metrics rollups, so the dashboard does not re-aggregate the
+  whole `generations` table on every request.

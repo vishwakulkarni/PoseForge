@@ -132,6 +132,19 @@ export const handlers = [
   http.get('/api/generations', () =>
     HttpResponse.json({ generations: [], nextCursor: null }),
   ),
+  // Studio requests an estimate on mount and on every control change.
+  http.get('/api/generations/estimate', () =>
+    HttpResponse.json({
+      source: 'estimated',
+      rateDate: '2026-08-04',
+      model: null,
+      inputTokens: 2200,
+      outputTokens: 1106,
+      totalTokens: 3306,
+      estimatedCostUsd: null,
+      pricingNote: 'Codex CLI usage is estimated for context.',
+    }),
+  ),
 ];
 
 export const server = setupServer(...handlers);
