@@ -185,14 +185,17 @@ export const api = {
      * HEIC/HEIF files cannot be rendered by browsers. The server converts them
      * to PNG for preview. Non-HEIC files short-circuit to an object URL.
      */
-    previewUrl: async (file: File): Promise<string> => {
+    previewUrl: async (file: File, { fullResolution = false }: { fullResolution?: boolean } = {}): Promise<string> => {
       const isHeic =
         /\.hei[cf]$/i.test(file.name ?? '') || /hei[cf]/i.test(file.type ?? '');
       if (!isHeic) return URL.createObjectURL(file);
 
       const form = new FormData();
       form.append('image', file);
-      const response = await fetch('/api/media/preview', { method: 'POST', body: form });
+      const response = await fetch(`/api/media/preview${fullResolution ? '?fullResolution=true' : ''}`, {
+        method: 'POST',
+        body: form,
+      });
       if (!response.ok) {
         let message = 'This HEIC image could not be previewed.';
         try {

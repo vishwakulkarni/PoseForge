@@ -26,4 +26,8 @@ test("normalization and preview produce valid PNG files", async (t) => {
   assert.equal(previewMeta.format, "png");
   assert.ok(previewMeta.width <= 720);
   assert.ok(previewMeta.height <= 720);
+  const fullResolution = await createPreviewPng(input, { fullResolution: true });
+  const fullResolutionMeta = await sharp(fullResolution).metadata();
+  assert.equal(fullResolutionMeta.width, 1200);
+  assert.equal(fullResolutionMeta.height, 900);
 });

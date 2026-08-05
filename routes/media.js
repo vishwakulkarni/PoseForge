@@ -13,7 +13,11 @@ const upload = multer({ dest: tempDir, limits: { fileSize: 25 * 1024 * 1024 } })
 router.post("/preview", upload.single("image"), asyncHandler(async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "An image is required." });
-    const preview = await createPreviewPng(req.file.path, { originalName: req.file.originalname, mimeType: req.file.mimetype });
+    const preview = await createPreviewPng(req.file.path, {
+      originalName: req.file.originalname,
+      mimeType: req.file.mimetype,
+      fullResolution: req.query.fullResolution === "true",
+    });
     res.setHeader("Content-Type", "image/png");
     res.setHeader("Cache-Control", "no-store");
     res.send(preview);
