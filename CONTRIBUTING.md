@@ -22,28 +22,60 @@ git clone https://github.com/yourusername/poseforge.git
 cd poseforge
 cp .env.example .env
 docker compose up -d postgres
-npm install
+npm run install:all   # API dependencies, then web/
 npm run migrate
-npm start
+npm run dev:all       # Express on :3004, Next.js on :3000
 ```
 
-Open http://localhost:3004. For development with auto-restart and verbose
-JSON logs:
+Open http://localhost:3000. The API is on :3004 if you want to poke at it
+with `curl`; visiting it in a browser just redirects you to the UI.
 
-```bash
-npm run dev
-```
+You can also run the two halves separately — `npm run dev` for the API
+alone, `npm run dev:web` for the UI alone. The UI proxies `/api` and
+`/storage` to :3004, so it needs the API running to show real data.
 
 ## Running tests
 
 ```bash
-npm test
+npm run test:all    # API tests, then web unit and component tests
+npm test            # API only
+npm run test:web    # web only
+npm run test:e2e    # Playwright (needs the API running)
 ```
 
-Tests use Node's built-in test runner (`node:test`) — no extra test
-framework dependency. Route-level tests that need a database will skip
-themselves gracefully if `DATABASE_URL` isn't reachable, so `npm test`
-works even without Postgres running, just with reduced coverage.
+| Layer | Tool | Location |
+|---|---|---|
+| API units | `node:test` | `tests/*.test.js` |
+| UI units, hooks, reducers | Vitest | `web/tests/*.test.ts` |
+| Components with a mocked API | Vitest + Testing Library + MSW | `web/tests/*.test.tsx` |
+| End-to-end | Playwright | `web/e2e/*.spec.ts` |
+
+The API tests use Node's built-in runner — no extra framework dependency.
+Route-level tests that need a database skip themselves gracefully when
+`DATABASE_URL` isn't reachable, so `npm test` works without Postgres
+running, just with reduced coverage.
+
+Before opening a PR, the same checks CI runs:
+
+```bash
+npm run check                       # API syntax
+npm test                            # API tests
+npm --prefix web run typecheck
+npm --prefix web run lint
+npm --prefix web test
+npm run build:web
+```
+
+## Working on the UI
+
+- Reach for `web/components/ui/` before writing a new dialog, select, or
+  toggle — those wrap Radix and already handle focus and ARIA.
+- Colours, radii and shadows come from the `--pf-*` tokens in
+  `web/app/globals.css`. Don't hardcode hex values.
+- All network access goes through `web/lib/api/client.ts`. If you're calling
+  `fetch` directly in a component, something has gone sideways.
+- Studio's interaction rules live in `web/lib/studio/reducer.ts` and are
+  unit tested. Change behaviour there, not in the components.
 
 ## Adding a new generation engine
 

@@ -11,23 +11,25 @@ and Instagram-ready posts in mind, but useful for any character-in-pose
 transformation.
 
 It runs entirely on your own machine. No account, no cloud dependency
-required — pick from three interchangeable generation engines (Codex CLI,
-OpenAI, or Replicate) depending on what you have access to.
+required — pick from six interchangeable generation engines (Codex CLI,
+Antigravity CLI, ComfyUI, OpenAI, Gemini, or Replicate) depending on what
+you have access to.
 
 ## Screens
 
-- **Studio** — a light-first creative workbench with a persistent light/dark
-  theme and Normal/Advanced modes. Add up to 4 identities, choose a reusable
-  pose, then direct background, style, and a free-form brief. Advanced mode
-  adds per-person direction, identity/pose fidelity, camera and lighting
-  controls, aspect ratio, quality, 1-4 queued variants, and reusable Studio
-  recipes. Engine capability notes explain when a control is native or
-  interpreted as prompt direction.
+- **Studio** — a three-column workbench: **Sources** on the left (up to four
+  identity slots and the pose reference), a live composition **canvas** in the
+  middle, and **Direction** on the right. Normal mode keeps it to background,
+  style and a free-form brief. Advanced mode adds per-person direction,
+  identity/pose/age/hair fidelity, camera and lighting, composition, finish,
+  aspect ratio, up to six queued variants, multi-pose collage splitting, and
+  reusable recipes. A docked bar at the bottom holds the engine picker, a live
+  usage estimate, and the generate action.
 - **Characters** — a saved library of people you photograph often, so you
   never have to re-upload them.
-- **Gallery** — your pose library. Curated starter poses plus every pose
+- **Poses** — your pose library. Curated starter poses plus every pose
   you've ever uploaded (auto-saved and AI-tagged, no extra step), filterable
-  by pose type, ready to reuse in Studio.
+  by category and tag, ready to reuse in Studio.
 - **History** — every generation you've actually run, filterable, with full
   detail and the ability to delete.
 - **Metrics** — token usage, spend, latency percentiles, queue wait, engine
@@ -100,10 +102,13 @@ environments where native addons cannot load.
 | Engine | Requires | Notes |
 |---|---|---|
 | **Codex CLI** | Codex CLI installed + authenticated | Default, no API key stored in the app |
+| **Antigravity CLI** | Antigravity CLI + a signed-in Google plan | Token and credit usage depends on the plan; cost is not exposed |
+| **ComfyUI** | A local ComfyUI server and an exported API workflow | Fully local; no provider tokens, no API charges |
 | **OpenAI** | An OpenAI API key (Settings screen) | Uses `gpt-image-1` |
+| **Gemini** | A Gemini API key (Settings screen) | Flash and Pro image model tiers |
 | **Replicate** | A Replicate API key (Settings screen) | Configurable model slug in `engines/replicateEngine.js` |
 
-Adding a fourth engine is a small, self-contained change — see
+Adding a seventh engine is a small, self-contained change — see
 `ARCHITECTURE.md` and `CONTRIBUTING.md`.
 
 ## Mascot artwork

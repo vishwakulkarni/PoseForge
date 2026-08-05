@@ -42,41 +42,56 @@ test.describe('metrics dashboard', () => {
 });
 
 test.describe('studio', () => {
-  test('blocks submission and explains what is missing', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto('/studio');
+  });
 
-    await page.getByRole('button', { name: /forge image/i }).click();
+  test('renders the three-column workbench and the docked action bar', async ({ page }) => {
+    await expect(page.getByRole('heading', { name: 'Sources' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Direction' })).toBeVisible();
+    await expect(page.getByLabel('Composition canvas')).toBeVisible();
+    await expect(page.getByRole('button', { name: /generate transformation/i })).toBeVisible();
+    await expect(page.getByText('Build your composition')).toBeVisible();
+  });
 
-    const alert = page.getByRole('alert');
-    await expect(alert).toBeVisible();
-    await expect(alert).toContainText(/add at least one person/i);
-    await expect(alert).toContainText(/choose a pose photo/i);
+  test('keeps generate disabled until sources exist', async ({ page }) => {
+    await expect(page.getByRole('button', { name: /generate transformation/i })).toBeDisabled();
+    await expect(page.getByText('Add sources to begin')).toBeVisible();
   });
 
   test('advanced mode reveals the extra control groups', async ({ page }) => {
-    await page.goto('/studio');
+    await expect(page.getByText('Identity & pose')).toBeHidden();
 
-    await expect(page.getByText('Advanced controls')).toBeHidden();
+    await page.getByRole('button', { name: /^Advanced/ }).click();
 
-    await page.getByRole('radio', { name: 'Advanced' }).click();
-
-    await expect(page.getByText('Advanced controls')).toBeVisible();
-    await expect(page.getByText('Fidelity')).toBeVisible();
-    await expect(page.getByText('Camera')).toBeVisible();
-    await expect(page.getByText('Output')).toBeVisible();
+    for (const group of [
+      'Recipe',
+      'Identity & pose',
+      'Camera & light',
+      'Composition',
+      'Finish & retouch',
+      'Output',
+    ]) {
+      await expect(page.getByText(group, { exact: true })).toBeVisible();
+    }
   });
 
-  test('can add and remove a person slot', async ({ page }) => {
-    await page.goto('/studio');
+  test('can add and remove a subject slot', async ({ page }) => {
+    await expect(page.getByText('1 / 4')).toBeVisible();
 
-    await expect(page.getByText('Person 1')).toBeVisible();
-    await expect(page.getByText('Person 2')).toBeHidden();
+    await page.getByRole('button', { name: /add another subject/i }).click();
+    await expect(page.getByText('2 / 4')).toBeVisible();
+    await expect(page.getByText('Subject 2')).toBeVisible();
 
-    await page.getByRole('button', { name: /add person/i }).click();
-    await expect(page.getByText('Person 2')).toBeVisible();
+    await page.getByRole('button', { name: /remove subject 2/i }).click();
+    await expect(page.getByText('1 / 4')).toBeVisible();
+  });
 
-    await page.getByRole('button', { name: /remove person 2/i }).click();
-    await expect(page.getByText('Person 2')).toBeHidden();
+  test('aspect ratio selection updates the canvas readout', async ({ page }) => {
+    await page.getByRole('button', { name: /^Advanced/ }).click();
+    await page.getByRole('button', { name: /portrait/i }).click();
+
+    await expect(page.getByLabel('Composition canvas').getByText('4:5')).toBeVisible();
   });
 });
 

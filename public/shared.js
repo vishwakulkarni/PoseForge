@@ -1,4 +1,0 @@
-async function api(url, options = {}) { const response = await fetch(url, { cache: "no-store", ...options }); const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.error || `Request failed (${response.status})`); return body; }
-function setStatus(element, text, kind = "neutral") { element.textContent = text; element.className = `status ${kind}`; }
-function relativeTime(iso) { const seconds = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000)); if (seconds < 60) return "just now"; const minutes = Math.round(seconds / 60); if (minutes < 60) return `${minutes}m ago`; const hours = Math.round(minutes / 60); if (hours < 24) return `${hours}h ago`; return `${Math.round(hours / 24)}d ago`; }
-function esc(value) { const node = document.createElement("span"); node.textContent = value == null ? "" : value; return node.innerHTML; }

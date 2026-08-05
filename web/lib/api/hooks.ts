@@ -2,6 +2,7 @@
 
 import {
   useMutation,
+  useQueries,
   useQuery,
   useQueryClient,
   type UseQueryOptions,
@@ -166,6 +167,49 @@ export function useGenerationPolling(id: string | null) {
     placeholderData: (previous) => previous,
     retry: (failureCount, error) =>
       error instanceof ApiError && error.isNotFound ? false : failureCount < 3,
+  });
+}
+
+/**
+ * Polls a batch of generations until every one reaches a terminal state.
+ *
+ * Studio can queue up to six variants at once; useQueries keeps one cache
+ * entry per generation so a completed variant stops polling independently of
+ * its slower siblings.
+ */
+export function useGenerationsPolling(ids: string[]) {
+  return useQueries({
+    queries: ids.map((id) => ({
+      queryKey: queryKeys.generation(id),
+      queryFn: () => api.generations.get(id),
+      refetchInterval: (query: { state: { data?: Generation } }) => {
+        const data = query.state.data;
+        if (!data || !IN_FLIGHT.includes(data.status)) return false as const;
+        const elapsed = Date.now() - new Date(data.createdAt).getTime();
+        if (elapsed < 15_000) return 1_000;
+        if (elapsed < 60_000) return 2_500;
+        return 5_000;
+      },
+      retry: (failureCount: number, error: unknown) =>
+        error instanceof ApiError && error.isNotFound ? false : failureCount < 3,
+    })),
+    // `combine` is memoized by TanStack Query against the individual query
+    // results, so the returned object stays referentially stable between
+    // polls that did not change anything.
+    combine: (results) => {
+      const generations = results
+        .map((result) => result.data)
+        .filter((item): item is Generation => Boolean(item));
+
+      return {
+        generations,
+        settled:
+          generations.length === ids.length &&
+          generations.every((item) => !IN_FLIGHT.includes(item.status)),
+        completed: generations.filter((item) => item.status === 'completed').length,
+        failed: generations.filter((item) => item.status === 'failed').length,
+      };
+    },
   });
 }
 
