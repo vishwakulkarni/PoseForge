@@ -27,15 +27,11 @@ cp .env.example .env
 docker compose up -d postgres
 npm run install:all   # API dependencies, then web/
 npm run migrate
-npm run dev:all       # Express on :3004, Next.js on :3000
+npm run dev
 ```
 
-Open http://localhost:3000. The API is on :3004 if you want to poke at it
-with `curl`; visiting it in a browser just redirects you to the UI.
-
-You can also run the two halves separately — `npm run dev` for the API
-alone, `npm run dev:web` for the UI alone. The UI proxies `/api` and
-`/storage` to :3004, so it needs the API running to show real data.
+Open http://localhost:3000. Pages, `/api`, and `/storage` are served by the
+same process and origin.
 
 ## Running tests
 
@@ -43,7 +39,7 @@ alone, `npm run dev:web` for the UI alone. The UI proxies `/api` and
 npm run test:all    # API tests, then web unit and component tests
 npm test            # API only
 npm run test:web    # web only
-npm run test:e2e    # Playwright (needs the API running)
+npm run test:e2e    # Playwright starts the complete app
 ```
 
 | Layer | Tool | Location |
@@ -58,10 +54,8 @@ Route-level tests that need a database skip themselves gracefully when
 `DATABASE_URL` isn't reachable, so `npm test` works without Postgres
 running, just with reduced coverage.
 
-Playwright starts the Next.js development server itself, but the Express API
-must already be available on port 3004. The CI workflow starts both and runs
-the desktop Chromium project; run the default command locally to cover both
-desktop and mobile viewports.
+Playwright starts the complete development server itself. The CI workflow and
+the default local command cover both desktop and mobile viewports.
 
 Before opening a PR, run the same quality gates CI uses:
 

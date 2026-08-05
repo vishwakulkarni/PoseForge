@@ -9,18 +9,20 @@ touching the data model.
 
 ## Stack
 
-PoseForge runs as two processes: an Express API and a Next.js UI.
+PoseForge runs as one Node.js process. `server.js` prepares Next.js, mounts the
+Express routes and local storage on the same application, and delegates every
+remaining request to the Next.js handler.
 
-| Process | Port | Owns |
+| Surface | Path | Owns |
 |---|---|---|
-| Express (`server.js`) | 3004 | The JSON API, the generation queue, engine adapters, and file storage |
-| Next.js (`web/`) | 3000 | The entire user interface, proxying `/api` and `/storage` to Express |
+| Express | `/api/*`, `/storage/*` | JSON API, generation queue, engine adapters, and file storage |
+| Next.js (`web/`) | All page and asset routes | The entire user interface |
 
 The UI holds no business logic. Every rule about what makes a valid
 generation is enforced in the Express layer; the React app mirrors a few of
 those rules only to give faster feedback, never to replace them. That
-boundary is what lets the API be exercised directly with `curl` and keeps
-the two testable in isolation.
+boundary is what lets the API be exercised directly with `curl` while keeping
+the API and UI testable in isolation.
 
 | Layer | Choice | Why |
 |---|---|---|
@@ -39,7 +41,7 @@ the two testable in isolation.
 ## Directory layout
 
 ```
-server.js                 Express app entry point, mounts routers
+server.js                 Single server entry point: Express routes + Next handler
 db/
   pool.js                 Shared pg.Pool built from DATABASE_URL
   migrate.js               Runs pending .sql files in db/migrations, tracked in schema_migrations

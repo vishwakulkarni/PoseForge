@@ -44,12 +44,9 @@ OpenAI, Gemini, and Replicate.
 
 ## Architecture at a glance
 
-The UI and the API are separate processes:
-
-| Process | Port | Owns |
-|---|---|---|
-| Express (`server.js`) | 3004 | API, generation queue, engine adapters, file storage |
-| Next.js (`web/`) | 3000 | The entire UI, proxying `/api` and `/storage` to Express |
+PoseForge runs as one Node.js server. `server.js` mounts the Express API and
+local file storage, then hands every other request to the Next.js application.
+The browser uses one origin for pages, `/api`, and `/storage`.
 
 The Next.js app holds no business logic. Every rule about what makes a valid
 generation is enforced in the Express layer; the React app mirrors those
@@ -68,7 +65,7 @@ cp .env.example .env
 docker compose up -d postgres
 npm run install:all      # installs both the API and web/ dependencies
 npm run migrate
-npm run dev:all          # Express on :3004, Next.js on :3000
+npm run dev
 ```
 
 Open http://localhost:3000. Configure OpenAI, Gemini or Replicate keys from
@@ -82,9 +79,8 @@ image contents are never logged.
 
 | Command | What it does |
 |---|---|
-| `npm run dev:all` | Both processes, with reload |
-| `npm run dev` | API only, on :3004 |
-| `npm run dev:web` | UI only, on :3000 |
+| `npm run dev` | Start the complete app with Next.js hot reload |
+| `npm start` | Start the built app in production mode |
 | `npm run test:all` | API tests and web unit/component tests |
 | `npm run test:e2e` | Playwright smoke suite (needs the API running) |
 | `npm run build:web` | Production build of the UI |
@@ -136,7 +132,7 @@ an automatic SVG fallback, so this is the only step needed.
 Copy `.env.example` to `.env` and adjust as needed:
 
 ```text
-PORT=3004
+PORT=3000
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/poseforge
 ```
 
@@ -164,16 +160,16 @@ Database-backed API keys and workflows are stored as plain text — see
 
 ## Production
 
-Build the Next.js UI, then run the API and UI together:
+Build the Next.js UI, then start PoseForge:
 
 ```bash
 npm run build:web
-npm run start:all
+npm start
 ```
 
-PoseForge binds the UI to port 3000 and the API to port 3004 by default. It is
-designed as a trusted local application; read [`SECURITY.md`](SECURITY.md)
-before exposing either process to another machine or the public internet.
+PoseForge is designed as a trusted local application; read
+[`SECURITY.md`](SECURITY.md) before exposing it to another machine or the
+public internet.
 
 ## License
 

@@ -56,7 +56,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   } catch (cause) {
     // Network-level failure: the Express server is most likely not running.
     throw new ApiError(
-      'Could not reach the PoseForge server. Is it running on port 3004?',
+      'Could not reach PoseForge. Restart it with npm run dev and try again.',
       0,
       cause,
     );
