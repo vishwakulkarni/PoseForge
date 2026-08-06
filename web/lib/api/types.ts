@@ -12,6 +12,7 @@ export type EngineKey =
   | 'codex'
   | 'openai'
   | 'replicate'
+  | 'fal'
   | 'gemini'
   | 'comfy'
   | 'antigravity'
@@ -74,6 +75,7 @@ export interface UsageMetrics {
   source?: 'estimated' | 'actual' | 'partial';
   rateDate?: string;
   model?: string | null;
+  providerRequestId?: string | null;
   inputTokens?: number;
   outputTokens?: number;
   totalTokens?: number;
@@ -158,6 +160,7 @@ export interface Settings {
   defaultEngine: EngineKey;
   openaiApiKey: Credential;
   replicateApiKey: Credential;
+  falApiKey: Credential;
   geminiApiKey: Credential;
   geminiModel: string;
   antigravityModel: string;

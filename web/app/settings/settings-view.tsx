@@ -224,6 +224,13 @@ export function SettingsView() {
               value={draft.replicateApiKey ?? ''}
               onChange={(next) => set('replicateApiKey', next)}
             />
+            <CredentialField
+              id="fal-key"
+              label="fal.ai API key"
+              credential={settings.falApiKey}
+              value={draft.falApiKey ?? ''}
+              onChange={(next) => set('falApiKey', next)}
+            />
           </div>
         </Card>
 

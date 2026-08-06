@@ -109,6 +109,7 @@ environments where native addons cannot load.
 | **OpenAI** | An OpenAI API key (Settings screen) | Uses `gpt-image-1` |
 | **Gemini** | A Gemini API key (Settings screen) | Flash and Pro image model tiers |
 | **Replicate** | A Replicate API key (Settings screen) | Configurable model slug in `engines/replicateEngine.js` |
+| **fal.ai** | A fal.ai API key (`FAL_KEY` or Settings) | Uses Nano Banana Pro Edit for multi-reference pose editing |
 
 Adding a seventh engine is a small, self-contained change — see
 `ARCHITECTURE.md` and `CONTRIBUTING.md`.

@@ -43,6 +43,7 @@
     "check": "find . -name '*.js' -not -path './node_modules/*' -not -path './storage/*' -not -path './tmp/*' -not -path './web/*' -print0 | xargs -0 -n1 node --check"
   },
   "dependencies": {
+    "@fal-ai/client": "^1.10.1",
     "dotenv": "^17.4.2",
     "express": "^4.19.2",
     "heic-convert": "^2.1.0",
