@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 const PAGES = [
-  { path: '/', heading: /any pose/i },
+  { path: '/', heading: /make the shot/i },
   { path: '/studio', heading: /sources/i },
   { path: '/characters', heading: /people you photograph/i },
   { path: '/poses', heading: /body language/i },
@@ -10,6 +10,28 @@ const PAGES = [
   { path: '/metrics', heading: /what your studio/i },
   { path: '/docs', heading: /poseforge docs/i },
 ];
+
+test.describe('landing page progressive enhancement', () => {
+  test.use({ javaScriptEnabled: false });
+
+  test('keeps every core section visible without hydration', async ({ page }) => {
+    await page.goto('/');
+
+    await expect(page.getByRole('heading', { name: /make the shot/i })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: /a new pose without another photoshoot/i }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: /one little personality.*family portrait/i }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: /your archive is not our business model/i }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: /stop waiting for the perfect reshoot/i }),
+    ).toBeVisible();
+  });
+});
 
 test.describe('every page renders', () => {
   for (const page of PAGES) {

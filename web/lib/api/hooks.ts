@@ -217,9 +217,15 @@ export function useCreateGeneration() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (form: FormData) => api.generations.create(form),
-    onSuccess: () => {
+    onSuccess: (_result, form) => {
       client.invalidateQueries({ queryKey: ['generations'] });
       client.invalidateQueries({ queryKey: ['metrics'] });
+      // The generations endpoint automatically stores a freshly uploaded pose
+      // in the reusable pose library. Refresh that cache so Studio and the
+      // library expose the saved image immediately, without requiring reload.
+      if (form.has('posePhoto')) {
+        client.invalidateQueries({ queryKey: ['pose-references'] });
+      }
     },
   });
 }

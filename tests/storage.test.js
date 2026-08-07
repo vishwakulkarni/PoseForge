@@ -1,5 +1,6 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
 const path = require("node:path");
 const storage = require("../lib/storage");
 
@@ -56,4 +57,20 @@ test("absolutePath rejects path traversal outside STORAGE_ROOT", () => {
 test("publicUrl always returns a /storage-prefixed, forward-slash path", () => {
   const result = storage.publicUrl(path.join("characters", "char-1", "photo-1.png"));
   assert.equal(result, "/storage/characters/char-1/photo-1.png");
+});
+
+test("every pose path in the bundled seed migration ships with the repository", () => {
+  const migration = fs.readFileSync(
+    path.join(__dirname, "..", "db", "migrations", "011_bundle_seed_pose_images.sql"),
+    "utf8"
+  );
+  const relativePaths = [...migration.matchAll(/'((?:pose-library\/seed\/)[^']+\.png)'/g)]
+    .map((match) => match[1]);
+
+  assert.equal(relativePaths.length, 16);
+  for (const relativePath of relativePaths) {
+    const stat = fs.statSync(storage.absolutePath(relativePath));
+    assert.ok(stat.isFile());
+    assert.ok(stat.size > 0);
+  }
 });

@@ -5,8 +5,14 @@
 # Dependencies
 node_modules/
 
-# Runtime data (uploaded photos, generated results, DB-adjacent scratch files)
-storage/
+# Runtime data (uploaded photos, generated results, DB-adjacent scratch files).
+# Curated starter poses are application assets and must ship with fresh clones;
+# runtime pose uploads/caches remain ignored beside them.
+storage/*
+!storage/pose-library/
+storage/pose-library/*
+!storage/pose-library/seed/
+!storage/pose-library/seed/**
 library/
 data/
 tmp/

@@ -61,6 +61,13 @@ test("database schema and seed data", async (t) => {
     }
   });
 
+  await t.test("fresh databases map the offline starter poses to bundled files", async () => {
+    const result = await pool.query(
+      "SELECT COUNT(*)::int AS count FROM pose_references WHERE file_path LIKE 'pose-library/seed/%'"
+    );
+    assert.equal(result.rows[0].count, 16);
+  });
+
   await t.test("pose sources keep provider and canonical-page provenance", async () => {
     const result = await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'pose_references' AND column_name = ANY($1::text[])`, [["source_provider", "source_page_url"]]);
     assert.equal(result.rowCount, 2);

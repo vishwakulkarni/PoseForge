@@ -4,11 +4,11 @@ import { Providers } from './providers';
 
 export const metadata: Metadata = {
   title: {
-    default: 'PoseForge — Your photo. Any pose. Any portrait.',
+    default: 'PoseForge — Make the shot you imagined',
     template: '%s · PoseForge',
   },
   description:
-    'PoseForge turns your photos into any pose, portrait, or print-ready U.S. or Indian document photo from one private, local-first home studio.',
+    'A local-first AI pose studio for photographers and creators. Keep the identity, direct the pose, camera, light, and mood, and create the frame on your own machine.',
 };
 
 export const viewport: Viewport = {

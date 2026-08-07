@@ -67,7 +67,7 @@ public/
 web/                        The Next.js application — see "Frontend" below
 scripts/
   generate-mascot.js         One-off Codex CLI call that produces the mascot artwork
-storage/                    Runtime-created, gitignored: characters/, generations/, upload-v2/
+storage/                    Runtime data plus tracked pose-library/seed starter assets
 ```
 
 ### Inside `web/`
@@ -239,11 +239,11 @@ which points at an existing entry.
 
 Two things `lib/poseLibrary.js` handles that are easy to miss:
 
-- **Lazy caching for seeded/external poses.** Seed rows only have a
-  `source_url` (hotlinked, same pattern as the Gallery showcase photos —
-  see `CREDITS.md`). Browsing the library never downloads anything; only
-  `resolvePoseReferenceFile()` — called when a pose is actually used in a
-  generation — fetches and caches the image under `storage/pose-library/`,
+- **Bundled starters and lazy caching.** A representative offline starter
+  set ships under `storage/pose-library/seed/`; the remaining seed rows use
+  a `source_url` (hotlinked, same pattern as the Gallery showcase photos —
+  see `CREDITS.md`). `resolvePoseReferenceFile()` — called when a remote pose
+  is first used in a generation — caches it under `storage/pose-library/`,
   after which `file_path` is set and it's served locally from then on.
 - **Best-effort AI tagging, always in the background.** `lib/poseTagger.js`
   tries OpenAI's vision-capable chat completions API first (if a key is
