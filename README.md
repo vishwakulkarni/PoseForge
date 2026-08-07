@@ -1,62 +1,44 @@
 # PoseForge
 
+[![CI](https://github.com/vishwakulkarni/PoseForge/actions/workflows/ci.yml/badge.svg)](https://github.com/vishwakulkarni/PoseForge/actions/workflows/ci.yml)
+[![Web](https://github.com/vishwakulkarni/PoseForge/actions/workflows/web.yml/badge.svg)](https://github.com/vishwakulkarni/PoseForge/actions/workflows/web.yml)
+[![Node.js 20.9+](https://img.shields.io/badge/Node.js-20.9%2B-339933?logo=nodedotjs&logoColor=white)](package.json)
+[![Ubuntu CI tested](https://img.shields.io/badge/Ubuntu-CI%20tested-E95420?logo=ubuntu&logoColor=white)](docs/COMPATIBILITY.md)
+[![macOS maintainer tested](https://img.shields.io/badge/macOS-maintainer%20tested-000000?logo=apple&logoColor=white)](docs/COMPATIBILITY.md)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-**Your identity. Any pose.**
+## Turn the AI tools you already have into a private pose studio
 
-PoseForge is a local-first AI photo studio: give it a photo of someone and a
-reference photo of a pose, and it generates a new photo of that person in
-that pose — same identity, new composition. Built with family photoshoots
-and Instagram-ready posts in mind, but useful for any character-in-pose
-transformation.
+Give PoseForge an identity photo and a pose reference. It returns the same
+person—or family—in the new pose and composition, with controls for camera,
+lighting, styling, fidelity, and output format.
 
-Your workspace, database, and generated files stay on your machine. ComfyUI
-can keep inference fully local; cloud API engines and signed-in CLI engines
-send the selected reference images and prompt to their provider. PoseForge
-supports six interchangeable engines: Codex CLI, Antigravity CLI, ComfyUI,
-OpenAI, Gemini, and Replicate.
+PoseForge exists so Codex, Google Antigravity, and ComfyUI users can turn their
+existing AI access into a repeatable visual workflow instead of rebuilding the
+same multi-image prompt in chat for every photograph.
 
-## Screens
+![PoseForge character to pose to transformed-result demo](web/public/demo/poseforge-readme-demo.gif)
 
-- **Studio** — a three-column workbench: **Sources** on the left (up to four
-  identity slots and the pose reference), a live composition **canvas** in the
-  middle, and **Direction** on the right. Normal mode keeps it to background,
-  style and a free-form brief. Advanced mode adds per-person direction,
-  identity/pose/age/hair fidelity, camera and lighting, composition, finish,
-  aspect ratio, up to six queued variants, multi-pose collage splitting, and
-  reusable recipes. A docked bar at the bottom holds the engine picker, a live
-  usage estimate, and the generate action.
-- **Characters** — a saved library of people you photograph often, so you
-  never have to re-upload them.
-- **Poses** — your pose library. Curated starter poses plus every pose
-  you've ever uploaded (auto-saved and AI-tagged, no extra step), filterable
-  by category and tag, ready to reuse in Studio.
-- **History** — every generation you've actually run, filterable, with full
-  detail and the ability to delete.
-- **ID Photos** — locally crop and format U.S. and Indian passport, visa,
-  e-Visa, and OCI photos beside dated requirements and official source links;
-  optional AI assistance is clearly separated from the safer local workflow.
-- **Metrics** — token usage, spend, latency percentiles, queue wait, engine
-  mix and grouped failure reasons across every run, with Session/Historical
-  scope and JSON/CSV export.
-- **Settings** — configure engine API keys and your default engine.
-- **Docs** — the project's own documentation, rendered in-app.
+[Watch the 10-second MP4](web/public/demo/poseforge-readme-demo.mp4) ·
+[Quickstart](#quickstart) ·
+[How it works](#how-it-works) ·
+[Examples](#examples) ·
+[Landing page source](web/app/page.tsx) ·
+[Documentation](docs/USER_GUIDE.md) ·
+[Roadmap](ROADMAP.md) ·
+[Support](SUPPORT.md) ·
+[Discussions](https://github.com/vishwakulkarni/PoseForge/discussions)
 
-## Architecture at a glance
-
-PoseForge runs as one Node.js server. `server.js` mounts the Express API and
-local file storage, then hands every other request to the Next.js application.
-The browser uses one origin for pages, `/api`, and `/storage`.
-
-The Next.js app holds no business logic. Every rule about what makes a valid
-generation is enforced in the Express layer; the React app mirrors those
-rules only to give faster feedback.
+> **Local-first, not automatically offline.** Your workspace, PostgreSQL
+> database, character library, pose library, and generated files stay on your
+> machine. ComfyUI can keep inference fully local. Codex CLI, Google
+> Antigravity, and hosted API engines send only the references, prompt, and
+> settings selected for that generation to their provider. See
+> [Privacy and data flow](PRIVACY.md).
 
 ## Quickstart
 
-Prerequisites: Node.js 20.9+, Docker (for local Postgres), and optionally the
-[Codex CLI](https://github.com/openai/codex) authenticated if you want to
-use that engine.
+Prerequisites: Node.js 20.9+ and Docker Desktop or Docker Engine with Compose.
 
 ```bash
 git clone https://github.com/vishwakulkarni/PoseForge.git
@@ -65,124 +47,165 @@ npm run setup
 npm run dev
 ```
 
-`npm run setup` checks Node.js and Docker, preserves an existing `.env` or
-creates one from `.env.example`, installs locked API and web dependencies,
-starts PostgreSQL, runs migrations, and verifies the bundled offline poses.
-It is safe to run again when updating an existing checkout.
+Open [http://localhost:3000](http://localhost:3000). The setup command creates
+`.env` when needed, installs locked dependencies, starts Docker PostgreSQL,
+runs migrations, and verifies the 16 bundled offline poses. It preserves an
+existing `.env` and is safe to rerun after pulling updates.
 
-Open http://localhost:3000. Configure OpenAI, Gemini or Replicate keys from
-Settings — Codex, Antigravity and ComfyUI readiness is auto-detected.
+No image engine is required to explore the interface. To generate images,
+authenticate Codex or Google Antigravity, connect local ComfyUI, or configure
+a hosted provider in **Settings**.
 
-Development logs include request IDs, HTTP status/duration, generation
-queue transitions, and engine start/finish/failure events. API keys and
-image contents are never logged.
+## How it works
 
-### Useful scripts
+1. **Choose the identity.** Upload one to four people, or reuse saved character
+   references.
+2. **Choose the pose.** Upload a pose, split a pose sheet, or select one of the
+   bundled references.
+3. **Direct and generate.** Set composition, camera, lighting, styling, and
+   fidelity; then run through Codex, Antigravity, ComfyUI, or a hosted API.
 
-| Command | What it does |
+PoseForge stores successful pose uploads in the reusable pose library and
+keeps generation history, usage, latency, cost estimates, and outputs together
+on the local machine.
+
+## Choose where the image is made
+
+[![Codex CLI](https://img.shields.io/badge/Codex%20CLI-supported-111827)](https://github.com/openai/codex)
+[![Google Antigravity](https://img.shields.io/badge/Google%20Antigravity-supported-4285F4?logo=google&logoColor=white)](docs/COMPATIBILITY.md)
+[![ComfyUI](https://img.shields.io/badge/ComfyUI-fully%20local-111827)](docs/COMPATIBILITY.md)
+
+| Engine | Existing plan/account | Separate API key | Fully local | Selected inputs leave machine |
+|---|---|---:|---:|---:|
+| **Codex CLI** | Authenticated Codex access | No | No | Yes, to the CLI provider |
+| **Google Antigravity CLI** | Signed-in Google plan | No | No | Yes, to Google services |
+| **ComfyUI** | Not required | No | **Yes**, when loopback-only | **No**, when loopback-only |
+| **OpenAI API** | API billing/account | Yes | No | Yes, to OpenAI |
+| **Google Gemini API** | API billing/account | Yes | No | Yes, to Google Gemini |
+| **Replicate** | API billing/account | Yes | No | Yes, to Replicate/model provider |
+| **fal.ai** | API billing/account | Yes | No | Yes, to fal.ai |
+
+Consumer subscriptions and API billing are often separate products. Signed-in
+CLI behavior, quotas, and retention remain subject to the provider account and
+terms. Database-backed API keys and ComfyUI workflow JSON are stored in plain
+text in local PostgreSQL; prefer environment variables where supported and
+read [SECURITY.md](SECURITY.md) before use on a shared machine.
+
+PoseForge currently supports **seven** interchangeable engines. Adding another
+engine is a small adapter change; see [the engine interface](engines/engineInterface.md).
+
+## Examples
+
+The people below are fictional, AI-created demo subjects. These visuals show
+the intended character → pose → result contract without publishing private
+user photos. They are product demonstrations, not provider quality benchmarks.
+
+### Individual editorial pose transfer
+
+Identity stays recognizable while the reference contributes body position,
+camera framing, and composition; the final scene adds new lighting and art
+direction.
+
+![Fictional model identity, pose reference, and cobalt editorial result](web/public/images/poseforge-transformation-hero.webp)
+
+### Indian family using an American family pose
+
+The middle photograph supplies only the arrangement: parents seated on either
+side while their two-year-old stands between them. The result keeps the Indian
+family identities and applies that family pose in a new festive setting.
+
+![Fictional Indian family identity, American family pose reference, and transformed Indian family result](web/public/images/poseforge-indian-family-pose-transfer-v2.webp)
+
+### Reproducible 10-second demo reel
+
+The README animation combines both transformations into a character → pose →
+result story. AGY assembled the local media pipeline; `sharp` renders 300
+frames and FFmpeg creates the MP4 and optimized GIF without network assets.
+
+| Detail | Value |
 |---|---|
-| `npm run setup` | Prepare dependencies, Docker PostgreSQL, migrations, and bundled poses |
-| `npm run dev` | Start the complete app with Next.js hot reload |
-| `npm start` | Start the built app in production mode |
-| `npm run test:all` | API tests and web unit/component tests |
-| `npm run test:e2e` | Playwright smoke suite (needs the API running) |
-| `npm run build:web` | Production build of the UI |
-| `npm run docs:sync` | Regenerate in-app docs from repository Markdown |
-| `npm run docs:check` | Fail when generated in-app docs are stale |
+| Inputs | The two fictional triptychs above |
+| Output | [MP4](web/public/demo/poseforge-readme-demo.mp4) and [GIF](web/public/demo/poseforge-readme-demo.gif) |
+| Media engine | AGY-orchestrated local `sharp` + FFmpeg pipeline |
+| Runtime output | Exactly 10.00 seconds, 300 frames at 30 FPS |
+| Hardware | Maintainer macOS development machine; media render is CPU-local |
+| Reproduce | `bash scripts/generate-readme-demo.sh` |
 
-## Testing
+For generation benchmarks, record the exact engine, model, prompt, runtime,
+local hardware, and provider date. Do not compare providers using unrecorded
+launch assets or publish identifiable photos without permission.
 
-| Layer | Tool | Location |
-|---|---|---|
-| API units | `node:test` | `tests/*.test.js` |
-| UI units, hooks, reducers | Vitest | `web/tests/*.test.ts` |
-| Components with mocked API | Vitest + RTL + MSW | `web/tests/*.test.tsx` |
-| End-to-end | Playwright | `web/e2e/*.spec.ts` |
+## What is included
 
-Some API tests require the native `sharp` module and will fail in
-environments where native addons cannot load.
+- **Studio:** up to four identity slots, pose reference, live workflow canvas,
+  per-person direction, camera and lighting controls, fidelity controls,
+  multi-pose collage splitting, recipes, and up to six queued variants.
+- **Characters and poses:** reusable local libraries with normalized image
+  storage, pose filtering, and best-effort tagging.
+- **History:** generation details, inputs, outputs, deletion, and rerun context.
+- **ID Photos:** local formatting for U.S. and Indian passport, visa, e-Visa,
+  and OCI profiles, with optional AI assistance kept separate.
+- **Metrics:** tokens, spend estimates, latency, queue wait, engine mix,
+  reliability, failure groups, and JSON/CSV exports.
+- **Documentation:** repository Markdown rendered inside the application.
 
-## Generation engines
+## Architecture
 
-| Engine | Requires | Notes |
-|---|---|---|
-| **Codex CLI** | Codex CLI installed + authenticated | Default, no API key stored in the app |
-| **Antigravity CLI** | Antigravity CLI + a signed-in Google plan | Token and credit usage depends on the plan; cost is not exposed |
-| **ComfyUI** | A local ComfyUI server and an exported API workflow | Fully local; no provider tokens, no API charges |
-| **OpenAI** | An OpenAI API key (Settings screen) | Uses `gpt-image-1` |
-| **Gemini** | A Gemini API key (Settings screen) | Flash and Pro image model tiers |
-| **Replicate** | A Replicate API key (Settings screen) | Configurable model slug in `engines/replicateEngine.js` |
-| **fal.ai** | A fal.ai API key (`FAL_KEY` or Settings) | Uses Nano Banana Pro Edit for multi-reference pose editing |
+PoseForge runs as one Node.js server. Express owns `/api`, `/storage`, database
+rules, generation queues, and engine adapters; Next.js owns the interface. The
+browser talks to one local origin. See [ARCHITECTURE.md](ARCHITECTURE.md) for
+the request lifecycle, data model, and adapter contract.
 
-Adding a seventh engine is a small, self-contained change — see
-`ARCHITECTURE.md` and `CONTRIBUTING.md`.
+## Useful commands
 
-## Mascot artwork
+| Command | Purpose |
+|---|---|
+| `npm run setup` | Install dependencies, start Docker PostgreSQL, migrate, and verify bundled poses |
+| `npm run dev` | Start the complete application with Next.js development mode |
+| `npm run build:web` | Create the production web build |
+| `npm run test:all` | Run API and web unit/component tests |
+| `npm run test:e2e` | Run Playwright desktop and mobile smoke tests |
+| `npm run docs:sync` | Regenerate in-app documentation from repository Markdown |
+| `bash scripts/generate-readme-demo.sh` | Rebuild the README MP4 and GIF locally |
 
-The site's painter-dog mascot has two layers: a hand-built SVG placeholder
-(always available, no dependencies) and a full-quality version you can
-generate yourself:
+## Documentation and community
 
-```bash
-npm run generate:mascot
-```
-
-This calls Codex CLI with the mascot's prompt and writes the result to
-`public/images/mascot-painter-dog.png`. The site already points there with
-an automatic SVG fallback, so this is the only step needed.
+- [User guide](docs/USER_GUIDE.md)
+- [Troubleshooting and FAQ](docs/TROUBLESHOOTING.md)
+- [Compatibility and hardware matrix](docs/COMPATIBILITY.md)
+- [Privacy and data flow](PRIVACY.md)
+- [Security policy](SECURITY.md)
+- [Architecture](ARCHITECTURE.md)
+- [Contributor guide](CONTRIBUTING.md)
+- [Roadmap](ROADMAP.md)
+- [Support](SUPPORT.md)
+- [Changelog](CHANGELOG.md)
+- [GitHub Discussions](https://github.com/vishwakulkarni/PoseForge/discussions)
 
 ## Configuration
 
-Copy `.env.example` to `.env` and adjust as needed:
+The default `.env.example` connects to Docker PostgreSQL. Optional environment
+variables include `CODEX_BIN`, `CODEX_TIMEOUT_MS`, `ANTIGRAVITY_BIN`,
+`ANTIGRAVITY_MODEL`, `ANTIGRAVITY_TIMEOUT_MS`, `GEMINI_API_KEY`,
+`GEMINI_IMAGE_MODEL`, `FAL_KEY`, `COMFYUI_URL`, `COMFYUI_MODEL`,
+`COMFYUI_WORKFLOW_PATH`, and `COMFYUI_TIMEOUT_MS`.
 
-```text
-PORT=3000
-DATABASE_URL=postgres://postgres:postgres@localhost:5432/poseforge
-```
+ComfyUI is restricted to loopback addresses unless
+`COMFYUI_ALLOW_REMOTE=true` is deliberately configured. OpenAI, Gemini,
+Replicate, and fal.ai credentials can also be configured in Settings.
 
-The Settings screen includes guided setup for Codex CLI, Google Antigravity
-CLI, Google Gemini, and local ComfyUI workflows. Antigravity accepts
-`ANTIGRAVITY_BIN`, `ANTIGRAVITY_MODEL`, and `ANTIGRAVITY_TIMEOUT_MS` and
-uses the cached login created by an interactive `agy` session. Gemini accepts `GEMINI_API_KEY` and
-`GEMINI_IMAGE_MODEL`; ComfyUI accepts `COMFYUI_URL`, `COMFYUI_MODEL`,
-`COMFYUI_WORKFLOW_PATH`, and `COMFYUI_TIMEOUT_MS`. ComfyUI is restricted to
-loopback addresses unless `COMFYUI_ALLOW_REMOTE=true` is explicitly set.
-Database-backed API keys and workflows are stored as plain text — see
-`SECURITY.md` before running this anywhere but your own machine.
-
-## Project docs
-
-- [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) — Studio, ID Photos, libraries,
-  Settings, and local/cloud privacy boundaries
-- [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) — setup, database,
-  bundled-pose, engine, and generation troubleshooting
-- [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md) — tested platforms, engine
-  requirements, and local hardware guidance
-- [`docs/METRICS.md`](docs/METRICS.md) — metric definitions, estimates, scopes,
-  and export behavior
-- [`ARCHITECTURE.md`](ARCHITECTURE.md) — stack, data model, and the engine
-  adapter pattern
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — dev setup, testing, how to add an engine
-- [`SUPPORT.md`](SUPPORT.md) — where to ask for help and what diagnostics to include
-- [`ROADMAP.md`](ROADMAP.md) — current direction and how priorities are chosen
-- [`PRIVACY.md`](PRIVACY.md) — engine data flow, local storage, credentials,
-  logs, and telemetry
-- [`SECURITY.md`](SECURITY.md) — threat model and how to report vulnerabilities
-- [`CHANGELOG.md`](CHANGELOG.md) — notable changes, by version
-
-## Production
-
-Build the Next.js UI, then start PoseForge:
+## Production and security boundary
 
 ```bash
 npm run build:web
 npm start
 ```
 
-PoseForge is designed as a trusted local application; read
-[`SECURITY.md`](SECURITY.md) before exposing it to another machine or the
-public internet.
+PoseForge is a trusted, single-user local application. It has no authentication
+or authorization layer and should not be exposed directly to the internet or a
+shared network. Review [SECURITY.md](SECURITY.md) and [PRIVACY.md](PRIVACY.md)
+before changing that boundary.
 
 ## License
 
-Apache License 2.0 — see [`LICENSE`](LICENSE).
+Apache License 2.0. See [LICENSE](LICENSE).
