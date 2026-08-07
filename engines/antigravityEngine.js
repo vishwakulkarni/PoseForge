@@ -1,8 +1,10 @@
 const { spawn, spawnSync } = require("child_process");
+const crypto = require("crypto");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const { fileURLToPath } = require("url");
+const sharp = require("sharp");
 const { pool } = require("../db/pool");
 const logger = require("../lib/logger");
 const { RATE_DATE } = require("../lib/usageEstimator");
@@ -16,7 +18,7 @@ const DEFAULT_MODEL = models[0].id;
 const AGY_BIN = process.env.ANTIGRAVITY_BIN || "agy";
 const TIMEOUT_MS = Math.max(Number(process.env.ANTIGRAVITY_TIMEOUT_MS) || 600000, 30000);
 const BRAIN_ROOT = path.resolve(process.env.ANTIGRAVITY_BRAIN_DIR || path.join(os.homedir(), ".gemini", "antigravity-cli", "brain"));
-const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const MAX_ARTIFACT_BYTES = 100 * 1024 * 1024;
 
 async function setting(key) {
   const result = await pool.query("SELECT value FROM settings WHERE key = $1", [key]);
@@ -35,7 +37,7 @@ function workspaceFile(workspace, filePath) {
   const absoluteWorkspace = path.resolve(workspace);
   const absoluteFile = path.resolve(filePath);
   if (path.dirname(absoluteFile) !== absoluteWorkspace) throw new Error("Antigravity reference images must be inside the generation workspace.");
-  return path.basename(absoluteFile);
+  return absoluteFile;
 }
 
 function usageFromEnvelope(envelope, model) {
@@ -58,36 +60,61 @@ function usageFromEnvelope(envelope, model) {
   };
 }
 
-function recoverBrainArtifact(envelope, outputPath) {
-  if (fs.existsSync(outputPath)) return null;
+async function imageMetadata(filePath) {
+  try {
+    const stat = await fs.promises.stat(filePath);
+    if (!stat.isFile() || stat.size === 0 || stat.size > MAX_ARTIFACT_BYTES) return null;
+    const metadata = await sharp(filePath).metadata();
+    return metadata.format && metadata.width && metadata.height ? metadata : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function brainArtifactCandidates(envelope) {
   const conversationId = String(envelope?.conversation_id || "");
-  if (!/^[a-zA-Z0-9-]{8,128}$/.test(conversationId)) return null;
+  if (!/^[a-zA-Z0-9-]{8,128}$/.test(conversationId)) return [];
 
   const response = String(envelope?.response || "");
   const fileUrls = response.match(/file:\/\/[^\s<>"')\]]+/g) || [];
   const conversationRoot = path.resolve(BRAIN_ROOT, conversationId);
-  if (path.dirname(conversationRoot) !== BRAIN_ROOT || !fs.existsSync(conversationRoot)) return null;
+  if (path.dirname(conversationRoot) !== BRAIN_ROOT || !fs.existsSync(conversationRoot)) return [];
 
   let realConversationRoot;
-  try { realConversationRoot = fs.realpathSync(conversationRoot); } catch (_) { return null; }
+  try { realConversationRoot = fs.realpathSync(conversationRoot); } catch (_) { return []; }
+  const candidates = [];
   for (const fileUrl of fileUrls) {
     let candidate;
     try { candidate = fileURLToPath(fileUrl); } catch (_) { continue; }
-    if (path.basename(candidate).toLowerCase() !== "output.png") continue;
 
     let realCandidate;
     try { realCandidate = fs.realpathSync(candidate); } catch (_) { continue; }
     if (path.dirname(realCandidate) !== realConversationRoot) continue;
+    candidates.push(realCandidate);
+  }
 
-    const stat = fs.statSync(realCandidate);
-    if (!stat.isFile() || stat.size < PNG_SIGNATURE.length || stat.size > 100 * 1024 * 1024) continue;
-    const signature = Buffer.alloc(PNG_SIGNATURE.length);
-    const descriptor = fs.openSync(realCandidate, "r");
-    try { fs.readSync(descriptor, signature, 0, signature.length, 0); } finally { fs.closeSync(descriptor); }
-    if (!signature.equals(PNG_SIGNATURE)) continue;
+  const discovered = fs.readdirSync(realConversationRoot, { withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => path.join(realConversationRoot, entry.name))
+    .sort((left, right) => fs.statSync(right).mtimeMs - fs.statSync(left).mtimeMs);
+  return [...new Set([...candidates, ...discovered])];
+}
 
-    fs.copyFileSync(realCandidate, outputPath);
-    return realCandidate;
+async function materializePng(envelope, outputPath, nativeOutputPath) {
+  const candidates = [...new Set([nativeOutputPath, outputPath, ...brainArtifactCandidates(envelope)])];
+  for (const candidate of candidates) {
+    const metadata = await imageMetadata(candidate);
+    if (!metadata) continue;
+    if (candidate === outputPath && metadata.format === "png") return candidate;
+
+    const temporaryPath = `${outputPath}.agy-${crypto.randomUUID()}.tmp`;
+    try {
+      await sharp(candidate).rotate().png().toFile(temporaryPath);
+      await fs.promises.rename(temporaryPath, outputPath);
+      return candidate;
+    } catch (_) {
+      await fs.promises.rm(temporaryPath, { force: true }).catch(() => {});
+    }
   }
   return null;
 }
@@ -110,6 +137,7 @@ const engine = {
       .map((filePath) => workspaceFile(workspace, filePath));
     const pose = workspaceFile(workspace, posePhotoPath);
     const output = workspaceFile(workspace, outputPath);
+    const nativeOutput = path.join(path.resolve(workspace), "agy-native-output.jpg");
     const selectedModel = validModel(model || await configuredModel());
     const references = characters.map((file, index) => `Identity image ${index + 1}: ${file}`).join("\n");
     const fullPrompt = `${prompt}
@@ -121,10 +149,15 @@ Pose image: ${pose}
 Use Antigravity's native image-generation capability now. Inspect every source image and create one photorealistic transformation. Preserve identity and subject order exactly. Treat the pose file only as pose and composition direction. Target aspect ratio: ${outputSettings.aspectRatio || "1:1"}. Quality direction: ${outputSettings.quality || "medium"}.
 
 OUTPUT CONTRACT:
-- Write one valid PNG to exactly: ${output}
+- Generate the real image with Antigravity's native image-generation tool.
+- Save the native generated image to exactly this absolute path: ${nativeOutput}
+- If the native tool first creates an artifact in the Antigravity brain directory, perform a binary-safe filesystem copy of that real artifact to ${nativeOutput}.
+- ${nativeOutput} must contain actual decodable image bytes, not text, base64, a placeholder, a fabricated header, Markdown, or a link.
+- Before reporting success, verify ${nativeOutput} exists, is larger than 100 KB, decodes as an image, and has width and height greater than 500 pixels.
+- PoseForge will validate and convert the native artifact to PNG at: ${output}
 - Do not overwrite the reference images or create unrelated artifacts.
-- Do not use shell commands; use the native image-generation and file tools.
-- The task is not complete until ${output} exists. After writing it, respond briefly and exit.`;
+- Do not synthesize the output with a text-writing tool. A binary-safe copy of the real native artifact is allowed.
+- Do not claim success unless every output check passes. Report both the native artifact URL and the exact native output path, then exit.`;
 
     return new Promise((resolve, reject) => {
       const args = [
@@ -165,7 +198,7 @@ OUTPUT CONTRACT:
         clearTimeout(timer);
         reject(new Error(`Failed to run Antigravity CLI: ${error.message}`));
       });
-      child.on("close", (code) => {
+      child.on("close", async (code) => {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
@@ -175,11 +208,17 @@ OUTPUT CONTRACT:
           const detail = envelope?.error || stderr || envelope?.response || stdout;
           return reject(new Error(`Antigravity CLI failed${code == null ? "" : ` with code ${code}`}. ${String(detail).slice(-2000)}`));
         }
-        const recoveredArtifact = recoverBrainArtifact(envelope, outputPath);
-        if (!fs.existsSync(outputPath)) {
-          return reject(new Error(`Antigravity CLI completed but did not write ${output}. ${String(envelope?.response || stderr || stdout).slice(-1200)}`));
+        let recoveredArtifact;
+        try {
+          recoveredArtifact = await materializePng(envelope, outputPath, nativeOutput);
+        } catch (error) {
+          return reject(new Error(`Antigravity CLI produced an unreadable image artifact. ${error.message}`));
         }
-        if (recoveredArtifact) logger.info("recovered Antigravity brain artifact", { outputPath, conversationId: envelope?.conversation_id });
+        if (!recoveredArtifact || !(await imageMetadata(outputPath)) || (await sharp(outputPath).metadata()).format !== "png") {
+          return reject(new Error(`Antigravity CLI completed but did not produce a valid image for ${output}. ${String(envelope?.response || stderr || stdout).slice(-1200)}`));
+        }
+        if (recoveredArtifact !== outputPath) logger.info("materialized Antigravity image artifact", { sourcePath: recoveredArtifact, outputPath, conversationId: envelope?.conversation_id });
+        await fs.promises.rm(nativeOutput, { force: true }).catch(() => {});
         logger.info("Antigravity CLI completed", { outputPath, model: selectedModel, durationMs: Date.now() - startedAt });
         resolve({ usage: usageFromEnvelope(envelope, selectedModel) });
       });

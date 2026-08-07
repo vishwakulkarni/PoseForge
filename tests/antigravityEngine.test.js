@@ -42,6 +42,7 @@ test("Antigravity runs headlessly in the generation workspace and records CLI us
   assert.equal(result.usage.totalTokens, 150);
   assert.equal(result.usage.thinkingTokens, 10);
   assert.equal(result.usage.estimatedCostUsd, null);
+  assert.equal(fs.existsSync(path.join(directory, "agy-native-output.jpg")), false);
 });
 
 test("Antigravity rejects reference paths outside its generation workspace", async () => {
@@ -62,10 +63,12 @@ test("Antigravity safely recovers native image output from its conversation brai
     binary: process.env.ANTIGRAVITY_BIN,
     brain: process.env.ANTIGRAVITY_BRAIN_DIR,
     conversation: process.env.FAKE_AGY_CONVERSATION_ID,
+    invalidDirectOutput: process.env.FAKE_AGY_INVALID_DIRECT_OUTPUT,
   };
   process.env.ANTIGRAVITY_BIN = fixture;
   process.env.ANTIGRAVITY_BRAIN_DIR = path.join(directory, "brain");
   process.env.FAKE_AGY_CONVERSATION_ID = "11111111-2222-3333-4444-555555555555";
+  process.env.FAKE_AGY_INVALID_DIRECT_OUTPUT = "1";
   const modulePath = require.resolve("../engines/antigravityEngine");
   delete require.cache[modulePath];
   const engine = require(modulePath);
@@ -73,6 +76,7 @@ test("Antigravity safely recovers native image output from its conversation brai
     if (previous.binary == null) delete process.env.ANTIGRAVITY_BIN; else process.env.ANTIGRAVITY_BIN = previous.binary;
     if (previous.brain == null) delete process.env.ANTIGRAVITY_BRAIN_DIR; else process.env.ANTIGRAVITY_BRAIN_DIR = previous.brain;
     if (previous.conversation == null) delete process.env.FAKE_AGY_CONVERSATION_ID; else process.env.FAKE_AGY_CONVERSATION_ID = previous.conversation;
+    if (previous.invalidDirectOutput == null) delete process.env.FAKE_AGY_INVALID_DIRECT_OUTPUT; else process.env.FAKE_AGY_INVALID_DIRECT_OUTPUT = previous.invalidDirectOutput;
     delete require.cache[modulePath];
     await fs.promises.rm(directory, { recursive: true, force: true });
   });
@@ -92,4 +96,5 @@ test("Antigravity safely recovers native image output from its conversation brai
   });
 
   assert.equal((await sharp(outputPath).metadata()).format, "png");
+  assert.equal(fs.existsSync(path.join(directory, "agy-native-output.jpg")), false);
 });

@@ -9,18 +9,20 @@ const promptIndex = args.indexOf("-p");
 const modelIndex = args.indexOf("--model");
 const prompt = promptIndex >= 0 ? args[promptIndex + 1] : "";
 const identity = prompt.match(/Identity image 1: ([^\n]+)/)?.[1];
-const output = prompt.match(/Write one valid PNG to exactly: ([^\n]+)/)?.[1];
-if (!identity || !output || !args.includes("--sandbox") || !args.includes("--dangerously-skip-permissions") || !args.includes("--disable-slash-commands") || modelIndex < 0) {
+const pose = prompt.match(/Pose image: ([^\n]+)/)?.[1];
+const output = prompt.match(/Save the native generated image to exactly this absolute path: ([^\n]+)/)?.[1];
+if (!identity || !pose || !output || !path.isAbsolute(identity) || !path.isAbsolute(pose) || !path.isAbsolute(output) || !args.includes("--sandbox") || !args.includes("--dangerously-skip-permissions") || !args.includes("--disable-slash-commands") || modelIndex < 0) {
   process.stderr.write("Invalid Antigravity test invocation");
   process.exit(2);
 }
 const conversationId = process.env.FAKE_AGY_CONVERSATION_ID;
 let response = "Generated the requested image.";
 if (conversationId) {
-  const brainOutput = path.join(process.env.ANTIGRAVITY_BRAIN_DIR, conversationId, "output.png");
+  const brainOutput = path.join(process.env.ANTIGRAVITY_BRAIN_DIR, conversationId, "generated-artifact.jpg");
   fs.mkdirSync(path.dirname(brainOutput), { recursive: true });
   fs.copyFileSync(identity, brainOutput);
-  response = `Generated and saved [output.png](${pathToFileURL(brainOutput).href}).`;
+  if (process.env.FAKE_AGY_INVALID_DIRECT_OUTPUT === "1") fs.writeFileSync(output, "not an image");
+  response = `Generated and saved [generated-artifact.jpg](${pathToFileURL(brainOutput).href}).`;
 } else {
   fs.copyFileSync(identity, output);
 }
