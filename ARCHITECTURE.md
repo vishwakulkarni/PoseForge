@@ -35,6 +35,47 @@ the API and UI testable in isolation.
 | Documentation | Fumadocs, served at `/docs` | The repo's own markdown, rendered in the app |
 | Generation engines | Pluggable adapters behind a common interface | See below — this is the project's main extension point |
 
+## System architecture
+
+```mermaid
+flowchart LR
+  User[User] --> Browser[Browser]
+
+  subgraph Local[Trusted local machine]
+    Browser -->|Pages and assets| Next[Next.js App Router]
+    Browser -->|JSON and multipart requests| API[Express API]
+    Browser -->|Generated media| Static[Storage static route]
+
+    Next --- Server[Single Node.js server]
+    API --- Server
+    Static --- Server
+
+    API --> DB[(PostgreSQL)]
+    API --> Files[(Local storage)]
+    API --> Queue[In-memory generation queue]
+    Queue --> Registry[Engine registry]
+    Registry --> Comfy[ComfyUI loopback API]
+  end
+
+  subgraph Providers[External provider boundary]
+    Registry --> Codex[Codex CLI provider session]
+    Registry --> Agy[Google Antigravity session]
+    Registry --> APIs[OpenAI / Gemini / Replicate / fal.ai]
+  end
+
+  Comfy --> Files
+  Codex --> Files
+  Agy --> Files
+  APIs --> Files
+```
+
+The browser sees one origin. Express routes are mounted before the Next.js
+catch-all handler, so `/api/*` and `/storage/*` stay in the backend while page
+and asset requests fall through to Next.js. PostgreSQL holds relational state
+and file paths; image bytes remain under `storage/`. The provider boundary is
+selected per generation: loopback ComfyUI can remain entirely local, while
+signed-in CLIs and hosted APIs transmit the selected inputs to their provider.
+
 ## Directory layout
 
 ```
@@ -52,7 +93,8 @@ routes/
 engines/
   index.js                 Registry: engine key -> adapter module
   engineInterface.md        The adapter contract, documented
-  codexEngine.js, openaiEngine.js, replicateEngine.js
+  codexEngine.js, antigravityEngine.js, comfyEngine.js, openaiEngine.js,
+  geminiEngine.js, replicateEngine.js, falEngine.js
 lib/
   promptTemplate.js         Builds the merge instruction sent to an engine
   storage.js                 Centralized, path-traversal-safe file path helpers
@@ -105,9 +147,10 @@ Eight product tables, no ORM:
 - **`presets`** — background/style presets. Each has a `prompt_fragment`
   appended into the generation prompt when selected. `is_custom` marks
   user-added presets versus the seeded starter set.
-- **`settings`** — flat key/value store: `default_engine`,
-  `openai_api_key`, `replicate_api_key`. Deliberately *not* environment
-  variables — see `SECURITY.md` for why keys live in the database instead.
+- **`settings`** — flat key/value store for the default engine, provider
+  credentials, selected models, and the optional ComfyUI workflow. Values
+  configured through Settings are deliberately local database values rather
+  than environment variables — see `SECURITY.md` and `PRIVACY.md`.
 - **`generations`** — one row per generation attempt. Tracks `status`
   (`pending` → `running` → `completed`/`failed`), the resolved prompt, and
   paths to the pose photo and output. `pose_reference_id` uses `ON DELETE
@@ -172,7 +215,7 @@ with more than one character photo it composites them into a side-by-side
 montage locally (via `sharp`) before sending — an imperfect but reasonable
 fallback, documented inline in that file.
 
-`engines/index.js` holds the registry (`{ codex, antigravity, openai, gemini, comfy, replicate }`) and
+`engines/index.js` holds the registry (`{ codex, antigravity, openai, gemini, comfy, replicate, fal }`) and
 `listEngines()`, which calls `isReady()` on each — that's what powers both
 the Studio's engine dropdown and the Settings screen's status list. The
 registry is enough for basic discovery; engines with provider-specific
@@ -205,27 +248,116 @@ Adapters worth knowing about specifically:
   conversation ID, directory boundary, size, and PNG signature before copying
   that artifact into PoseForge storage.
 
-## Generation flow (async status, serial execution)
+## Generation call flow
 
-There's no true concurrency — one generation runs at a time — but the UI
-doesn't block on it:
+```mermaid
+sequenceDiagram
+  autonumber
+  actor User
+  participant UI as Studio UI
+  participant API as Express generations route
+  participant Store as Local storage and pose library
+  participant DB as PostgreSQL
+  participant Queue as Generation queue
+  participant Engine as Selected engine adapter
+  participant Runtime as ComfyUI, CLI, or hosted API
+
+  User->>UI: Choose identities, pose, engine, and direction
+  UI->>API: POST /api/generations (multipart)
+  API->>API: Validate mutually exclusive inputs and engine readiness
+  API->>Store: Persist uploads and resolve or register pose
+  API->>Store: Normalize per-generation PNG copies
+  API->>DB: Insert generation and character rows as pending
+  API->>Queue: Enqueue one job per requested variant
+  API-->>UI: 202 Accepted with generation IDs and batch ID
+
+  par Background generation
+    Queue->>DB: Mark generation running
+    Queue->>Engine: generate(paths, prompt, settings, model)
+    Engine->>Runtime: Submit references and generation request
+    Runtime-->>Engine: Return or write generated image
+    Engine->>Store: Write validated output file
+    Engine->>DB: Return usage metadata
+    alt Generation succeeds
+      Queue->>DB: Mark completed and save output path and usage
+    else Generation fails
+      Queue->>DB: Mark failed and save safe error message
+    end
+  and UI polling
+    loop While pending or running
+      UI->>API: GET /api/generations/:id
+      API->>DB: Load generation and character rows
+      API-->>UI: Current status, queue state, usage, and output URL
+    end
+  end
+```
+
+The HTTP request does not wait for image generation:
 
 1. `POST /api/generations` validates input, persists the uploaded pose
    photo, resolves the character photo, builds the prompt (base
    instructions + any preset fragments), inserts a `generations` row with
    `status: 'pending'`, and calls `lib/generationQueue.js`'s `enqueue()`.
    It responds `202` immediately — it does not wait for generation to finish.
-2. The queue (`lib/generationQueue.js`) is a plain in-memory FIFO array with
-   a `running` flag. Jobs run one at a time, in order.
+2. The queue (`lib/generationQueue.js`) is an in-memory FIFO array. It starts
+   up to `GENERATION_CONCURRENCY` jobs at once, clamped to 1-6 and defaulting
+   to 6. A multi-variant request creates one independently tracked job per
+   variant.
 3. When a job runs: update the row to `running`, call the selected engine's
    `generate()`, then update to `completed` (with `output_path`) or
    `failed` (with `error_message`).
 4. The frontend polls `GET /api/generations/:id` every ~1.5s until the
    status leaves `pending`/`running`.
 
-Known limitation: the queue is in-memory only. A server restart mid-job
-leaves that row stuck in `running` — acceptable for a local single-user
-tool, but worth knowing if you're debugging a "stuck" generation.
+Known limitation: the queue is in-memory only. A server restart mid-job leaves
+that row stuck in `running` — acceptable for a local single-user tool, but
+worth knowing if you're debugging a "stuck" generation.
+
+## Object and data flow
+
+```mermaid
+flowchart TD
+  SavedCharacter[Saved character] --> PrimaryPhoto[Primary character photo]
+  OneOff[One-off character upload] --> CharacterSource[Character source]
+  PrimaryPhoto --> CharacterSource
+
+  PoseUpload[Pose upload] --> PoseReference[pose_references row]
+  PoseLibrary[Existing pose library item] --> PoseReference
+  PoseReference --> PoseSource[Resolved local pose source]
+
+  Recipe[Studio recipe JSON] --> Controls[Sanitized creative controls]
+  Presets[Background and style presets] --> Prompt[Resolved generation prompt]
+  Controls --> Prompt
+
+  CharacterSource --> Normalize[Normalize immutable generation copies]
+  PoseSource --> Normalize
+  Normalize --> CharacterFiles[character-N.png files]
+  Normalize --> PoseFile[pose.png file]
+
+  CharacterFiles --> LinkRows[generation_characters rows]
+  PoseFile --> Generation[generations row]
+  LinkRows --> Generation
+  PoseReference -. ON DELETE SET NULL .-> Generation
+  Prompt --> Generation
+  Controls --> Generation
+
+  Generation --> Job[Queued engine job]
+  Job --> Output[output.png or document asset]
+  Job --> Usage[Usage and latency metadata]
+  Output --> Generation
+  Usage --> Generation
+
+  Generation --> History[History and detail views]
+  Generation --> Metrics[Metrics aggregation and export]
+  Output --> Download[Browser preview and download]
+```
+
+The durable object is the `generations` row, not the transient upload. Every
+run receives normalized character and pose copies under its own generation
+directory, so history remains reproducible even if a saved character or pose
+library entry is later deleted. Foreign keys use `ON DELETE SET NULL` where
+history must survive, while deleting the generation cascades its
+`generation_characters` rows and the route removes its files.
 
 ## The pose library
 

@@ -156,6 +156,24 @@ rules, generation queues, and engine adapters; Next.js owns the interface. The
 browser talks to one local origin. See [ARCHITECTURE.md](ARCHITECTURE.md) for
 the request lifecycle, data model, and adapter contract.
 
+```mermaid
+flowchart LR
+  Browser[Browser] --> Next[Next.js UI]
+  Browser --> API[Express API]
+  API --> DB[(PostgreSQL metadata)]
+  API --> Storage[(Local image storage)]
+  API --> Queue[Generation queue]
+  Queue --> Engines[Engine adapters]
+  Engines --> Local[Local ComfyUI]
+  Engines --> Providers[Codex, Antigravity, and hosted APIs]
+  Local --> Storage
+  Providers --> Storage
+```
+
+[System architecture](ARCHITECTURE.md#system-architecture) ·
+[Generation call flow](ARCHITECTURE.md#generation-call-flow) ·
+[Object and data flow](ARCHITECTURE.md#object-and-data-flow)
+
 ## Useful commands
 
 | Command | Purpose |
