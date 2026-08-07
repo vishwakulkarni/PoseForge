@@ -61,12 +61,14 @@ use that engine.
 ```bash
 git clone https://github.com/vishwakulkarni/PoseForge.git
 cd PoseForge
-cp .env.example .env
-docker compose up -d postgres
-npm run install:all      # installs both the API and web/ dependencies
-npm run migrate
+npm run setup
 npm run dev
 ```
+
+`npm run setup` checks Node.js and Docker, preserves an existing `.env` or
+creates one from `.env.example`, installs locked API and web dependencies,
+starts PostgreSQL, runs migrations, and verifies the bundled offline poses.
+It is safe to run again when updating an existing checkout.
 
 Open http://localhost:3000. Configure OpenAI, Gemini or Replicate keys from
 Settings — Codex, Antigravity and ComfyUI readiness is auto-detected.
@@ -79,6 +81,7 @@ image contents are never logged.
 
 | Command | What it does |
 |---|---|
+| `npm run setup` | Prepare dependencies, Docker PostgreSQL, migrations, and bundled poses |
 | `npm run dev` | Start the complete app with Next.js hot reload |
 | `npm start` | Start the built app in production mode |
 | `npm run test:all` | API tests and web unit/component tests |

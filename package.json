@@ -28,6 +28,7 @@
     "node": ">=20.9.0"
   },
   "scripts": {
+    "setup": "node scripts/setup.js",
     "start": "node server.js",
     "dev": "node server.js --dev",
     "build:web": "npm --prefix web run build",
