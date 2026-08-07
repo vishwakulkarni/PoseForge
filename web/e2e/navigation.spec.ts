@@ -33,6 +33,36 @@ test.describe('landing page progressive enhancement', () => {
   });
 });
 
+test('hero gallery advances manually and keeps scrolling from the new frame', async ({ page }) => {
+  await page.goto('/');
+
+  const gallery = page.getByLabel(/identity, pose reference, and generated result gallery/i);
+  const viewport = gallery.locator('[class*="carouselViewport"]');
+  const nextButton = page.getByRole('button', { name: /show next photo/i });
+
+  await expect(nextButton).toBeVisible();
+  await expect(
+    gallery.getByRole('img', { name: /NRI family identity.*walking pose reference.*final generated image/i }).first(),
+  ).toBeAttached();
+
+  const automaticStart = await viewport.evaluate((element) => element.scrollLeft);
+  await expect
+    .poll(() => viewport.evaluate((element) => element.scrollLeft), { timeout: 2_000 })
+    .toBeGreaterThan(automaticStart + 4);
+
+  const startingPosition = await viewport.evaluate((element) => element.scrollLeft);
+  await nextButton.click();
+
+  await expect
+    .poll(() => viewport.evaluate((element) => element.scrollLeft))
+    .toBeGreaterThan(startingPosition + 100);
+
+  const advancedPosition = await viewport.evaluate((element) => element.scrollLeft);
+  await expect
+    .poll(() => viewport.evaluate((element) => element.scrollLeft), { timeout: 3_000 })
+    .toBeGreaterThan(advancedPosition + 4);
+});
+
 test.describe('every page renders', () => {
   for (const page of PAGES) {
     test(`${page.path} loads without a client-side error`, async ({ page: browserPage }) => {

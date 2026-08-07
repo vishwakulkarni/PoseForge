@@ -12,11 +12,11 @@ import {
   MousePointer2,
   SlidersHorizontal,
   Sparkles,
-  WandSparkles,
   Zap,
 } from 'lucide-react';
 import { PageShell } from '@/components/layout/page-shell';
 import { Button } from '@/components/ui/button';
+import { HeroCarousel } from './hero-carousel';
 import styles from './landing.module.css';
 
 const CREATOR_FEATURES = [
@@ -88,85 +88,49 @@ export default function LandingPage() {
         <div className={styles.heroGlow} aria-hidden />
         <div className={`pf-container ${styles.heroGrid}`}>
           <div className={styles.heroCopy}>
-            <div className={styles.announcement}>
-              <span className={styles.liveDot} />
-              Local-first AI pose studio for creators
+            <div className={styles.heroIntro}>
+              <div className={styles.announcement}>
+                <span className={styles.liveDot} />
+                Local-first AI pose studio for creators
+              </div>
+
+              <h1 id="hero-title" className={styles.heroTitle}>
+                Make the shot{' '}
+                <span>you imagined.</span>
+              </h1>
             </div>
 
-            <h1 id="hero-title" className={styles.heroTitle}>
-              Make the shot{' '}
-              <span>you imagined.</span>
-            </h1>
+            <div className={styles.heroDetails}>
+              <p className={styles.heroLead}>
+                Keep the person. Change the pose, camera, light, and mood. PoseForge turns a portrait
+                and a pose reference into a frame you can art-direct—right from your own machine.
+              </p>
 
-            <p className={styles.heroLead}>
-              Keep the person. Change the pose, camera, light, and mood. PoseForge turns a portrait
-              and a pose reference into a frame you can art-direct—right from your own machine.
-            </p>
-
-            <div className={styles.heroActions}>
-              <Button asChild variant="primary" size="lg" className={styles.primaryCta}>
-                <Link href="/studio">
-                  Create your first frame
-                  <ArrowRight />
+              <div className={styles.heroActions}>
+                <Button asChild variant="primary" size="lg" className={styles.primaryCta}>
+                  <Link href="/studio">
+                    Create your first frame
+                    <ArrowRight />
+                  </Link>
+                </Button>
+                <Link href="/poses" className={styles.textCta}>
+                  Explore pose ideas
+                  <span aria-hidden>↗</span>
                 </Link>
-              </Button>
-              <Link href="/poses" className={styles.textCta}>
-                Explore pose ideas
-                <span aria-hidden>↗</span>
-              </Link>
-            </div>
-
-            <ul className={styles.trustList} aria-label="PoseForge benefits">
-              {['No account', 'Your own storage', 'Choose your AI engine'].map((item) => (
-                <li key={item}>
-                  <Check aria-hidden />
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className={styles.heroVisual}>
-            <div className={styles.visualHalo} aria-hidden />
-            <div className={styles.contactSheet}>
-              <div className={styles.sheetHeader}>
-                <span>PF / 001</span>
-                <span>Identity + pose = frame</span>
-                <span>3 selects</span>
               </div>
-              <div className={styles.imageWrap}>
-                <Image
-                  src="/images/poseforge-transformation-hero.webp"
-                  alt="The same fictional model shown as an identity portrait, pose reference, and finished editorial photograph"
-                  width={1693}
-                  height={929}
-                  priority
-                  sizes="(max-width: 900px) 94vw, 56vw"
-                />
-                <div className={styles.frameLabels} aria-hidden>
-                  <span>Identity</span>
-                  <span>Pose</span>
-                  <span>Final frame</span>
-                </div>
-              </div>
-            </div>
 
-            <div className={`${styles.floatingCard} ${styles.directionCard}`}>
-              <span className={styles.floatIcon}><WandSparkles /></span>
-              <div>
-                <small>Creative direction</small>
-                <strong>Cobalt editorial · 85mm</strong>
-              </div>
-            </div>
-
-            <div className={`${styles.floatingCard} ${styles.localCard}`}>
-              <span className={styles.statusDot} />
-              <div>
-                <small>Workspace</small>
-                <strong>Local &amp; ready</strong>
-              </div>
+              <ul className={styles.trustList} aria-label="PoseForge benefits">
+                {['No account', 'Your own storage', 'Choose your AI engine'].map((item) => (
+                  <li key={item}>
+                    <Check aria-hidden />
+                    {item}
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
+
+          <HeroCarousel />
         </div>
 
         <a href="#workflow" className={styles.scrollCue} aria-label="See how PoseForge works">

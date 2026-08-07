@@ -36,6 +36,7 @@
     "migrate": "node db/migrate.js",
     "docs:sync": "node scripts/sync-docs.js",
     "docs:check": "node scripts/sync-docs.js --check",
+    "demo:identity": "node scripts/build-identity-demo.js",
     "generate:mascot": "node scripts/generate-mascot.js",
     "test": "node --test tests/*.test.js",
     "test:web": "npm --prefix web test",

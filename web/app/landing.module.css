@@ -36,15 +36,23 @@
 .heroGrid {
   position: relative;
   z-index: 1;
-  display: grid;
-  grid-template-columns: minmax(0, 0.82fr) minmax(520px, 1.18fr);
-  align-items: center;
-  gap: clamp(42px, 6vw, 94px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: clamp(34px, 4vw, 52px);
   min-height: calc(100svh - var(--pf-nav-h));
-  padding-block: 76px 88px;
+  padding-block: clamp(44px, 6vh, 70px) clamp(54px, 7vh, 82px);
 }
 
 .heroCopy {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(360px, .9fr);
+  align-items: end;
+  gap: clamp(42px, 7vw, 100px);
+}
+
+.heroIntro,
+.heroDetails {
   display: flex;
   align-items: flex-start;
   flex-direction: column;
@@ -78,7 +86,7 @@
 
 .heroTitle {
   max-width: 720px;
-  font-size: clamp(54px, 6.6vw, 94px);
+  font-size: clamp(52px, 6vw, 82px);
   font-weight: 800;
   line-height: 0.91;
   letter-spacing: -0.072em;
@@ -94,7 +102,6 @@
 
 .heroLead {
   max-width: 580px;
-  margin-top: 30px;
   color: var(--pf-text-secondary);
   font-size: clamp(16px, 1.4vw, 19px);
   line-height: 1.68;
@@ -154,17 +161,99 @@
 
 .heroVisual {
   position: relative;
-  perspective: 1200px;
+  width: 100%;
 }
 
 .visualHalo {
   position: absolute;
-  inset: 8% 4%;
+  inset: 10% 8%;
   border-radius: 34px;
   background: var(--pf-accent);
   filter: blur(55px);
   opacity: 0.18;
-  transform: rotate(-4deg);
+  transform: rotate(-2deg);
+}
+
+.carouselViewport {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  width: 100%;
+  padding-block: 4px 24px;
+  mask-image: linear-gradient(90deg, transparent, black 4%, black 96%, transparent);
+  scrollbar-width: none;
+}
+
+.carouselViewport::-webkit-scrollbar { display: none; }
+
+.carouselTrack {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+}
+
+.carouselGroup {
+  display: flex;
+  gap: 16px;
+  padding-right: 16px;
+}
+
+.carouselCard {
+  flex: 0 0 clamp(620px, 72vw, 920px);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--pf-border-strong) 86%, transparent);
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--pf-surface) 94%, transparent);
+  box-shadow: 0 22px 52px rgba(25, 20, 66, .14);
+  transform: translateZ(0);
+}
+
+.carouselMedia {
+  position: relative;
+  aspect-ratio: 2 / 1;
+  overflow: hidden;
+  background: var(--pf-bg-subtle);
+}
+
+.carouselMedia img {
+  object-fit: cover;
+  transition: transform 700ms var(--ease-out-expo);
+}
+
+.carouselNext {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  right: clamp(10px, 2vw, 24px);
+  display: grid;
+  width: clamp(44px, 5vw, 58px);
+  height: clamp(44px, 5vw, 58px);
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, .55);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .16);
+  box-shadow: 0 12px 30px rgba(15, 12, 45, .2);
+  color: white;
+  transform: translateY(-50%);
+  backdrop-filter: blur(10px);
+  transition: background 180ms ease, border-color 180ms ease, transform 180ms ease;
+}
+
+.carouselNext:hover {
+  border-color: rgba(255, 255, 255, .9);
+  background: rgba(255, 255, 255, .28);
+  transform: translateY(-50%) scale(1.05);
+}
+
+.carouselNext:focus-visible {
+  outline: 3px solid var(--pf-accent);
+  outline-offset: 3px;
+}
+
+.carouselNext svg { width: 24px; height: 24px; stroke-width: 2.2; }
+
+.carouselCard:hover .carouselMedia img {
+  transform: scale(1.025);
 }
 
 .contactSheet {
@@ -621,7 +710,7 @@
 }
 
 @media (max-width: 1080px) {
-  .heroGrid { grid-template-columns: minmax(0, .9fr) minmax(450px, 1.1fr); gap: 40px; }
+  .heroCopy { grid-template-columns: minmax(0, 1fr) minmax(330px, .8fr); gap: 48px; }
   .directionCard { left: -12px; }
   .localCard { right: -8px; }
   .privacyPanel { grid-template-columns: auto minmax(0, 1fr); }
@@ -629,12 +718,14 @@
 }
 
 @media (max-width: 900px) {
-  .heroGrid { grid-template-columns: 1fr; min-height: auto; padding-block: 66px 100px; }
+  .heroGrid { min-height: auto; padding-block: 58px 82px; }
+  .heroCopy { grid-template-columns: 1fr; gap: 26px; }
   .heroCopy { align-items: center; text-align: center; }
+  .heroIntro, .heroDetails { align-items: center; }
   .heroTitle { font-size: clamp(56px, 11vw, 88px); }
   .heroLead { max-width: 670px; }
   .trustList, .heroActions { justify-content: center; }
-  .heroVisual { width: min(92%, 760px); margin: 18px auto 0; }
+  .heroVisual { width: 100%; margin: 4px auto 0; }
   .sectionIntro { grid-template-columns: 1fr; }
   .sectionIntro p { margin-top: 20px; }
   .workflowGrid { grid-template-columns: 1fr; }
@@ -653,14 +744,19 @@
 }
 
 @media (max-width: 640px) {
-  .heroGrid { padding-top: 50px; }
-  .announcement { font-size: 10px; }
-  .heroTitle { font-size: clamp(50px, 15vw, 70px); }
-  .heroLead { margin-top: 24px; font-size: 15px; }
-  .heroActions { flex-direction: column; width: 100%; }
+  .heroGrid { gap: 26px; padding-block: 34px 54px; }
+  .heroCopy { gap: 18px; }
+  .announcement { margin-bottom: 18px; font-size: 9px; }
+  .heroTitle { font-size: clamp(44px, 13vw, 58px); line-height: .88; }
+  .heroLead { font-size: 14px; line-height: 1.58; }
+  .heroActions { flex-direction: column; width: 100%; margin-top: 22px; }
   .heroActions > * { justify-content: center; width: 100%; }
-  .trustList { gap: 9px 13px; }
+  .trustList { display: none; }
   .heroVisual { width: 100%; }
+  .carouselViewport { width: calc(100% + 36px); margin-inline: -18px; mask-image: linear-gradient(90deg, transparent, black 3%, black 97%, transparent); }
+  .carouselGroup { gap: 11px; padding-right: 11px; }
+  .carouselCard { flex-basis: min(90vw, 560px); border-radius: 18px; }
+  .carouselNext { right: 4px; }
   .sheetHeader span:nth-child(2) { display: none; }
   .floatingCard { padding: 9px 10px; }
   .directionCard { bottom: -42px; left: 6px; }
@@ -686,4 +782,6 @@
 @media (prefers-reduced-motion: reduce) {
   .contactSheet,
   .scrollCue svg { animation: none; }
+
+  .carouselViewport { mask-image: none; }
 }
