@@ -26,6 +26,18 @@ const DOCUMENTS = [
     description: "Studio, ID Photos, libraries, engines, privacy, and troubleshooting.",
   },
   {
+    src: "docs/TROUBLESHOOTING.md",
+    slug: "troubleshooting",
+    title: "Troubleshooting and FAQ",
+    description: "Setup, database, pose library, engine, and generation troubleshooting.",
+  },
+  {
+    src: "docs/COMPATIBILITY.md",
+    slug: "compatibility",
+    title: "Compatibility",
+    description: "Tested platforms, engine requirements, and local hardware guidance.",
+  },
+  {
     src: "docs/METRICS.md",
     slug: "metrics",
     title: "Metrics reference",
@@ -43,6 +55,24 @@ const DOCUMENTS = [
     slug: "contributing",
     title: "Contributing",
     description: "Local setup, the test layers, and how to get a change merged.",
+  },
+  {
+    src: "SUPPORT.md",
+    slug: "support",
+    title: "Support",
+    description: "Where to ask for help and which safe diagnostics to include.",
+  },
+  {
+    src: "ROADMAP.md",
+    slug: "roadmap",
+    title: "Roadmap",
+    description: "Current priorities, future direction, and how work is selected.",
+  },
+  {
+    src: "PRIVACY.md",
+    slug: "privacy",
+    title: "Privacy and data flow",
+    description: "Engine data flow, local storage, credentials, logs, and telemetry.",
   },
   {
     src: "SECURITY.md",

@@ -35,8 +35,12 @@ body:
       options:
         - Not applicable
         - Codex CLI
+        - Google Antigravity CLI
+        - ComfyUI
         - OpenAI
+        - Google Gemini API
         - Replicate
+        - fal.ai
     validations:
       required: false
 
@@ -52,7 +56,7 @@ body:
     id: environment
     attributes:
       label: Environment
-      placeholder: OS, Node.js version, Docker or local Postgres, browser (if UI-related)
+      placeholder: OS/architecture, Node.js version, Docker version, browser, engine/model, and ComfyUI version if relevant
     validations:
       required: false
 
@@ -60,7 +64,7 @@ body:
     id: logs
     attributes:
       label: Relevant logs
-      description: Output from `npm run dev`, or the browser console. Please redact any API keys.
+      description: Output from `npm run dev`, or the browser console. Redact API keys, tokens, private photos, and personal paths.
       render: shell
     validations:
       required: false

@@ -154,11 +154,19 @@ Database-backed API keys and workflows are stored as plain text — see
 
 - [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) — Studio, ID Photos, libraries,
   Settings, and local/cloud privacy boundaries
+- [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) — setup, database,
+  bundled-pose, engine, and generation troubleshooting
+- [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md) — tested platforms, engine
+  requirements, and local hardware guidance
 - [`docs/METRICS.md`](docs/METRICS.md) — metric definitions, estimates, scopes,
   and export behavior
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — stack, data model, and the engine
   adapter pattern
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — dev setup, testing, how to add an engine
+- [`SUPPORT.md`](SUPPORT.md) — where to ask for help and what diagnostics to include
+- [`ROADMAP.md`](ROADMAP.md) — current direction and how priorities are chosen
+- [`PRIVACY.md`](PRIVACY.md) — engine data flow, local storage, credentials,
+  logs, and telemetry
 - [`SECURITY.md`](SECURITY.md) — threat model and how to report vulnerabilities
 - [`CHANGELOG.md`](CHANGELOG.md) — notable changes, by version
 

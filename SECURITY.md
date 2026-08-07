@@ -9,8 +9,9 @@ shared/multi-user service. Specifically:
 - There is no authentication or authorization layer. Anyone who can reach
   the port PoseForge listens on can use every feature, including reading
   your saved characters, generation history, and uploaded photos.
-- OpenAI and Replicate API keys, if you configure them, are stored **in
-  plain text** in the local PostgreSQL database. There is no encryption at
+- OpenAI, Google Gemini, Replicate, and fal.ai API keys configured through
+  Settings are stored **in plain text** in the local PostgreSQL database.
+  Saved ComfyUI workflow JSON is also plain text. There is no encryption at
   rest.
 - Uploaded and generated images are stored unencrypted on the local
   filesystem under `storage/`.
@@ -30,12 +31,16 @@ being deliberate about:
 - Only upload photos of people who have consented (or, for minors, whose
   parent/guardian has consented) to having their photo processed by an AI
   image-generation engine.
-- If you configure a cloud engine (OpenAI or Replicate), uploaded photos are
-  sent to that third party's API for processing, subject to their own data
-  handling policies. Review those before uploading photos of children.
-- The Codex CLI engine keeps generation local to your own authenticated
-  session and does not require a separate API key, but is still subject to
-  the underlying model provider's terms.
+- ComfyUI can remain fully local when its endpoint is on the same machine.
+  Every hosted API engine and signed-in CLI engine—including Codex CLI and
+  Google Antigravity—sends the selected reference images, prompt, and settings
+  to its provider for processing. Review that provider's data-handling policy
+  before uploading photos, especially photos of children.
+- PoseForge includes no product analytics or background telemetry. Provider
+  APIs and installed CLIs may collect their own operational or account data.
+
+See `PRIVACY.md` for the engine-by-engine data-flow matrix, local storage,
+credential handling, logs, and telemetry policy.
 
 ## Reporting a vulnerability
 
@@ -46,8 +51,9 @@ on this repository, or contact the maintainer directly. We'll acknowledge
 reports within a few days and aim to have a fix or mitigation plan within
 two weeks for anything serious.
 
-Please do not report vulnerabilities in Codex CLI, OpenAI, or Replicate
-themselves here — those should go to their respective maintainers.
+Please do not report vulnerabilities in Codex CLI, Google Antigravity,
+ComfyUI, or hosted providers themselves here—those should go to their
+respective maintainers.
 
 ## Supported versions
 

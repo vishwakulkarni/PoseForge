@@ -21,6 +21,16 @@ to their provider.
     description="Studio, ID Photos, libraries, engines, privacy, and troubleshooting."
   />
   <Card
+    title="Troubleshooting"
+    href="/docs/troubleshooting"
+    description="Fix setup, database, pose-library, engine, and generation problems."
+  />
+  <Card
+    title="Compatibility"
+    href="/docs/compatibility"
+    description="Tested operating systems, engine requirements, and local hardware guidance."
+  />
+  <Card
     title="Metrics reference"
     href="/docs/metrics"
     description="What every cost, token, reliability, latency, and usage number means."
@@ -63,9 +73,8 @@ mirrors those rules only to give faster feedback, never to replace them.
 ## Running PoseForge
 
 ```bash
-npm run install:all  # Express and Next.js dependencies
-npm run migrate      # apply db/migrations/*.sql
-npm run dev          # start the complete development server
+npm run setup  # dependencies, Docker PostgreSQL, migrations, and bundled poses
+npm run dev    # start the complete development server
 ```
 
 Open `localhost:3000`. The API is available from the same origin under `/api`.

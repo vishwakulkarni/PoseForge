@@ -1,0 +1,48 @@
+---
+title: "Compatibility"
+description: "Tested platforms, engine requirements, and local hardware guidance."
+---
+
+This matrix separates environments exercised by automated tests from those
+that are expected to work but still need community verification.
+
+## Application platforms
+
+| Platform | Status | Notes |
+|---|---|---|
+| Ubuntu Linux, Node.js 20 and 22 | CI tested | API, PostgreSQL migrations, web build, unit tests, and Playwright run in GitHub Actions. |
+| macOS on Apple Silicon | Maintainer tested | Primary development environment; Docker Desktop is required for the default database setup. |
+| macOS on Intel | Expected | Node.js and Docker support it; community verification is requested. |
+| Windows 11 with Docker Desktop | Experimental | Run from PowerShell or WSL2; clean-install verification is still needed. |
+| Other Linux distributions | Expected | Requires Node.js 20.9+ and Docker Compose v2. |
+
+The PoseForge application itself does not require a GPU. The selected image
+engine determines compute and memory requirements.
+
+## Engine compatibility
+
+| Engine | Required setup | Execution location | Local GPU | Notes |
+|---|---|---|---:|---|
+| Codex CLI | Installed and authenticated `codex` CLI | Model provider | No | Uses the signed-in Codex account; selected references and prompt leave the machine. |
+| Google Antigravity CLI | Installed and signed-in `agy` CLI | Model provider | No | Uses the signed-in Google plan; selected references and prompt leave the machine. |
+| ComfyUI | Running loopback server, models, and API workflow | Your machine | Usually | Hardware needs depend on model, resolution, precision, and workflow. |
+| OpenAI | API key with image-model access | OpenAI | No | API usage may be billed separately from a consumer subscription. |
+| Google Gemini API | Gemini API key | Google | No | API access and billing are separate from Antigravity CLI authentication. |
+| Replicate | API token and model access | Replicate | No | Model capabilities and pricing depend on the configured model. |
+| fal.ai | API key | fal.ai | No | Uses the configured hosted image-editing model. |
+
+## ComfyUI hardware guidance
+
+These are starting points, not guarantees; custom nodes and models can change
+requirements substantially.
+
+| Hardware | Suggested starting point |
+|---|---|
+| 8–12 GB VRAM | SDXL/OpenPose workflows at moderate resolution; use memory-saving options where needed. |
+| 16 GB+ unified memory on Apple Silicon | Quantized/offloaded workflows may work, usually slower than a dedicated CUDA GPU. |
+| 16 GB+ VRAM | Larger image-editing workflows and higher resolutions become more practical. |
+| CPU only | The application runs, but local generation may be impractically slow. Prefer a signed-in CLI or cloud engine. |
+
+For a compatibility report, include the information requested in
+[SUPPORT.md](../SUPPORT.md). Do not include private photos or credentials.
+

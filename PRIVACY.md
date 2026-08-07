@@ -1,0 +1,64 @@
+# Privacy and Data Flow
+
+PoseForge is local-first, not automatically offline. The application, database,
+uploaded files, and generated files run on your machine. Whether image content
+leaves the machine depends on the generation engine you select.
+
+## Data-flow matrix
+
+| Engine | What leaves your machine | Destination |
+|---|---|---|
+| ComfyUI on loopback | Nothing through PoseForge | Your local ComfyUI server |
+| Codex CLI | Selected identity images, pose image, prompt, and generation settings | The provider used by the authenticated Codex CLI session |
+| Google Antigravity CLI | Selected identity images, pose image, prompt, and generation settings | Google services used by the authenticated Antigravity session |
+| OpenAI | Selected identity images, pose image, prompt, and generation settings | OpenAI API |
+| Google Gemini API | Selected identity images, pose image, prompt, and generation settings | Google Gemini API |
+| Replicate | Selected identity images, pose image, prompt, and generation settings | Replicate and the configured model provider |
+| fal.ai | Selected identity images, pose image, prompt, and generation settings | fal.ai |
+
+Review each provider’s terms, retention policy, regional processing, account
+settings, and rules for images of minors before using that engine. PoseForge
+cannot control provider-side handling after a request leaves your machine.
+
+## Local data
+
+- Uploaded character and pose images, generated outputs, and print assets are
+  stored unencrypted under `storage/`.
+- Metadata, settings, generation history, and saved credentials are stored in
+  the local PostgreSQL database.
+- Database-backed API keys and ComfyUI workflows are stored in plain text.
+- `.env` credentials are also plain text and are excluded from Git.
+- Docker PostgreSQL data persists in the `poseforge_pgdata` volume until the
+  user explicitly removes that volume.
+
+Anyone with access to your operating-system account, project directory,
+database, backups, or an exposed PoseForge port may be able to access this
+data. PoseForge has no application-level authentication or authorization.
+
+## Telemetry
+
+PoseForge does not include product analytics, advertising trackers, crash
+reporting, or background telemetry. The Metrics page reads local generation
+records from PostgreSQL. Provider engines and installed CLIs may collect their
+own operational or account data under their respective policies.
+
+## Logs
+
+PoseForge logs request IDs, status, duration, engine lifecycle events, and
+failure summaries. It is designed not to log API keys or image contents, but
+logs can still contain local paths, provider error text, model names, and other
+diagnostic metadata. Review and redact logs before sharing them publicly.
+
+## Your responsibilities
+
+- Obtain consent from every identifiable adult and consent from a parent or
+  guardian for minors.
+- Use ComfyUI on loopback for workflows that must remain fully local.
+- Keep PoseForge bound to a trusted machine and network.
+- Protect `.env`, the PostgreSQL volume, `storage/`, backups, and exported logs.
+- Delete local images and database records according to your own retention
+  needs, and separately follow provider procedures for provider-held data.
+
+See [SECURITY.md](SECURITY.md) for the threat model and private vulnerability
+reporting process.
+

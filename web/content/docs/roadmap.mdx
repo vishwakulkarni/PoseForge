@@ -1,0 +1,56 @@
+---
+title: "Roadmap"
+description: "Current priorities, future direction, and how work is selected."
+---
+
+PoseForge aims to become the easiest local-first way to transform a person or
+family into a new pose using an AI plan or local image stack you already have.
+This roadmap communicates direction, not promised dates. Priorities may change
+as real users report where they get stuck.
+
+## Now — launch readiness
+
+- Make a fresh installation reliable through `npm run setup`.
+- Verify macOS and Linux compatibility on clean machines.
+- Improve identity preservation and multi-person pose adherence.
+- Polish Codex CLI and Google Antigravity readiness diagnostics.
+- Publish a tested ComfyUI workflow and local hardware guidance.
+- Add reproducible character → pose → result demonstrations.
+- Improve privacy, troubleshooting, and provider data-flow documentation.
+- Publish the first tagged GitHub release.
+
+## Next — adoption and reliability
+
+- Add engine-specific diagnostics and generation retry guidance.
+- Add export/import for local settings, recipes, and pose libraries without
+  including secrets or personal photos by default.
+- Improve generation comparison, provenance, and reproducibility metadata.
+- Add clean-install CI coverage for the setup command.
+- Expand accessibility, keyboard navigation, and mobile-layout testing.
+- Document upgrade and database-backup workflows.
+
+## Later — ecosystem
+
+- Evaluate a desktop package after command-line setup is consistently reliable.
+- Create a versioned ComfyUI workflow library for common hardware profiles.
+- Add a documented third-party engine/plugin discovery model.
+- Explore encrypted local credential storage.
+- Add optional authentication only for users deliberately operating PoseForge
+  beyond a trusted single-user machine.
+
+## How priorities are chosen
+
+Work is prioritized by:
+
+1. Successful first generation within 15 minutes.
+2. Privacy and security correctness.
+3. Output quality and repeatability.
+4. Frequency and impact of user-reported problems.
+5. Maintenance cost and cross-platform support.
+
+Propose roadmap changes through [GitHub Discussions](https://github.com/vishwakulkarni/PoseForge/discussions)
+or a focused feature request. Contributions are welcome; see
+[CONTRIBUTING.md](CONTRIBUTING.md) and issues labeled
+[`good first issue`](https://github.com/vishwakulkarni/PoseForge/labels/good%20first%20issue)
+or [`help wanted`](https://github.com/vishwakulkarni/PoseForge/labels/help%20wanted).
+
