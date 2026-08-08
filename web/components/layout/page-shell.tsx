@@ -33,7 +33,7 @@ export function PageShell({
       <SiteNav />
       <main id="main" className={cn(bare ? undefined : 'pf-container', className)}>
         {bare ? null : (
-          <header className="flex flex-col items-start justify-between gap-7 pb-8 pt-14 md:flex-row md:items-end">
+          <header className="flex flex-col items-start justify-between gap-1 pb-1 pt-2 md:flex-row md:items-end">
             <div className="max-w-[680px]">
               {eyebrow ? <span className="pf-eyebrow">{eyebrow}</span> : null}
               <h1 className="mt-2.5 text-[clamp(34px,5vw,52px)] leading-[1.04]">{title}</h1>

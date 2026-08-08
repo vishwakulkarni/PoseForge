@@ -291,6 +291,46 @@ export function MetricsView() {
         </div>
       </LoadingRegion>
 
+      {/* ------------------------------------------- latency + quality row */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <KpiCard
+          size="md"
+          label="Median latency"
+          loading={isLoading}
+          value={formatDuration(totals?.latencyMs.p50)}
+          caption={`p95 ${formatDuration(totals?.latencyMs.p95)}`}
+          hint="Engine wall-clock time from start to completion, excluding time spent waiting in the queue."
+        />
+        <KpiCard
+          size="md"
+          label="Median queue wait"
+          loading={isLoading}
+          value={formatDuration(totals?.queueWaitMs.p50)}
+          caption={`p95 ${formatDuration(totals?.queueWaitMs.p95)}`}
+          hint="Time between a run being accepted and the engine picking it up. Rises when the queue is saturated."
+        />
+        <KpiCard
+          size="md"
+          label="Metered usage"
+          loading={isLoading}
+          value={formatPercent(totals?.actualUsageShare, 0)}
+          caption="Share with provider-reported usage"
+          hint="Portion of runs where the engine returned real token counts. The remainder uses PoseForge's estimate, so cost is approximate."
+        />
+        <KpiCard
+          size="md"
+          label="Library"
+          loading={isLoading}
+          value={data ? data.library.characters : 0}
+          caption={
+            data
+              ? `${data.library.poseReferences} poses · ${data.library.recipes} recipes`
+              : undefined
+          }
+          hint="Saved characters, pose references and Advanced-mode recipes on this machine."
+        />
+      </div>
+
       {/* ---------------------------------------------- Codex account limits */}
       <section className="rounded-[16px] border border-[var(--pf-border)] bg-[var(--pf-surface)] p-5">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -374,46 +414,6 @@ export function MetricsView() {
           </p>
         )}
       </section>
-
-      {/* ------------------------------------------- latency + quality row */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <KpiCard
-          size="md"
-          label="Median latency"
-          loading={isLoading}
-          value={formatDuration(totals?.latencyMs.p50)}
-          caption={`p95 ${formatDuration(totals?.latencyMs.p95)}`}
-          hint="Engine wall-clock time from start to completion, excluding time spent waiting in the queue."
-        />
-        <KpiCard
-          size="md"
-          label="Median queue wait"
-          loading={isLoading}
-          value={formatDuration(totals?.queueWaitMs.p50)}
-          caption={`p95 ${formatDuration(totals?.queueWaitMs.p95)}`}
-          hint="Time between a run being accepted and the engine picking it up. Rises when the queue is saturated."
-        />
-        <KpiCard
-          size="md"
-          label="Metered usage"
-          loading={isLoading}
-          value={formatPercent(totals?.actualUsageShare, 0)}
-          caption="Share with provider-reported usage"
-          hint="Portion of runs where the engine returned real token counts. The remainder uses PoseForge's estimate, so cost is approximate."
-        />
-        <KpiCard
-          size="md"
-          label="Library"
-          loading={isLoading}
-          value={data ? data.library.characters : 0}
-          caption={
-            data
-              ? `${data.library.poseReferences} poses · ${data.library.recipes} recipes`
-              : undefined
-          }
-          hint="Saved characters, pose references and Advanced-mode recipes on this machine."
-        />
-      </div>
 
       {/* ------------------------------------------------- chart + table */}
       <div className="grid gap-3 xl:grid-cols-[1.6fr_1fr]">
