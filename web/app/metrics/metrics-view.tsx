@@ -300,18 +300,18 @@ export function MetricsView() {
               Live allowance from the Codex CLI account signed in on this machine.
             </p>
           </div>
-          {data?.codexLimits.available ? (
+          {data?.codexLimits.loading || !data ? (
+            <Skeleton className="h-6 w-24 rounded-full" />
+          ) : data.codexLimits.available ? (
             <Badge variant="ok" dot>
               {data.codexLimits.planType ? `${data.codexLimits.planType} plan` : 'Connected'}
             </Badge>
-          ) : data ? (
-            <Badge variant="warning">Unavailable</Badge>
           ) : (
-            <Skeleton className="h-6 w-24 rounded-full" />
+            <Badge variant="warning">Unavailable</Badge>
           )}
         </div>
 
-        {isLoading ? (
+        {isLoading || data?.codexLimits.loading ? (
           <div className="grid gap-3 md:grid-cols-2">
             <Skeleton className="h-32 w-full" />
             <Skeleton className="h-32 w-full" />
@@ -337,16 +337,16 @@ export function MetricsView() {
               Live quota from the Antigravity CLI account signed in on this machine.
             </p>
           </div>
-          {data?.antigravityLimits.available ? (
-            <Badge variant="ok" dot>Connected</Badge>
-          ) : data ? (
-            <Badge variant="warning">Unavailable</Badge>
-          ) : (
+          {data?.antigravityLimits.loading || !data ? (
             <Skeleton className="h-6 w-24 rounded-full" />
+          ) : data.antigravityLimits.available ? (
+            <Badge variant="ok" dot>Connected</Badge>
+          ) : (
+            <Badge variant="warning">Unavailable</Badge>
           )}
         </div>
 
-        {isLoading ? (
+        {isLoading || data?.antigravityLimits.loading ? (
           <div className="grid gap-3 md:grid-cols-2">
             <Skeleton className="h-32 w-full" />
             <Skeleton className="h-32 w-full" />

@@ -280,6 +280,7 @@ export interface AccountLimitWindow {
 
 export interface CodexLimits {
   available: boolean;
+  loading?: boolean;
   planType: string | null;
   fiveHour: AccountLimitWindow | null;
   weekly: AccountLimitWindow | null;
@@ -288,6 +289,7 @@ export interface CodexLimits {
 
 export interface AntigravityLimits {
   available: boolean;
+  loading?: boolean;
   groups: Array<{
     name: string;
     description: string | null;

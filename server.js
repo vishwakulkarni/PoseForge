@@ -14,6 +14,7 @@ const path = require("path");
 const { createRequire } = require("module");
 const storage = require("./lib/storage");
 const logger = require("./lib/logger");
+const { prefetchProviderLimits } = require("./lib/providerLimits");
 
 const WEB_DIR = path.join(__dirname, "web");
 const requireFromWeb = createRequire(path.join(WEB_DIR, "package.json"));
@@ -79,6 +80,10 @@ async function start() {
   // Express, storage, and database paths use __dirname, so the complete app
   // can safely run with the web project as its working directory.
   process.chdir(WEB_DIR);
+
+  // CLI quota probes take a few seconds. Start them while Next prepares so
+  // the Metrics page can consume cached data without waiting on subprocesses.
+  void prefetchProviderLimits();
 
   const next = requireFromWeb("next");
   const nextApp = next({ dev, dir: WEB_DIR, hostname, port });

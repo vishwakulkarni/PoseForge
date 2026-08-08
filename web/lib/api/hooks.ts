@@ -318,7 +318,12 @@ export function useMetrics(scope: MetricsScope, refreshMs = 30_000) {
   return useQuery({
     queryKey: queryKeys.metrics(scope),
     queryFn: () => api.metrics.get(scope),
-    refetchInterval: refreshMs,
+    // The server prefetches CLI limits in the background. Poll briefly only
+    // while that first snapshot is pending, then return to the normal cadence.
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      return data?.codexLimits.loading || data?.antigravityLimits.loading ? 1_000 : refreshMs;
+    },
     placeholderData: (previous) => previous,
   });
 }
