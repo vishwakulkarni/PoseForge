@@ -56,6 +56,33 @@ describe('MetricsView', () => {
     expect(await screen.findByText(/degraded/i)).toBeInTheDocument();
   });
 
+  it('shows the signed-in Codex 5-hour and weekly limits', async () => {
+    renderWithProviders(<MetricsView />);
+
+    const codexHeading = await screen.findByText('Codex account limits');
+    const codexSection = codexHeading.closest('section');
+    expect(codexSection).not.toBeNull();
+    expect(await within(codexSection!).findByText('5-hour window')).toBeInTheDocument();
+    expect(within(codexSection!).getByText('Weekly limit')).toBeInTheDocument();
+    expect(within(codexSection!).getByText('72% left')).toBeInTheDocument();
+    expect(within(codexSection!).getByText('45% left')).toBeInTheDocument();
+    expect(within(codexSection!).getByRole('progressbar', { name: /5-hour window codex usage/i })).toHaveAttribute(
+      'aria-valuenow',
+      '28',
+    );
+  });
+
+  it('shows Antigravity quota windows for each model group', async () => {
+    renderWithProviders(<MetricsView />);
+
+    expect(await screen.findByText('Antigravity account limits')).toBeInTheDocument();
+    expect(await screen.findByText('Gemini Models')).toBeInTheDocument();
+    expect(screen.getByText('Claude and GPT models')).toBeInTheDocument();
+    expect(
+      screen.getByRole('progressbar', { name: /weekly limit antigravity gemini models usage/i }),
+    ).toHaveAttribute('aria-valuenow', '7');
+  });
+
   it('surfaces queue depth as its own badge when work is waiting', async () => {
     server.use(
       http.get('/api/metrics', async () => {

@@ -74,6 +74,27 @@ function loadRoute(generations, engines = [{ key: "codex", ready: true }]) {
     registry: {},
     listEngines: async () => engines,
   });
+  const codexLimitsPath = stub("lib/codexRateLimits.js", {
+    getCodexRateLimits: async () => ({
+      available: true,
+      planType: "plus",
+      fiveHour: { usedPercent: 28, remainingPercent: 72, windowDurationMins: 300, resetsAt: null },
+      weekly: { usedPercent: 55, remainingPercent: 45, windowDurationMins: 10080, resetsAt: null },
+      reason: null,
+    }),
+  });
+  const antigravityLimitsPath = stub("lib/antigravityRateLimits.js", {
+    getAntigravityRateLimits: async () => ({
+      available: true,
+      groups: [{
+        name: "Gemini Models",
+        description: null,
+        fiveHour: { usedPercent: 0, remainingPercent: 100, windowDurationMins: 300, resetsAt: null },
+        weekly: { usedPercent: 7, remainingPercent: 93, windowDurationMins: 10080, resetsAt: null },
+      }],
+      reason: null,
+    }),
+  });
 
   const routePath = require.resolve(path.join(ROOT, "routes/metrics.js"));
   delete require.cache[routePath];
@@ -84,6 +105,8 @@ function loadRoute(generations, engines = [{ key: "codex", ready: true }]) {
     cleanup() {
       delete require.cache[poolPath];
       delete require.cache[enginesPath];
+      delete require.cache[codexLimitsPath];
+      delete require.cache[antigravityLimitsPath];
       delete require.cache[routePath];
     },
   };
@@ -138,6 +161,8 @@ test("returns the full metrics contract the dashboard expects", async () => {
       "engines",
       "failures",
       "library",
+      "codexLimits",
+      "antigravityLimits",
     ]) {
       assert.ok(key in body, `response must include ${key}`);
     }
@@ -152,6 +177,8 @@ test("returns the full metrics contract the dashboard expects", async () => {
     assert.equal(body.failures.length, 1);
     assert.equal(body.library.characters, 3);
     assert.equal(body.library.mostUsedCharacter.name, "Anika");
+    assert.equal(body.codexLimits.weekly.remainingPercent, 45);
+    assert.equal(body.antigravityLimits.groups[0].weekly.remainingPercent, 93);
   } finally {
     cleanup();
   }
@@ -212,6 +239,12 @@ test("a failing engine registry does not take the whole endpoint down", async ()
       throw new Error("engine probe exploded");
     },
   });
+  const codexLimitsPath = stub("lib/codexRateLimits.js", {
+    getCodexRateLimits: async () => ({ available: false, planType: null, fiveHour: null, weekly: null, reason: "Unavailable" }),
+  });
+  const antigravityLimitsPath = stub("lib/antigravityRateLimits.js", {
+    getAntigravityRateLimits: async () => ({ available: false, groups: [], reason: "Unavailable" }),
+  });
   const routePath = require.resolve(path.join(ROOT, "routes/metrics.js"));
   delete require.cache[routePath];
   const router = require(routePath);
@@ -225,6 +258,8 @@ test("a failing engine registry does not take the whole endpoint down", async ()
   } finally {
     delete require.cache[poolPath];
     delete require.cache[enginesPath];
+    delete require.cache[codexLimitsPath];
+    delete require.cache[antigravityLimitsPath];
     delete require.cache[routePath];
   }
 });

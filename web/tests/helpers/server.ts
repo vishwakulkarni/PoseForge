@@ -13,6 +13,41 @@ export const metricsFixture: MetricsResponse = {
     queueDepth: 0,
     detail: '3/3 engines ready',
   },
+  codexLimits: {
+    available: true,
+    planType: 'plus',
+    fiveHour: {
+      usedPercent: 28,
+      remainingPercent: 72,
+      windowDurationMins: 300,
+      resetsAt: '2026-08-08T20:00:00.000Z',
+    },
+    weekly: {
+      usedPercent: 55,
+      remainingPercent: 45,
+      windowDurationMins: 10080,
+      resetsAt: '2026-08-12T20:00:00.000Z',
+    },
+    reason: null,
+  },
+  antigravityLimits: {
+    available: true,
+    groups: [
+      {
+        name: 'Gemini Models',
+        description: 'Models within this group: Gemini Flash, Gemini Pro',
+        fiveHour: { usedPercent: 0, remainingPercent: 100, windowDurationMins: 300, resetsAt: '2026-08-08T22:26:07.000Z' },
+        weekly: { usedPercent: 7, remainingPercent: 93, windowDurationMins: 10080, resetsAt: '2026-08-09T17:58:09.000Z' },
+      },
+      {
+        name: 'Claude and GPT models',
+        description: 'Models within this group: Claude Opus, Claude Sonnet, GPT-OSS',
+        fiveHour: { usedPercent: 0, remainingPercent: 100, windowDurationMins: 300, resetsAt: '2026-08-08T22:26:07.000Z' },
+        weekly: { usedPercent: 0, remainingPercent: 100, windowDurationMins: 10080, resetsAt: '2026-08-15T17:26:07.000Z' },
+      },
+    ],
+    reason: null,
+  },
   totals: {
     totalRuns: 12,
     completedRuns: 10,

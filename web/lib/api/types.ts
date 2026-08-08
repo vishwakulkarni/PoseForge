@@ -271,6 +271,32 @@ export interface MetricsFailureRow {
   lastSeenAt: string;
 }
 
+export interface AccountLimitWindow {
+  usedPercent: number;
+  remainingPercent: number;
+  windowDurationMins: number | null;
+  resetsAt: string | null;
+}
+
+export interface CodexLimits {
+  available: boolean;
+  planType: string | null;
+  fiveHour: AccountLimitWindow | null;
+  weekly: AccountLimitWindow | null;
+  reason: string | null;
+}
+
+export interface AntigravityLimits {
+  available: boolean;
+  groups: Array<{
+    name: string;
+    description: string | null;
+    fiveHour: AccountLimitWindow | null;
+    weekly: AccountLimitWindow | null;
+  }>;
+  reason: string | null;
+}
+
 export interface MetricsResponse {
   scope: MetricsScope;
   generatedAt: string;
@@ -292,6 +318,10 @@ export interface MetricsResponse {
   };
   engines: MetricsEngineRow[];
   failures: MetricsFailureRow[];
+  /** Live account limits read from the locally authenticated Codex CLI. */
+  codexLimits: CodexLimits;
+  /** Live quota groups read from the locally authenticated Antigravity CLI. */
+  antigravityLimits: AntigravityLimits;
   library: {
     characters: number;
     poseReferences: number;

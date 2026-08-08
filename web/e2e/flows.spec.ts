@@ -176,7 +176,7 @@ test.describe('documentation navigation', () => {
 
     if (isMobile) await page.getByRole('button', { name: 'Open menu' }).click();
     const primary = page.getByRole('navigation', { name: isMobile ? 'Mobile' : 'Primary' });
-    for (const item of ['Studio', 'ID Photos', 'Metrics', 'Docs', 'Settings']) {
+    for (const item of ['Studio', 'Metrics', 'Docs', 'Settings']) {
       await expect(primary.getByRole('link', { name: item, exact: true })).toBeVisible();
     }
 

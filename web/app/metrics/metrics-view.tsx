@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Download, RefreshCw } from 'lucide-react';
 import { useMetrics } from '@/lib/api/hooks';
-import type { MetricsBucket, MetricsScope } from '@/lib/api/types';
+import type { AccountLimitWindow, MetricsBucket, MetricsScope } from '@/lib/api/types';
 import {
   cn,
   downloadBlob,
@@ -45,6 +45,60 @@ const HEALTH_TONE = {
   degraded: { variant: 'warning' as const, label: 'Degraded' },
   down: { variant: 'error' as const, label: 'Down' },
 };
+
+function resetLabel(resetsAt: string | null) {
+  if (!resetsAt) return 'Reset time unavailable';
+  const remainingMs = new Date(resetsAt).getTime() - Date.now();
+  if (!Number.isFinite(remainingMs)) return 'Reset time unavailable';
+  if (remainingMs <= 0) return 'Resetting now';
+  const minutes = Math.ceil(remainingMs / 60000);
+  if (minutes < 60) return `Resets in ${minutes}m`;
+  const hours = Math.ceil(minutes / 60);
+  if (hours < 48) return `Resets in ${hours}h`;
+  return `Resets in ${Math.ceil(hours / 24)}d`;
+}
+
+function AccountLimitCard({
+  label,
+  window,
+  provider,
+}: {
+  label: string;
+  window: AccountLimitWindow | null;
+  provider: string;
+}) {
+  const used = window?.usedPercent ?? 0;
+  const tone = used >= 90 ? 'bg-[var(--pf-error)]' : used >= 75 ? 'bg-[var(--pf-warning)]' : 'bg-[var(--pf-accent)]';
+
+  return (
+    <div className="rounded-[14px] border border-[var(--pf-border)] bg-[var(--pf-surface-muted)] p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--pf-text-tertiary)]">
+            {label}
+          </p>
+          <p className="mt-1 text-[24px] font-bold tracking-[-0.04em] pf-numeric">
+            {window ? `${window.remainingPercent}% left` : '—'}
+          </p>
+        </div>
+        {window ? <Badge variant={used >= 90 ? 'error' : used >= 75 ? 'warning' : 'ok'}>{used}% used</Badge> : null}
+      </div>
+      <div
+        role="progressbar"
+        aria-label={`${label} ${provider} usage`}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={window ? used : undefined}
+        className="mt-3 h-2 overflow-hidden rounded-full bg-[var(--pf-border)]"
+      >
+        <div className={cn('h-full rounded-full transition-[width]', tone)} style={{ width: `${used}%` }} />
+      </div>
+      <p className="mt-2 text-[11px] text-[var(--pf-text-secondary)]">
+        {window ? resetLabel(window.resetsAt) : 'This window was not reported by Codex.'}
+      </p>
+    </div>
+  );
+}
 
 export function MetricsView() {
   const [scope, setScope] = React.useState<MetricsScope>('historical');
@@ -236,6 +290,90 @@ export function MetricsView() {
           />
         </div>
       </LoadingRegion>
+
+      {/* ---------------------------------------------- Codex account limits */}
+      <section className="rounded-[16px] border border-[var(--pf-border)] bg-[var(--pf-surface)] p-5">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-[15px] font-bold">Codex account limits</h2>
+            <p className="mt-1 text-[12px] text-[var(--pf-text-secondary)]">
+              Live allowance from the Codex CLI account signed in on this machine.
+            </p>
+          </div>
+          {data?.codexLimits.available ? (
+            <Badge variant="ok" dot>
+              {data.codexLimits.planType ? `${data.codexLimits.planType} plan` : 'Connected'}
+            </Badge>
+          ) : data ? (
+            <Badge variant="warning">Unavailable</Badge>
+          ) : (
+            <Skeleton className="h-6 w-24 rounded-full" />
+          )}
+        </div>
+
+        {isLoading ? (
+          <div className="grid gap-3 md:grid-cols-2">
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-32 w-full" />
+          </div>
+        ) : data?.codexLimits.available ? (
+          <div className="grid gap-3 md:grid-cols-2">
+            <AccountLimitCard label="5-hour window" window={data.codexLimits.fiveHour} provider="Codex" />
+            <AccountLimitCard label="Weekly limit" window={data.codexLimits.weekly} provider="Codex" />
+          </div>
+        ) : (
+          <p className="rounded-[12px] bg-[var(--pf-surface-muted)] px-4 py-3 text-[12px] text-[var(--pf-text-secondary)]">
+            {data?.codexLimits.reason || 'Codex usage limits are unavailable.'}
+          </p>
+        )}
+      </section>
+
+      {/* ---------------------------------------- Antigravity account limits */}
+      <section className="rounded-[16px] border border-[var(--pf-border)] bg-[var(--pf-surface)] p-5">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-[15px] font-bold">Antigravity account limits</h2>
+            <p className="mt-1 text-[12px] text-[var(--pf-text-secondary)]">
+              Live quota from the Antigravity CLI account signed in on this machine.
+            </p>
+          </div>
+          {data?.antigravityLimits.available ? (
+            <Badge variant="ok" dot>Connected</Badge>
+          ) : data ? (
+            <Badge variant="warning">Unavailable</Badge>
+          ) : (
+            <Skeleton className="h-6 w-24 rounded-full" />
+          )}
+        </div>
+
+        {isLoading ? (
+          <div className="grid gap-3 md:grid-cols-2">
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-32 w-full" />
+          </div>
+        ) : data?.antigravityLimits.available ? (
+          <div className="flex flex-col gap-4">
+            {data.antigravityLimits.groups.map((group) => (
+              <div key={group.name} className="rounded-[14px] border border-[var(--pf-border)] p-4">
+                <div className="mb-3">
+                  <h3 className="text-[13px] font-bold">{group.name}</h3>
+                  {group.description ? (
+                    <p className="mt-0.5 text-[11px] text-[var(--pf-text-tertiary)]">{group.description}</p>
+                  ) : null}
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <AccountLimitCard label="5-hour window" window={group.fiveHour} provider={`Antigravity ${group.name}`} />
+                  <AccountLimitCard label="Weekly limit" window={group.weekly} provider={`Antigravity ${group.name}`} />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-[12px] bg-[var(--pf-surface-muted)] px-4 py-3 text-[12px] text-[var(--pf-text-secondary)]">
+            {data?.antigravityLimits.reason || 'Antigravity quota limits are unavailable.'}
+          </p>
+        )}
+      </section>
 
       {/* ------------------------------------------- latency + quality row */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">

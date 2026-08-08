@@ -2,6 +2,8 @@ const express = require("express");
 const { pool } = require("../db/pool");
 const { listEngines } = require("../engines");
 const { stats: queueStats } = require("../lib/generationQueue");
+const { getCodexRateLimits } = require("../lib/codexRateLimits");
+const { getAntigravityRateLimits } = require("../lib/antigravityRateLimits");
 const { asyncHandler } = require("./helpers");
 const {
   buildAllSeries,
@@ -83,13 +85,15 @@ router.get(
       where = "WHERE created_at >= $1";
     }
 
-    const [generations, engines, library] = await Promise.all([
+    const [generations, engines, library, codexLimits, antigravityLimits] = await Promise.all([
       pool.query(
         `SELECT ${METRIC_COLUMNS} FROM generations ${where} ORDER BY created_at ASC`,
         params
       ),
       listEngines().catch(() => []),
       loadLibraryStats(),
+      getCodexRateLimits(),
+      getAntigravityRateLimits(),
     ]);
 
     const rows = generations.rows;
@@ -104,6 +108,8 @@ router.get(
       engines: computeEngineBreakdown(rows),
       failures: computeFailures(rows),
       library,
+      codexLimits,
+      antigravityLimits,
     });
   })
 );

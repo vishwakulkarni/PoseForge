@@ -12,7 +12,6 @@ export const NAV_ITEMS = [
   { label: 'Studio', href: '/studio' },
   { label: 'Characters', href: '/characters' },
   { label: 'Poses', href: '/poses' },
-  { label: 'ID Photos', href: '/passport' },
   { label: 'History', href: '/history' },
   { label: 'Metrics', href: '/metrics' },
   { label: 'Docs', href: '/docs' },
