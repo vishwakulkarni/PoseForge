@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] — 2026-08-08
+
 ### Added
 
 - PoseForge Studio 2.0: a three-panel creative workbench with Normal and
@@ -66,9 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   1). The response shape's `characterId`/`characterName`/
   `characterPhotoUrl` fields are replaced by a `characters` array.
 
-## [0.1.0] — 2026-08-03
-
-### Added
+### Also included (early foundation work)
 
 - Local Express + PostgreSQL app for transforming a character photo into a
   pose reference's pose, framing, and composition.
@@ -83,3 +83,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Painter-dog mascot artwork (SVG placeholder + a `npm run generate:mascot`
   script that produces the full-quality version via Codex CLI).
 - Docker Compose file for a local PostgreSQL instance.
+
+[0.1.0]: https://github.com/vishwakulkarni/PoseForge/releases/tag/v0.1.0

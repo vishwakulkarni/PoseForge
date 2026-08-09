@@ -1,0 +1,15 @@
+{
+  "title": "PoseForge generation walkthrough",
+  "durationSeconds": 15,
+  "resolution": "1920x1080",
+  "story": "Select inputs, generate, inspect the result, and verify zero-cost session usage.",
+  "scenes": [
+    { "name": "Select character", "focus": "vishwa-sitting saved character" },
+    { "name": "Select pose", "focus": "Stone-stair seated pose" },
+    { "name": "Composition", "focus": "character + pose canvas" },
+    { "name": "Generate", "focus": "Generate transformation button" },
+    { "name": "Result", "focus": "completed generated image" },
+    { "name": "History", "focus": "newest generated photo" },
+    { "name": "Metrics", "focus": "session cost graph and $0 spend" }
+  ]
+}

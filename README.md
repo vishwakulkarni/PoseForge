@@ -2,12 +2,13 @@
 
 [![CI](https://github.com/vishwakulkarni/PoseForge/actions/workflows/ci.yml/badge.svg)](https://github.com/vishwakulkarni/PoseForge/actions/workflows/ci.yml)
 [![Web](https://github.com/vishwakulkarni/PoseForge/actions/workflows/web.yml/badge.svg)](https://github.com/vishwakulkarni/PoseForge/actions/workflows/web.yml)
+[![Latest release](https://img.shields.io/github/v/release/vishwakulkarni/PoseForge?include_prereleases)](https://github.com/vishwakulkarni/PoseForge/releases)
 [![Node.js 20.9+](https://img.shields.io/badge/Node.js-20.9%2B-339933?logo=nodedotjs&logoColor=white)](package.json)
 [![Ubuntu CI tested](https://img.shields.io/badge/Ubuntu-CI%20tested-E95420?logo=ubuntu&logoColor=white)](docs/COMPATIBILITY.md)
 [![macOS maintainer tested](https://img.shields.io/badge/macOS-maintainer%20tested-000000?logo=apple&logoColor=white)](docs/COMPATIBILITY.md)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-## Turn the AI tools you already have into a private pose studio
+## Turn the AI subscription you already pay for into a private, local-first photo studio
 
 Give PoseForge an identity photo and a pose reference. It returns the same
 person—or family—in the new pose and composition, with controls for camera,
@@ -17,9 +18,10 @@ PoseForge exists so Codex, Google Antigravity, and ComfyUI users can turn their
 existing AI access into a repeatable visual workflow instead of rebuilding the
 same multi-image prompt in chat for every photograph.
 
-![PoseForge character to pose to transformed-result demo](web/public/demo/poseforge-readme-demo.gif)
+[![PoseForge character to pose to transformed-result demo](web/public/demo/poseforge-readme-demo.gif)](demo-output/poseforge-generation-walkthrough-15s.mp4)
 
-[Watch the 10-second MP4](web/public/demo/poseforge-readme-demo.mp4) ·
+[Watch the 15-second generation walkthrough](demo-output/poseforge-generation-walkthrough-15s.mp4) ·
+[Download the lightweight 10-second MP4](web/public/demo/poseforge-readme-demo.mp4) ·
 [Quickstart](#quickstart) ·
 [How it works](#how-it-works) ·
 [Examples](#examples) ·
@@ -28,6 +30,11 @@ same multi-image prompt in chat for every photograph.
 [Roadmap](ROADMAP.md) ·
 [Support](SUPPORT.md) ·
 [Discussions](https://github.com/vishwakulkarni/PoseForge/discussions)
+
+<video controls preload="metadata" width="100%" poster="web/public/demo/poseforge-readme-demo.gif">
+  <source src="demo-output/poseforge-generation-walkthrough-15s.mp4" type="video/mp4">
+  Your Markdown viewer does not support embedded video. Use the walkthrough link above.
+</video>
 
 > **Local-first, not automatically offline.** Your workspace, PostgreSQL
 > database, character library, pose library, and generated files stay on your
@@ -108,6 +115,13 @@ direction.
 
 ![Fictional model identity, pose reference, and cobalt editorial result](web/public/images/poseforge-transformation-hero.webp)
 
+| Detail | Value |
+|---|---|
+| Engine | Codex CLI |
+| Configuration | Default Studio Normal mode, cobalt editorial preset |
+| Hardware | Maintainer macOS development machine |
+| Generation time | Recorded per-run in **History**; not yet published for this asset |
+
 ### Indian family using an American family pose
 
 The middle photograph supplies only the arrangement: parents seated on either
@@ -115,6 +129,13 @@ side while their two-year-old stands between them. The result keeps the Indian
 family identities and applies that family pose in a new festive setting.
 
 ![Fictional Indian family identity, American family pose reference, and transformed Indian family result](web/public/images/poseforge-indian-family-pose-transfer-v2.webp)
+
+| Detail | Value |
+|---|---|
+| Engine | Google Antigravity CLI |
+| Configuration | Multi-character Studio mode (3 identity slots), festive setting preset |
+| Hardware | Maintainer macOS development machine |
+| Generation time | Recorded per-run in **History**; not yet published for this asset |
 
 ### Reproducible 10-second demo reel
 

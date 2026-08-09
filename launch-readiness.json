@@ -1,0 +1,30 @@
+{
+  "product": [
+    {"item": "Core character-to-pose journey validated end-to-end on maintainer machine", "status": "done", "weight": 3},
+    {"item": "Private beta completed with at least 10 users", "status": "not_started", "weight": 3},
+    {"item": "At least 80% of testers reach first generation without help", "status": "not_started", "weight": 3},
+    {"item": "User-facing documentation and support paths complete", "status": "done", "weight": 2},
+    {"item": "Privacy and external provider boundary documented", "status": "done", "weight": 3},
+    {"item": "v0.1.0 release notes and known limitations complete", "status": "done", "weight": 2},
+    {"item": "Three reproducible generation examples include measured runtime", "status": "partial", "weight": 2}
+  ],
+  "marketing": [
+    {"item": "README and landing page lead with the outcome", "status": "done", "weight": 3},
+    {"item": "GIF and launch video assets ready", "status": "done", "weight": 3},
+    {"item": "Distinct Show HN, Product Hunt, X, LinkedIn, and Reddit drafts ready", "status": "done", "weight": 2},
+    {"item": "Owned, rented, and borrowed channel timeline defined", "status": "done", "weight": 2},
+    {"item": "Current self-promotion rules verified for every community", "status": "not_started", "weight": 2},
+    {"item": "Creator and newsletter preview outreach sent", "status": "not_started", "weight": 2},
+    {"item": "Permissioned transformations and testimonials collected", "status": "not_started", "weight": 2},
+    {"item": "September 1 launch coverage confirmed", "status": "partial", "weight": 2}
+  ],
+  "technical": [
+    {"item": "Syntax, API, database, web, E2E, and production build checks pass", "status": "done", "weight": 3},
+    {"item": "One-command macOS maintainer setup passes", "status": "done", "weight": 2},
+    {"item": "Fresh-clone setup passes on clean macOS and Linux", "status": "not_started", "weight": 3},
+    {"item": "Tag-driven release verification and publishing configured", "status": "done", "weight": 3},
+    {"item": "main branch protection restored with strict Node 20/22 checks", "status": "not_started", "weight": 3},
+    {"item": "Secret scanning, push protection, and dependency security enabled", "status": "done", "weight": 2},
+    {"item": "Release rollback procedure documented and rehearsed", "status": "partial", "weight": 2}
+  ]
+}

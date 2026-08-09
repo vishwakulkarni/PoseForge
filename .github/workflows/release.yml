@@ -1,0 +1,69 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  verify-and-publish:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: poseforge
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d poseforge"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/poseforge
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci && npm --prefix web ci
+
+      - name: Verify release metadata and media
+        run: npm run release:check
+
+      - name: Enforce launch readiness gate
+        run: npm run launch:score
+
+      - name: Verify docs and syntax
+        run: npm run docs:check && npm run check
+
+      - name: Migrate database
+        run: npm run migrate
+
+      - name: Test application
+        run: npm run test:all
+
+      - name: Build web application
+        run: npm run build:web
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "${GITHUB_REF_NAME}"
+          --verify-tag
+          --title "PoseForge ${GITHUB_REF_NAME}"
+          --notes-file RELEASE_NOTES.md
+          demo-output/poseforge-generation-walkthrough-15s.mp4
+          web/public/demo/poseforge-readme-demo.mp4
+          web/public/demo/poseforge-readme-demo.gif
