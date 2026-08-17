@@ -153,6 +153,9 @@ export const handlers = [
   http.get('/api/metrics', () => HttpResponse.json(metricsFixture)),
   http.get('/api/characters', () => HttpResponse.json({ characters: charactersFixture })),
   http.get('/api/pose-references', () => HttpResponse.json({ poseReferences: [] })),
+  http.get('/api/pose-references/suggestions', () =>
+    HttpResponse.json({ poseReferences: [] }),
+  ),
   http.get('/api/engines', () =>
     HttpResponse.json({
       engines: [

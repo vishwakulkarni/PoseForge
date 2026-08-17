@@ -129,6 +129,10 @@ export const api = {
       request<{ poseReferences: PoseReference[] }>(`/api/pose-references${query(filters)}`).then(
         (r) => r.poseReferences,
       ),
+    suggestions: (params: { subjectCount: number; seed?: string; limit?: number }) =>
+      request<{ poseReferences: PoseReference[] }>(
+        `/api/pose-references/suggestions${query(params)}`,
+      ).then((r) => r.poseReferences),
     create: (form: FormData) =>
       request<PoseReference>('/api/pose-references', { method: 'POST', body: form }),
     remove: (id: string) => request<void>(`/api/pose-references/${id}`, { method: 'DELETE' }),

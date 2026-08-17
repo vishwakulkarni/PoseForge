@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { CanvasPanel, type CanvasPanelProps } from '@/components/studio/canvas';
 import type { Generation } from '@/lib/api/types';
 
@@ -50,15 +50,14 @@ function props(overrides: Partial<CanvasPanelProps> = {}): CanvasPanelProps {
 }
 
 describe('PoseForge workflow canvas', () => {
-  it('renders ordered character and pose inputs as an equation', () => {
-    render(<CanvasPanel {...props()} />);
+  it('renders character and pose sources wired through generate to a result node', () => {
+    const { container } = render(<CanvasPanel {...props()} />);
 
-    const inputs = screen.getByLabelText('Generation inputs');
-    expect(within(inputs).getByText('Anika')).toBeInTheDocument();
-    expect(within(inputs).getByText('Ravi')).toBeInTheDocument();
-    expect(within(inputs).getByText('Arms crossed')).toBeInTheDocument();
-    expect(within(inputs).getAllByLabelText('plus')).toHaveLength(2);
-    expect(screen.getByLabelText('equals')).toBeInTheDocument();
+    expect(container.querySelector('[data-id="character-subject-1"]')).toHaveTextContent('Anika');
+    expect(container.querySelector('[data-id="character-subject-2"]')).toHaveTextContent('Ravi');
+    expect(container.querySelector('[data-id="pose-manual"]')).toHaveTextContent('Arms crossed');
+    expect(container.querySelector('[data-id="generate"]')).toHaveTextContent('Forge composition');
+    expect(container.querySelectorAll('.poseforge-handle')).toHaveLength(8);
     expect(screen.getByText('Result will appear here')).toBeInTheDocument();
   });
 
@@ -95,22 +94,65 @@ describe('PoseForge workflow canvas', () => {
       />,
     );
 
-    const outputs = screen.getByRole('group', { name: 'Generated variations' });
-    expect(within(outputs).getByAltText('Generated result 1')).toBeInTheDocument();
-    expect(within(outputs).getByText('Generation failed')).toBeInTheDocument();
-    expect(within(outputs).getByText('Provider unavailable')).toBeInTheDocument();
-    expect(within(outputs).getByRole('link', { name: 'Download' })).toBeInTheDocument();
+    const outputs = document.querySelectorAll('.poseforge-node-result');
+    expect(outputs).toHaveLength(2);
+    expect(within(outputs[0] as HTMLElement).getByAltText('Generated result 1')).toBeInTheDocument();
+    expect(within(outputs[1] as HTMLElement).getByText('Generation failed')).toBeInTheDocument();
+    expect(within(outputs[1] as HTMLElement).getByText('Provider unavailable')).toBeInTheDocument();
+    expect((outputs[0] as HTMLElement).querySelector('a[download]')).toHaveTextContent('Download');
   });
 
-  it('keeps wheel zoom inside the workflow instead of browser zoom', () => {
+  it('provides the full canvas control cluster and toggles the lock state', () => {
     render(<CanvasPanel {...props()} />);
-    const canvas = screen.getByLabelText('Composition canvas');
-    const viewport = canvas.querySelector('.canvas-viewport');
-    expect(viewport).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Zoom in' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Zoom out' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /reset zoom from/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Fit all nodes' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Undo canvas move' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Redo canvas move' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Tidy canvas' })).toBeInTheDocument();
 
-    const wheel = new WheelEvent('wheel', { deltaY: -120, cancelable: true });
-    viewport!.dispatchEvent(wheel);
+    fireEvent.click(screen.getByRole('button', { name: 'Lock canvas' }));
+    expect(screen.getByRole('button', { name: 'Unlock canvas' })).toBeInTheDocument();
+  });
 
-    expect(wheel.defaultPrevented).toBe(true);
+  it('fans a selected identity out to selectable pose suggestion nodes', () => {
+    const onToggleSuggestion = vi.fn();
+    render(
+      <CanvasPanel
+        {...props({
+          pose: null,
+          selectedSubjectId: 'subject-1',
+          selectedSuggestionIds: ['pose-standing'],
+          poseSuggestions: [
+            {
+              id: 'pose-standing',
+              label: 'Hero stance',
+              category: 'standing',
+              imageUrl: '/storage/hero.png',
+            },
+            {
+              id: 'pose-seated',
+              label: 'Chair portrait',
+              category: 'sitting',
+              imageUrl: '/storage/chair.png',
+            },
+          ],
+          plannedOutputs: 1,
+          outputPoseLabels: ['Hero stance'],
+          onSelectSubject: vi.fn(),
+          onToggleSuggestion,
+        })}
+      />,
+    );
+
+    const palette = screen.getByLabelText('Node palette');
+    expect(within(palette).getByRole('button', { name: /remove suggested pose hero stance/i }))
+      .toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.click(within(palette).getByRole('button', { name: /add suggested pose chair portrait/i }));
+    expect(onToggleSuggestion).toHaveBeenCalledWith('pose-seated');
+    expect(screen.getByText('Pose · Hero stance')).toBeInTheDocument();
+    expect(screen.getAllByLabelText('Remove suggested pose Hero stance')).toHaveLength(2);
   });
 });

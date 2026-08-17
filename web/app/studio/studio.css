@@ -1,3 +1,5 @@
+@import '@xyflow/react/dist/style.css';
+
 /* ------------------------------------------------------------------ *
  * Studio workbench.
  *
@@ -1124,6 +1126,25 @@
   box-shadow: none;
 }
 
+.workflow-input-select {
+  width: 100%;
+  display: block;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.workflow-input-card.is-selected .workflow-card-media {
+  outline: 3px solid var(--pf-accent-soft);
+  box-shadow: 0 0 0 1.5px var(--pf-accent);
+}
+
+.workflow-input-card.is-selected .workflow-card-copy strong {
+  color: var(--pf-accent);
+}
+
 .workflow-card-media {
   height: 154px;
   margin: 7px 7px 0;
@@ -1185,6 +1206,169 @@
   margin-top: 4px;
   color: var(--pf-text-primary);
   font-size: 10px;
+}
+
+.workflow-pose-suggestions {
+  width: 344px;
+  flex: 0 0 auto;
+  padding: 13px 14px 14px 24px;
+  border: 1px solid color-mix(in srgb, var(--pf-accent) 32%, var(--pf-border-strong));
+  border-radius: 19px;
+  background: color-mix(in srgb, var(--pf-surface) 82%, transparent);
+  box-shadow: 0 14px 34px rgba(13, 15, 20, 0.08);
+}
+
+.pose-suggestion-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 9px;
+}
+
+.pose-suggestion-heading span {
+  color: var(--pf-accent);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.pose-suggestion-heading strong {
+  color: var(--pf-text-tertiary);
+  font-size: 8px;
+}
+
+.pose-suggestion-branch {
+  position: relative;
+}
+
+.pose-suggestion-connector {
+  position: absolute;
+  top: 15px;
+  bottom: 15px;
+  left: -14px;
+  width: 14px;
+  border-left: 2px solid color-mix(in srgb, var(--pf-accent) 52%, var(--pf-border));
+  border-top: 2px solid color-mix(in srgb, var(--pf-accent) 52%, var(--pf-border));
+  border-bottom: 2px solid color-mix(in srgb, var(--pf-accent) 52%, var(--pf-border));
+  border-radius: 9px 0 0 9px;
+}
+
+.pose-suggestion-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.pose-suggestion-node {
+  position: relative;
+  min-width: 0;
+  padding: 5px;
+  overflow: hidden;
+  border: 1px solid var(--pf-border);
+  border-radius: 12px;
+  color: var(--pf-text-primary);
+  background: var(--pf-surface-muted);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+
+.pose-suggestion-node:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--pf-accent) 60%, var(--pf-border));
+  transform: translateY(-1px);
+}
+
+.pose-suggestion-node.is-selected {
+  border-color: var(--pf-accent);
+  background: var(--pf-accent-soft);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--pf-accent) 16%, transparent);
+}
+
+.pose-suggestion-node:disabled {
+  cursor: default;
+}
+
+.pose-suggestion-node > img {
+  width: 100%;
+  height: 83px;
+  display: block;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--pf-surface);
+}
+
+.pose-suggestion-check {
+  position: absolute;
+  z-index: 1;
+  top: 9px;
+  right: 9px;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, white 72%, var(--pf-border));
+  border-radius: 50%;
+  color: var(--pf-text-primary);
+  background: color-mix(in srgb, var(--pf-surface) 88%, transparent);
+  box-shadow: var(--pf-shadow-xs);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.pose-suggestion-node.is-selected .pose-suggestion-check {
+  border-color: var(--pf-accent);
+  color: white;
+  background: var(--pf-accent);
+}
+
+.pose-suggestion-copy,
+.pose-suggestion-copy small,
+.pose-suggestion-copy strong {
+  display: block;
+  min-width: 0;
+}
+
+.pose-suggestion-copy {
+  padding: 6px 2px 2px;
+}
+
+.pose-suggestion-copy small,
+.pose-suggestion-copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pose-suggestion-copy small {
+  color: var(--pf-text-tertiary);
+  font-size: 6px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.pose-suggestion-copy strong {
+  margin-top: 3px;
+  font-size: 8px;
+}
+
+.pose-suggestion-node.is-loading {
+  height: 117px;
+  border-color: transparent;
+  background: linear-gradient(
+    100deg,
+    var(--pf-surface-muted) 20%,
+    color-mix(in srgb, var(--pf-surface) 76%, var(--pf-accent-soft)) 40%,
+    var(--pf-surface-muted) 60%
+  );
+  background-size: 220% 100%;
+  animation: suggestionShimmer 1.2s linear infinite;
+}
+
+@keyframes suggestionShimmer {
+  to { background-position-x: -220%; }
 }
 
 .workflow-output-card {
@@ -2113,4 +2297,554 @@
   .two-fields {
     grid-template-columns: 1fr;
   }
+}
+
+/* ---------------------------------------------- React Flow canvas */
+
+.canvas-panel {
+  /* Component tokens: light canvas follows the cool React Flow reference. */
+  --pf-canvas-pane: #f8fafc;
+  --pf-canvas-dot: #91919a;
+  --pf-canvas-node: #ffffff;
+  --pf-canvas-node-media: #f1f3f7;
+  --pf-canvas-node-subtle: #f7f8fa;
+  --pf-canvas-node-elevated: #eef0f4;
+  --pf-canvas-drawer: #ffffff;
+  --pf-canvas-text: #0d001a;
+  --pf-canvas-text-secondary: #60656f;
+  --pf-canvas-text-tertiary: #9298a3;
+  --pf-canvas-border: rgb(13 0 26 / 0.1);
+  --pf-canvas-border-soft: rgb(13 0 26 / 0.07);
+  --pf-canvas-diagonal: rgb(13 0 26 / 0.035);
+  --pf-canvas-shadow: 0 16px 40px -4px rgb(13 22 47 / 0.08), 0 4px 8px rgb(13 22 47 / 0.05);
+  --pf-canvas-tool-shadow: 0 0 2px 1px rgb(0 0 0 / 0.08);
+  --pf-canvas-character: #004787;
+  --pf-canvas-character-soft: rgb(52 145 251 / 0.1);
+  --pf-canvas-pose: #6200bc;
+  --pf-canvas-pose-soft: #f8edff;
+  --pf-canvas-generate: #633f00;
+  --pf-canvas-generate-soft: rgb(234 154 0 / 0.1);
+  --pf-canvas-result: #005b1e;
+  --pf-canvas-result-soft: rgb(47 187 104 / 0.1);
+  --pf-canvas-handle-ring: #ffffff;
+  --pf-canvas-control-text: #514b57;
+  --pf-canvas-disabled: #c8c3cb;
+}
+
+.dark .canvas-panel {
+  /* Dark surround remains neutral enough for judging generated photographs. */
+  --pf-canvas-pane: #141018;
+  --pf-canvas-dot: #3a3442;
+  --pf-canvas-node: #1c1721;
+  --pf-canvas-node-media: #16121a;
+  --pf-canvas-node-subtle: #18131d;
+  --pf-canvas-node-elevated: #251f2b;
+  --pf-canvas-drawer: #211b26;
+  --pf-canvas-text: #f5f1f7;
+  --pf-canvas-text-secondary: #988f9e;
+  --pf-canvas-text-tertiary: #827986;
+  --pf-canvas-border: rgb(255 255 255 / 0.08);
+  --pf-canvas-border-soft: rgb(255 255 255 / 0.07);
+  --pf-canvas-diagonal: rgb(255 255 255 / 0.04);
+  --pf-canvas-shadow: 0 16px 40px -4px rgb(0 0 0 / 0.34), 0 4px 8px rgb(0 0 0 / 0.22);
+  --pf-canvas-tool-shadow: 0 0 2px 1px rgb(0 0 0 / 0.3);
+  --pf-canvas-character: #69b3ff;
+  --pf-canvas-character-soft: rgb(52 145 251 / 0.12);
+  --pf-canvas-pose: #c092ff;
+  --pf-canvas-pose-soft: rgb(174 114 255 / 0.12);
+  --pf-canvas-generate: #f4b63a;
+  --pf-canvas-generate-soft: rgb(234 154 0 / 0.12);
+  --pf-canvas-result: #5ed786;
+  --pf-canvas-result-soft: rgb(47 187 104 / 0.12);
+  --pf-canvas-handle-ring: #ffffff;
+  --pf-canvas-control-text: #cbc4ce;
+  --pf-canvas-disabled: #68606e;
+}
+
+.canvas-viewport {
+  position: relative;
+  min-height: 0;
+  flex: 1;
+  display: block;
+  padding: 0;
+  overflow: hidden;
+  touch-action: none;
+  overscroll-behavior: contain;
+  user-select: none;
+  background: var(--pf-canvas-pane);
+}
+
+.canvas-viewport .react-flow,
+.canvas-viewport .react-flow__renderer {
+  background: var(--pf-canvas-pane);
+}
+
+.canvas-viewport .react-flow__pane { cursor: grab; }
+.canvas-viewport .react-flow__pane.dragging { cursor: grabbing; }
+
+.canvas-viewport .react-flow__node {
+  width: auto;
+  border: 0;
+  background: transparent;
+}
+
+.canvas-viewport .react-flow__node:focus,
+.canvas-viewport .react-flow__node:focus-visible { outline: none; }
+
+.poseforge-node {
+  position: relative;
+  width: 330px;
+  overflow: visible;
+  border: 1px solid var(--pf-canvas-border);
+  border-radius: 12px;
+  color: var(--pf-canvas-text);
+  background: var(--pf-canvas-node);
+  box-shadow: var(--pf-canvas-shadow);
+  cursor: grab;
+  transition: transform 150ms ease-in-out, border-color 150ms ease-in-out;
+}
+
+.react-flow__node:hover .poseforge-node { transform: translateY(-4px); }
+
+.react-flow__node.selected .poseforge-node,
+.poseforge-node.is-active { border: 2px solid var(--pf-accent); }
+.poseforge-node.is-empty { border-style: dashed; }
+.poseforge-node.is-failed { border-color: var(--pf-error); }
+
+.poseforge-node-tab {
+  position: absolute;
+  left: 16px;
+  bottom: 100%;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border: 1px solid currentColor;
+  border-bottom: 0;
+  border-radius: 9999px 9999px 0 0;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+}
+
+.poseforge-node-character .poseforge-node-tab {
+  color: var(--pf-canvas-character);
+  background: var(--pf-canvas-character-soft);
+}
+
+.poseforge-node-pose .poseforge-node-tab {
+  color: var(--pf-canvas-pose);
+  background: var(--pf-canvas-pose-soft);
+}
+
+.poseforge-node-generate .poseforge-node-tab {
+  color: var(--pf-canvas-generate);
+  background: var(--pf-canvas-generate-soft);
+}
+
+.poseforge-node-result .poseforge-node-tab {
+  color: var(--pf-canvas-result);
+  background: var(--pf-canvas-result-soft);
+}
+
+.poseforge-node-media {
+  height: 330px;
+  overflow: hidden;
+  border-radius: 11px 11px 0 0;
+  background: var(--pf-canvas-node-media);
+}
+
+.poseforge-node-media img,
+.poseforge-result-media > img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.poseforge-node-placeholder {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--pf-canvas-text-tertiary);
+  background: linear-gradient(135deg, transparent 49%, var(--pf-canvas-diagonal) 50%, transparent 51%), var(--pf-canvas-node-subtle);
+}
+
+.poseforge-node-label {
+  position: relative;
+  min-height: 58px;
+  padding: 11px 48px 12px 12px;
+}
+
+.poseforge-node-label > span,
+.poseforge-node-label > strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.poseforge-node-label > span {
+  color: var(--pf-canvas-text-secondary);
+  font-size: 10px;
+  line-height: 14px;
+  text-transform: capitalize;
+}
+
+.poseforge-node-label > strong {
+  margin-top: 3px;
+  color: var(--pf-canvas-text);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.poseforge-node-remove {
+  position: absolute;
+  top: 14px;
+  right: 12px;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--pf-canvas-border);
+  border-radius: 8px;
+  color: var(--pf-canvas-text-secondary);
+  background: var(--pf-canvas-node-elevated);
+  cursor: pointer;
+}
+
+.poseforge-generate-body {
+  min-height: 112px;
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px 16px 16px;
+}
+
+.poseforge-node-icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: var(--pf-canvas-generate);
+  background: var(--pf-canvas-generate-soft);
+}
+
+.poseforge-generate-body strong,
+.poseforge-generate-body small { display: block; }
+.poseforge-generate-body strong { font-size: 16px; font-weight: 500; }
+.poseforge-generate-body small { margin-top: 5px; color: var(--pf-canvas-text-secondary); font-size: 12px; }
+
+.poseforge-ready-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--pf-canvas-disabled);
+}
+
+.poseforge-ready-dot.ready,
+.poseforge-ready-dot.done {
+  background: var(--pf-success);
+  box-shadow: 0 0 0 4px var(--pf-success-bg);
+}
+
+.poseforge-ready-dot.running {
+  background: var(--pf-warning);
+  box-shadow: 0 0 0 4px var(--pf-warning-bg);
+  animation: nodePulse 1.3s ease-in-out infinite;
+}
+
+.poseforge-node-result { width: 480px; }
+
+.poseforge-result-media {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: block;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 11px 11px 0 0;
+  color: var(--pf-canvas-text-tertiary);
+  background: var(--pf-canvas-node-media);
+  cursor: pointer;
+}
+
+.poseforge-node-result[data-aspect='4:5'] .poseforge-result-media { aspect-ratio: 4 / 5; }
+.poseforge-node-result[data-aspect='16:9'] .poseforge-result-media { aspect-ratio: 16 / 9; }
+.poseforge-node-result[data-aspect='9:16'] .poseforge-result-media { aspect-ratio: 9 / 16; }
+
+.poseforge-result-state {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 32px;
+  color: var(--pf-canvas-text-tertiary);
+  background: var(--pf-canvas-node-subtle);
+  text-align: center;
+}
+
+.poseforge-result-state strong { color: var(--pf-canvas-text); font-size: 14px; font-weight: 500; }
+.poseforge-result-state small { color: var(--pf-canvas-text-tertiary); font-size: 11px; }
+.poseforge-result-label { min-height: 58px; }
+
+.poseforge-result-actions {
+  display: flex;
+  gap: 6px;
+  padding: 0 12px 12px;
+}
+
+.poseforge-result-actions a,
+.poseforge-result-actions button {
+  flex: 1;
+  min-height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--pf-canvas-border);
+  border-radius: 7px;
+  color: var(--pf-canvas-text);
+  background: var(--pf-canvas-node-elevated);
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.poseforge-spinner {
+  width: 30px;
+  height: 30px;
+  border: 2px solid var(--pf-canvas-border);
+  border-top-color: var(--pf-accent);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+.poseforge-failure-mark {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--pf-error);
+  background: var(--pf-error-bg);
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.canvas-viewport .poseforge-handle {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--pf-canvas-handle-ring);
+  border-radius: 50%;
+  background: var(--pf-accent);
+}
+
+.poseforge-node-generate .poseforge-handle[data-handleid='character'] { left: 36%; }
+.poseforge-node-generate .poseforge-handle[data-handleid='pose'] { left: 64%; }
+.canvas-viewport .react-flow__edge-path { stroke: var(--pf-accent); stroke-width: 2; }
+.canvas-viewport .react-flow__connection-path { stroke: var(--pf-accent-hover); stroke-width: 2; }
+
+.poseforge-controls.react-flow__panel {
+  width: 32px;
+  margin: 15px;
+  overflow: hidden;
+  border: 1px solid var(--pf-canvas-border);
+  border-radius: 4px;
+  background: var(--pf-canvas-node);
+  box-shadow: var(--pf-canvas-tool-shadow);
+}
+
+.poseforge-controls button {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-top: 1px solid var(--pf-canvas-border);
+  color: var(--pf-canvas-control-text);
+  background: transparent;
+  cursor: pointer;
+}
+
+.poseforge-controls button:first-child { border-top: 0; }
+
+.poseforge-controls button:hover:not(:disabled) {
+  color: var(--pf-accent);
+  background: var(--pf-accent-soft);
+}
+
+.poseforge-controls button:disabled { color: var(--pf-canvas-disabled); cursor: default; }
+
+.poseforge-controls .poseforge-zoom-value {
+  color: var(--pf-canvas-text-tertiary);
+  font-size: 8px;
+  font-weight: 650;
+}
+
+.poseforge-palette.react-flow__panel {
+  bottom: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin: 0;
+}
+
+.poseforge-palette-stack {
+  position: relative;
+  width: 240px;
+  height: 86px;
+  flex: 0 0 auto;
+}
+
+.poseforge-stack-peeker,
+.poseforge-palette-card {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  border: 1px solid var(--pf-canvas-border);
+  border-bottom: 0;
+  border-radius: 12px 12px 0 0;
+  background: var(--pf-canvas-drawer);
+  box-shadow: var(--pf-canvas-shadow);
+}
+
+.poseforge-stack-peeker { height: 70px; pointer-events: none; }
+.poseforge-stack-peeker.peeker-one { right: 6px; bottom: 6px; left: -6px; }
+.poseforge-stack-peeker.peeker-two { right: 12px; bottom: 12px; left: -12px; }
+
+.poseforge-palette-card {
+  z-index: 2;
+  width: 100%;
+  min-height: 80px;
+  display: block;
+  padding: 13px 13px 22px;
+  overflow: hidden;
+  color: var(--pf-canvas-text);
+  cursor: pointer;
+  text-align: left;
+  transition: min-height 180ms ease, border-radius 180ms ease;
+}
+
+button.poseforge-palette-card { font: inherit; }
+.poseforge-palette-card > strong,
+.poseforge-palette-card > small,
+.poseforge-palette-open > strong,
+.poseforge-palette-open > small { display: block; }
+.poseforge-palette-card > strong,
+.poseforge-palette-open > strong { margin-top: 8px; font-size: 11px; font-weight: 550; }
+.poseforge-palette-card > small,
+.poseforge-palette-open > small { margin-top: 2px; color: var(--pf-canvas-text-tertiary); font-size: 8px; }
+
+.poseforge-palette-open {
+  width: 100%;
+  display: block;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.poseforge-palette-pill {
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+}
+
+.palette-character .poseforge-palette-pill { color: var(--pf-canvas-character); background: var(--pf-canvas-character-soft); }
+.palette-pose .poseforge-palette-pill { color: var(--pf-canvas-pose); background: var(--pf-canvas-pose-soft); }
+.palette-generate .poseforge-palette-pill { color: var(--pf-canvas-generate); background: var(--pf-canvas-generate-soft); }
+
+.poseforge-palette-items {
+  max-height: 0;
+  display: grid;
+  gap: 5px;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 180ms ease, opacity 120ms ease, margin-top 180ms ease;
+}
+
+.palette-pose:hover .poseforge-palette-card,
+.palette-pose:focus-within .poseforge-palette-card {
+  min-height: 300px;
+}
+
+.palette-pose:hover .poseforge-palette-items,
+.palette-pose:focus-within .poseforge-palette-items {
+  max-height: 190px;
+  margin-top: 10px;
+  overflow-y: auto;
+  opacity: 1;
+}
+
+.poseforge-palette-item {
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: 34px 1fr 18px;
+  align-items: center;
+  gap: 7px;
+  padding: 4px;
+  border: 1px solid var(--pf-canvas-border-soft);
+  border-radius: 8px;
+  color: var(--pf-canvas-text);
+  background: var(--pf-canvas-node-subtle);
+  cursor: grab;
+  text-align: left;
+}
+
+.poseforge-palette-item.is-selected {
+  border-color: var(--pf-accent);
+  background: var(--pf-accent-soft);
+}
+
+.poseforge-palette-item img { width: 34px; height: 34px; border-radius: 6px; object-fit: cover; }
+
+.poseforge-palette-item span {
+  overflow: hidden;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.poseforge-palette-item i {
+  width: 17px;
+  height: 17px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--pf-accent-contrast);
+  background: var(--pf-accent);
+  font-size: 9px;
+  font-style: normal;
+}
+
+.poseforge-viewport-status.react-flow__panel {
+  margin: 15px;
+  color: rgb(255 255 255 / 0.32);
+  font-size: 9px;
+  pointer-events: none;
+}
+
+@keyframes nodePulse { 50% { opacity: 0.45; } }
+
+@media (max-width: 920px) {
+  .poseforge-palette-stack { width: 135px; }
+  .palette-generate { display: none; }
 }

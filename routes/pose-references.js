@@ -5,12 +5,27 @@ const path = require("path");
 const { pool } = require("../db/pool");
 const storage = require("../lib/storage");
 const poseLibrary = require("../lib/poseLibrary");
+const { selectPoseSuggestions } = require("../lib/poseSuggestions");
 const { asyncHandler, isUuid, cleanup } = require("./helpers");
 
 const router = express.Router();
 const tempDir = path.join(__dirname, "..", "tmp", "uploads-v2");
 fs.mkdirSync(tempDir, { recursive: true });
 const upload = multer({ dest: tempDir, limits: { fileSize: 25 * 1024 * 1024 } });
+
+router.get("/suggestions", asyncHandler(async (req, res) => {
+  const subjectCount = Math.min(Math.max(Number(req.query.subjectCount) || 1, 1), 4);
+  const limit = Math.min(Math.max(Number(req.query.limit) || 5, 1), 6);
+  const seed = String(req.query.seed || "").slice(0, 80);
+  const result = await pool.query(
+    `SELECT * FROM pose_references
+     WHERE tag_status <> 'pending'
+     ORDER BY is_custom ASC, created_at DESC
+     LIMIT 120`
+  );
+  const suggestions = selectPoseSuggestions(result.rows, { subjectCount, limit, seed });
+  res.json({ poseReferences: suggestions.map(poseLibrary.shape) });
+}));
 
 router.get("/", asyncHandler(async (req, res) => {
   const params = [];

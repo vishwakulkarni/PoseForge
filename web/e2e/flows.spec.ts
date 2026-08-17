@@ -50,14 +50,47 @@ test.describe('studio', () => {
     await expect(page.locator('html[data-poseforge-hydrated="true"]')).toBeAttached();
   });
 
-  test('renders the three-column workbench and visual workflow', async ({ page }) => {
+  test('renders the three-column workbench and node canvas', async ({ page }) => {
     await expect(page.getByRole('heading', { name: 'Sources' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Direction' })).toBeVisible();
     await expect(page.getByLabel('Composition canvas')).toBeVisible();
     await expect(page.getByRole('button', { name: /generate transformation/i })).toBeVisible();
-    await expect(page.getByLabel('Generation inputs')).toBeVisible();
-    await expect(page.getByLabel('equals')).toBeVisible();
-    await expect(page.getByLabel('Generated variations')).toBeVisible();
+    await expect(page.locator('[data-id="character-empty"]')).toBeVisible();
+    await expect(page.locator('[data-id="pose-empty"]')).toBeVisible();
+    await expect(page.locator('[data-id="generate"]')).toBeVisible();
+    await expect(page.locator('[data-id="result-placeholder-0"]')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Fit all nodes' })).toBeVisible();
+    await expect(page.getByLabel('Node palette')).toBeVisible();
+  });
+
+  test('locks and unlocks spatial canvas interactions', async ({ page }) => {
+    await page.getByRole('button', { name: 'Lock canvas' }).click();
+    await expect(page.getByRole('button', { name: 'Unlock canvas' })).toBeVisible();
+    await page.getByRole('button', { name: 'Unlock canvas' }).click();
+    await expect(page.getByRole('button', { name: 'Lock canvas' })).toBeVisible();
+  });
+
+  test('matches the canvas palette to day and night themes', async ({ page }) => {
+    const canvas = page.locator('.canvas-viewport');
+    const flow = page.locator('.react-flow');
+    const node = page.locator('.poseforge-node-character').first();
+    const controls = page.locator('.poseforge-controls');
+    const drawerCard = page.locator('.poseforge-palette-card').first();
+
+    await expect(canvas).toHaveCSS('background-color', 'rgb(248, 250, 252)');
+    await expect(node).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+    await expect(controls).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+    await expect(drawerCard).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+    await expect(flow).toHaveClass(/light/);
+
+    await page.getByRole('button', { name: 'Switch to dark theme' }).click();
+
+    await expect(page.locator('html')).toHaveClass(/dark/);
+    await expect(canvas).toHaveCSS('background-color', 'rgb(20, 16, 24)');
+    await expect(node).toHaveCSS('background-color', 'rgb(28, 23, 33)');
+    await expect(controls).toHaveCSS('background-color', 'rgb(28, 23, 33)');
+    await expect(drawerCard).toHaveCSS('background-color', 'rgb(33, 27, 38)');
+    await expect(flow).toHaveClass(/dark/);
   });
 
   test('keeps generate disabled until sources exist', async ({ page }) => {

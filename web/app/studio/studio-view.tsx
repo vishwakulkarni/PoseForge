@@ -10,6 +10,7 @@ import {
   useEngines,
   useGenerationsPolling,
   usePoseReferences,
+  usePoseSuggestions,
   usePresets,
   useRecipes,
   useUsageEstimate,
@@ -220,6 +221,9 @@ export function StudioView() {
   const [rightPanelWidth, setRightPanelWidth] = React.useState(310);
   const [leftPanelCollapsed, setLeftPanelCollapsed] = React.useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = React.useState(false);
+  const [selectedSubjectId, setSelectedSubjectId] = React.useState<string | null>(null);
+  const [selectedSuggestionIds, setSelectedSuggestionIds] = React.useState<string[]>([]);
+  const [suggestionSubmitting, setSuggestionSubmitting] = React.useState(false);
 
   const { data: characters } = useCharacters();
   const { data: engineData } = useEngines();
@@ -273,7 +277,7 @@ export function StudioView() {
   /* --------------------------------------------------------- derived */
 
   const filledSlots = state.slots.filter((slot) => slot.characterId || slot.file);
-  const hasPose = Boolean(state.poseFile || state.poseReferenceId);
+  const hasManualPose = Boolean(state.poseFile || state.poseReferenceId);
   const canvasSubjects = state.slots.flatMap((slot, index) =>
     slot.characterId || slot.file
       ? [{
@@ -283,25 +287,41 @@ export function StudioView() {
         }]
       : [],
   );
+  const activeSubjectId = selectedSubjectId &&
+    canvasSubjects.some((subject) => subject.id === selectedSubjectId)
+    ? selectedSubjectId
+    : (canvasSubjects[0]?.id ?? null);
   const selectedPose = poses?.find((pose) => pose.id === state.poseReferenceId);
-  const canvasPose = hasPose && state.posePreviewUrl
+  const canvasPose = hasManualPose && state.posePreviewUrl
     ? {
         label: state.poseFile?.name ?? selectedPose?.title ?? 'Pose reference',
         imageUrl: state.posePreviewUrl,
       }
     : null;
+  const { data: poseSuggestions, isLoading: suggestionsLoading } = usePoseSuggestions(
+    canvasSubjects.length,
+    activeSubjectId,
+    !hasManualPose,
+  );
+  const selectedSuggestedPoses = selectedSuggestionIds.flatMap((id) => {
+    const pose = poseSuggestions?.find((item) => item.id === id);
+    return pose ? [pose] : [];
+  });
+  const hasPose = hasManualPose || selectedSuggestedPoses.length > 0;
   const allSlotsFilled = filledSlots.length === state.slots.length && filledSlots.length > 0;
   const collageNeedsUpload =
     state.mode === 'advanced' && state.advanced.poseCollage.enabled && !state.poseFile;
 
-  const plannedOutputs =
-    state.mode === 'advanced'
+  const plannedOutputs = selectedSuggestedPoses.length
+    ? selectedSuggestedPoses.length
+    : state.mode === 'advanced'
       ? state.advanced.poseCollage.enabled && state.poseFile
         ? state.advanced.poseCollage.count
         : state.advanced.output.variantCount
       : 1;
 
-  const generating = createGeneration.isPending || (state.activeGenerationIds.length > 0 && !settled);
+  const generating = createGeneration.isPending || suggestionSubmitting ||
+    (state.activeGenerationIds.length > 0 && !settled);
 
   const canGenerate =
     allSlotsFilled && hasPose && Boolean(selectedEngine?.ready) && !collageNeedsUpload && !generating;
@@ -337,6 +357,8 @@ export function StudioView() {
   const selectSlotFile = async (key: string, file: File) => {
     try {
       const previewUrl = await api.media.previewUrl(file, { fullResolution: true });
+      setSelectedSubjectId(key);
+      setSelectedSuggestionIds([]);
       dispatch({ type: 'setSlotFile', key, file, previewUrl });
     } catch (cause) {
       toast.error('Could not preview that photo', cause instanceof Error ? cause.message : undefined);
@@ -346,6 +368,7 @@ export function StudioView() {
   const selectPoseFile = async (file: File) => {
     try {
       const previewUrl = await api.media.previewUrl(file, { fullResolution: true });
+      setSelectedSuggestionIds([]);
       dispatch({ type: 'setPoseFile', file, previewUrl });
     } catch (cause) {
       toast.error('Could not preview that pose', cause instanceof Error ? cause.message : undefined);
@@ -397,17 +420,71 @@ export function StudioView() {
     dispatch({ type: 'setPreset', kind: 'background', id: null });
     dispatch({ type: 'setPreset', kind: 'style', id: null });
     setActiveRecipeId('');
+    setSelectedSuggestionIds([]);
+    setErrors([]);
+  };
+
+  const toggleSuggestedPose = (id: string) => {
+    if (generating) return;
+    dispatch({ type: 'clearPose' });
+    setSelectedSuggestionIds((current) =>
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
+    );
     setErrors([]);
   };
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     const nextState = { ...state, engine };
-    const validation = validateStudioState(nextState);
+    const validationState = selectedSuggestedPoses[0]
+      ? {
+          ...nextState,
+          poseFile: null,
+          posePreviewUrl: selectedSuggestedPoses[0].imageUrl,
+          poseReferenceId: selectedSuggestedPoses[0].id,
+        }
+      : nextState;
+    const validation = validateStudioState(validationState);
     setErrors(validation.errors);
     if (!validation.valid) return;
 
     try {
+      if (selectedSuggestedPoses.length) {
+        setSuggestionSubmitting(true);
+        const requests = selectedSuggestedPoses.map((pose) => {
+          const suggestionState = {
+            ...nextState,
+            poseFile: null,
+            posePreviewUrl: pose.imageUrl,
+            poseReferenceId: pose.id,
+            advanced: {
+              ...nextState.advanced,
+              output: { ...nextState.advanced.output, variantCount: 1 },
+              poseCollage: { ...nextState.advanced.poseCollage, enabled: false },
+            },
+          };
+          return api.generations.create(buildGenerationForm(suggestionState));
+        });
+        const results = await Promise.allSettled(requests);
+        const acceptedIds = results.flatMap((result) =>
+          result.status === 'fulfilled' ? result.value.generationIds : [],
+        );
+        const rejected = results.filter((result) => result.status === 'rejected');
+        if (!acceptedIds.length) {
+          const firstFailure = rejected[0] as PromiseRejectedResult | undefined;
+          throw firstFailure?.reason ?? new Error('Could not queue the selected poses.');
+        }
+        dispatch({ type: 'setActiveGenerations', ids: acceptedIds });
+        if (rejected.length) {
+          const message = `${rejected.length} of ${results.length} selected poses could not be queued.`;
+          setErrors([message]);
+          toast.error('Some poses were skipped', message);
+        } else {
+          setErrors([]);
+          toast.success(`${acceptedIds.length} pose transformations queued`);
+        }
+        return;
+      }
       const result = await createGeneration.mutateAsync(buildGenerationForm(nextState));
       dispatch({ type: 'setActiveGenerations', ids: result.generationIds });
       toast.success(
@@ -419,6 +496,8 @@ export function StudioView() {
       const message = cause instanceof Error ? cause.message : 'Could not start the generation.';
       setErrors([message]);
       toast.error('Generation rejected', message);
+    } finally {
+      setSuggestionSubmitting(false);
     }
   };
 
@@ -483,22 +562,33 @@ export function StudioView() {
             settings={state.advanced}
             patch={patch}
             onAddSlot={() => dispatch({ type: 'addSlot' })}
-            onRemoveSlot={(key) => dispatch({ type: 'removeSlot', key })}
+            onRemoveSlot={(key) => {
+              if (key === activeSubjectId) {
+                setSelectedSubjectId(null);
+                setSelectedSuggestionIds([]);
+              }
+              dispatch({ type: 'removeSlot', key });
+            }}
             onSelectCharacter={(key, character: CharacterSummary) =>
-              dispatch({
-                type: 'setSlotCharacter',
-                key,
-                characterId: character.id,
-                name: character.name,
-                previewUrl: character.primaryPhotoUrl,
-              })
+              {
+                setSelectedSubjectId(key);
+                setSelectedSuggestionIds([]);
+                dispatch({
+                  type: 'setSlotCharacter',
+                  key,
+                  characterId: character.id,
+                  name: character.name,
+                  previewUrl: character.primaryPhotoUrl,
+                });
+              }
             }
             onSelectSlotFile={(key, file) => void selectSlotFile(key, file)}
             onSaveIdentity={saveIdentity}
             onSelectPoseFile={(file) => void selectPoseFile(file)}
-            onSelectPoseReference={(pose: PoseReference) =>
-              dispatch({ type: 'setPoseReference', id: pose.id, previewUrl: pose.imageUrl })
-            }
+            onSelectPoseReference={(pose: PoseReference) => {
+              setSelectedSuggestionIds([]);
+              dispatch({ type: 'setPoseReference', id: pose.id, previewUrl: pose.imageUrl });
+            }}
             onClearPose={() => dispatch({ type: 'clearPose' })}
           />
 
@@ -515,9 +605,25 @@ export function StudioView() {
             status={canvasStatus}
             subjects={canvasSubjects}
             pose={canvasPose}
+            poseSuggestions={(poseSuggestions ?? []).map((pose) => ({
+              id: pose.id,
+              label: pose.title ?? 'Untitled pose',
+              imageUrl: pose.imageUrl,
+              category: pose.category,
+            }))}
+            suggestionsLoading={suggestionsLoading}
+            selectedSuggestionIds={selectedSuggestedPoses.map((pose) => pose.id)}
+            selectedSubjectId={activeSubjectId}
             generations={generations}
             plannedOutputs={plannedOutputs}
+            outputPoseLabels={selectedSuggestedPoses.map((pose) => pose.title ?? 'Untitled pose')}
             activeIndex={state.activeResultIndex}
+            onOpenSources={() => setLeftPanelCollapsed(false)}
+            onSelectSubject={(id) => {
+              if (id !== activeSubjectId) setSelectedSuggestionIds([]);
+              setSelectedSubjectId(id);
+            }}
+            onToggleSuggestion={toggleSuggestedPose}
             onSelectVariant={(index) => dispatch({ type: 'setActiveResultIndex', index })}
             onRegenerate={() => void submit(new Event('submit') as unknown as React.FormEvent)}
             tip={TIPS[state.mode === 'advanced' ? 2 : filledSlots.length ? 1 : 0]}
@@ -566,7 +672,7 @@ export function StudioView() {
         status={dockStatus}
         statusIsError={errors.length > 0}
         canGenerate={canGenerate}
-        submitting={createGeneration.isPending}
+        submitting={createGeneration.isPending || suggestionSubmitting}
       />
 
       <SaveRecipeDialog

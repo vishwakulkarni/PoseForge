@@ -26,6 +26,8 @@ export const queryKeys = {
   engines: ['engines'] as const,
   poseReferences: (filters?: Record<string, string | undefined>) =>
     ['pose-references', filters ?? {}] as const,
+  poseSuggestions: (subjectCount: number, seed: string) =>
+    ['pose-suggestions', subjectCount, seed] as const,
   generations: (filters?: Record<string, unknown>) => ['generations', filters ?? {}] as const,
   generation: (id: string) => ['generations', id] as const,
   recipes: ['recipes'] as const,
@@ -108,6 +110,15 @@ export function usePoseReferences(filters: { category?: string; tag?: string } =
   return useQuery({
     queryKey: queryKeys.poseReferences(filters),
     queryFn: () => api.poseReferences.list(filters),
+  });
+}
+
+export function usePoseSuggestions(subjectCount: number, seed: string | null, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.poseSuggestions(subjectCount, seed ?? ''),
+    queryFn: () => api.poseReferences.suggestions({ subjectCount, seed: seed ?? '', limit: 5 }),
+    enabled: enabled && Boolean(seed) && subjectCount > 0,
+    staleTime: 5 * 60 * 1000,
   });
 }
 

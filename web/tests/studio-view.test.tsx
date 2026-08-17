@@ -51,6 +51,24 @@ function withEstimate() {
   );
 }
 
+function withPoseSuggestions() {
+  const suggestions = [
+    { ...POSES[0], id: 'suggestion-1', title: 'Hero stance' },
+    {
+      ...POSES[0],
+      id: 'suggestion-2',
+      title: 'Chair portrait',
+      category: 'sitting',
+      imageUrl: '/storage/pose-2.png',
+    },
+  ];
+  server.use(
+    http.get('/api/pose-references/suggestions', () =>
+      HttpResponse.json({ poseReferences: suggestions }),
+    ),
+  );
+}
+
 describe('Studio workbench layout', () => {
   it('renders the two numbered panels and the docked action bar', async () => {
     renderWithProviders(<StudioView />);
@@ -62,14 +80,15 @@ describe('Studio workbench layout', () => {
     expect(screen.getByText('1 / 4')).toBeInTheDocument();
   });
 
-  it('shows the empty workflow equation before any source is added', async () => {
+  it('shows the empty workflow graph before any source is added', async () => {
     renderWithProviders(<StudioView />);
     const canvas = screen.getByLabelText(/composition canvas/i);
     expect(await within(canvas).findByText(/add a character/i)).toBeInTheDocument();
     expect(within(canvas).getByText(/add a pose/i)).toBeInTheDocument();
     expect(within(canvas).getByText(/result will appear here/i)).toBeInTheDocument();
-    expect(within(canvas).getByLabelText('plus')).toBeInTheDocument();
-    expect(within(canvas).getByLabelText('equals')).toBeInTheDocument();
+    expect(canvas.querySelector('[data-id="character-empty"]')).toBeInTheDocument();
+    expect(canvas.querySelector('[data-id="pose-empty"]')).toBeInTheDocument();
+    expect(canvas.querySelector('[data-id="generate"]')).toBeInTheDocument();
     expect(within(screen.getByLabelText(/creative controls/i)).getByRole('group', {
       name: 'Studio experience level',
     })).toBeInTheDocument();
@@ -212,7 +231,7 @@ describe('subject slots', () => {
     expect(screen.queryByText('Add identity photo')).not.toBeInTheDocument();
   });
 
-  it('shows multiple selected characters in order with plus operators', async () => {
+  it('shows multiple selected characters as separate canvas nodes', async () => {
     const user = userEvent.setup();
     renderWithProviders(<StudioView />);
 
@@ -225,13 +244,13 @@ describe('subject slots', () => {
     const canvas = screen.getByLabelText(/composition canvas/i);
     expect(within(canvas).getByText('Anika')).toBeInTheDocument();
     expect(within(canvas).getByText('Ravi')).toBeInTheDocument();
-    // Anika + Ravi + the pose placeholder.
-    expect(within(canvas).getAllByLabelText('plus')).toHaveLength(2);
+    expect(canvas.querySelectorAll('.poseforge-node-character')).toHaveLength(2);
+    expect(canvas.querySelector('[data-id="pose-empty"]')).toBeInTheDocument();
   });
 });
 
 describe('pose reference', () => {
-  it('selects a pose from the thumbnail strip and adds it to the equation', async () => {
+  it('selects a pose from the thumbnail strip and adds it to the graph', async () => {
     withPoses();
     const user = userEvent.setup();
     renderWithProviders(<StudioView />);
@@ -241,7 +260,8 @@ describe('pose reference', () => {
     const canvas = screen.getByLabelText(/composition canvas/i);
     expect(await within(canvas).findByText('Arms crossed')).toBeInTheDocument();
     expect(within(canvas).getByText(/add a character/i)).toBeInTheDocument();
-    expect(within(canvas).getByLabelText('equals')).toBeInTheDocument();
+    expect(canvas.querySelector('[data-id="pose-manual"]')).toBeInTheDocument();
+    expect(canvas.querySelector('[data-id="generate"]')).toBeInTheDocument();
   });
 
   it('offers collage splitting only for an uploaded sheet', async () => {
@@ -259,6 +279,53 @@ describe('pose reference', () => {
     expect(
       await screen.findByText(/library references are already single poses/i),
     ).toBeInTheDocument();
+  });
+
+  it('prefetches pose nodes for a canvas identity and queues only selected poses', async () => {
+    withPoseSuggestions();
+    const submittedPoseIds: string[] = [];
+    let generationCount = 0;
+    server.use(
+      http.post('/api/generations', async ({ request }) => {
+        const form = await request.formData();
+        submittedPoseIds.push(String(form.get('poseReferenceId')));
+        generationCount += 1;
+        const id = `generation-${generationCount}`;
+        return HttpResponse.json(
+          { id, generationIds: [id], batchId: null, status: 'pending' },
+          { status: 202 },
+        );
+      }),
+      http.get('/api/generations/:id', ({ params }) =>
+        HttpResponse.json({
+          id: params.id,
+          status: 'pending',
+          outputUrl: null,
+          errorMessage: null,
+          createdAt: '2026-08-10T10:00:00.000Z',
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<StudioView />);
+
+    await user.click(await screen.findByRole('button', { name: 'Saved' }));
+    await user.click(await screen.findByRole('button', { name: /Anika/ }));
+
+    const hero = await screen.findByRole('button', { name: /add suggested pose hero stance/i });
+    const chair = screen.getByRole('button', { name: /add suggested pose chair portrait/i });
+    await user.click(hero);
+    await user.click(chair);
+
+    const canvas = screen.getByLabelText(/composition canvas/i);
+    expect(canvas.querySelectorAll('.poseforge-node-result')).toHaveLength(2);
+    expect(within(canvas).getByText('Pose · Hero stance')).toBeInTheDocument();
+    expect(within(canvas).getByText('Pose · Chair portrait')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /generate transformation/i }));
+    await waitFor(() =>
+      expect(submittedPoseIds).toEqual(['suggestion-1', 'suggestion-2']),
+    );
   });
 });
 
