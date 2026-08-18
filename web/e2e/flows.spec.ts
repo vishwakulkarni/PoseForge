@@ -129,11 +129,9 @@ test.describe('studio', () => {
         { id: 'generate', kind: 'generate', position: { x: 190, y: 450 } },
         { id: 'result-placeholder-0', kind: 'result', position: { x: 115, y: 670 } },
       ],
-      edges: [
-        { id: 'character-empty-generate', source: 'character-empty', target: 'generate', targetHandle: 'character' },
-        { id: 'pose-empty-generate', source: 'pose-empty', target: 'generate', targetHandle: 'pose' },
-        { id: 'generate-result-placeholder-0', source: 'generate', target: 'result-placeholder-0' },
-      ],
+      // Legacy projects saved geometry before explicit edge-state tracking and
+      // can have an empty edge array. Cold-open must repair their authored arrows.
+      edges: [],
       locked: false,
     };
     const response = () => ({
@@ -169,6 +167,11 @@ test.describe('studio', () => {
     const lock = page.getByRole('button', { name: 'Lock canvas' });
     await expect(page.getByLabel('Studio project: Saved')).toBeVisible();
     await expect(lock).toBeEnabled();
+    await expect(page.locator('.react-flow__edge-path')).toHaveCount(3);
+    await expect(page.locator('.react-flow__edge-path').first()).toHaveAttribute(
+      'marker-end',
+      /type=arrowclosed/,
+    );
     const settledPutCount = putCount;
     await page.waitForTimeout(250);
     expect(putCount).toBe(settledPutCount);

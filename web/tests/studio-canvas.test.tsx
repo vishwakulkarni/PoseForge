@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { CanvasPanel, type CanvasPanelProps } from '@/components/studio/canvas';
 import type { Generation, StudioProject } from '@/lib/api/types';
 
@@ -144,7 +144,7 @@ describe('PoseForge workflow canvas', () => {
     expect(screen.getByRole('button', { name: 'Unlock canvas' })).toBeInTheDocument();
   });
 
-  it('hydrates saved geometry and persists the lock without disabling inspection controls', () => {
+  it('cold-opens legacy saved geometry with authored arrows and keeps inspection controls available', async () => {
     const onProjectChange = vi.fn();
     const { container } = render(
       <CanvasPanel
@@ -159,12 +159,15 @@ describe('PoseForge workflow canvas', () => {
     expect((container.querySelector('[data-id="generate"]') as HTMLElement).style.transform)
       .toBe('translate(777px,888px)');
     expect(screen.getByRole('button', { name: 'Reset zoom from 120%' })).toBeInTheDocument();
-    expect(container.querySelectorAll('.react-flow__edge')).toHaveLength(0);
     expect(screen.getByLabelText('Studio project: Saved')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Lock canvas' }));
     expect(onProjectChange).toHaveBeenCalled();
     expect(onProjectChange.mock.lastCall?.[0]).toMatchObject({ locked: true });
+    expect(onProjectChange.mock.lastCall?.[0].edges).toHaveLength(4);
+    await waitFor(() => {
+      expect(container.querySelector('.react-flow__arrowhead polyline.arrowclosed')).toBeInTheDocument();
+    });
     expect(screen.getByRole('button', { name: 'Zoom in' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Fit all nodes' })).toBeEnabled();
   });
@@ -200,15 +203,21 @@ describe('PoseForge workflow canvas', () => {
 
   it('keeps deliberately disconnected saved edges removed after graph data changes', () => {
     const onProjectChange = vi.fn();
+    const disconnectedProject = project({
+      document: {
+        ...project().document,
+        edgeState: 'explicit',
+      },
+    });
     const { container, rerender } = render(
-      <CanvasPanel {...props({ project: project(), onProjectChange })} />,
+      <CanvasPanel {...props({ project: disconnectedProject, onProjectChange })} />,
     );
     expect(container.querySelectorAll('.react-flow__edge')).toHaveLength(0);
 
     rerender(
       <CanvasPanel
         {...props({
-          project: project(),
+          project: disconnectedProject,
           status: 'running',
           generations: [generation({ id: 'new-result', status: 'running' })],
           onProjectChange,
@@ -301,5 +310,232 @@ describe('PoseForge workflow canvas', () => {
     expect(onToggleSuggestion).toHaveBeenCalledWith('pose-seated');
     expect(screen.getByText('Pose · Hero stance')).toBeInTheDocument();
     expect(screen.getAllByLabelText('Remove suggested pose Hero stance')).toHaveLength(2);
+  });
+
+  it('adds an empty image block, selects a saved source, and preserves its geometry', async () => {
+    const onProjectChange = vi.fn();
+    const { container, unmount } = render(
+      <CanvasPanel
+        {...props({
+          project: project(),
+          onProjectChange,
+          characterAssets: [{
+            id: 'character-mira',
+            type: 'character',
+            label: 'Mira',
+            imageUrl: '/storage/mira.png',
+            meta: 'Saved character',
+          }],
+        })}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add character image block' }));
+    expect(screen.getByLabelText('Select character image')).toBeInTheDocument();
+
+    const emptyDocument = onProjectChange.mock.lastCall?.[0];
+    const emptyBlock = emptyDocument.nodes.find((node: { custom?: boolean }) => node.custom);
+    expect(emptyBlock).toMatchObject({
+      kind: 'character',
+      custom: true,
+      width: 330,
+      height: 388,
+      imageFit: 'fill',
+    });
+    expect(emptyDocument.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ source: emptyBlock.id, target: 'generate', targetHandle: 'character' }),
+    ]));
+
+    fireEvent.click(within(screen.getByLabelText('Select character image')).getByRole('button', { name: 'Mira' }));
+    await waitFor(() => expect(screen.queryByLabelText('Select character image')).not.toBeInTheDocument());
+
+    const populatedDocument = onProjectChange.mock.lastCall?.[0];
+    const populatedBlock = populatedDocument.nodes.find((node: { id: string }) => node.id === emptyBlock.id);
+    expect(populatedBlock).toMatchObject({
+      position: emptyBlock.position,
+      width: emptyBlock.width,
+      height: emptyBlock.height,
+      label: 'Mira',
+      imageUrl: '/storage/mira.png',
+      assetType: 'character',
+      assetId: 'character-mira',
+    });
+
+    expect(container.querySelector(`[data-id="${emptyBlock.id}"] img`))
+      .toHaveAttribute('src', '/storage/mira.png');
+    unmount();
+
+    const restored = render(
+      <CanvasPanel
+        {...props({
+          project: project({ document: populatedDocument }),
+          characterAssets: [],
+        })}
+      />,
+    );
+    expect(restored.container.querySelector(`[data-id="${emptyBlock.id}"]`))
+      .toHaveTextContent('Mira');
+    expect(restored.container.querySelector(`[data-id="${emptyBlock.id}"] img`))
+      .toHaveAttribute('src', '/storage/mira.png');
+  });
+
+  it('keeps a canceled picker block recoverable and rejects invalid uploads', () => {
+    const onProjectChange = vi.fn();
+    render(
+      <CanvasPanel
+        {...props({ project: project(), onProjectChange, onUploadAsset: vi.fn() })}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add pose image block' }));
+    const picker = screen.getByLabelText('Select pose image');
+    const upload = picker.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(upload, { target: { files: [new File(['not an image'], 'notes.txt', { type: 'text/plain' })] } });
+    expect(within(picker).getByRole('alert')).toHaveTextContent('Choose a supported image file.');
+
+    fireEvent.click(within(picker).getByRole('button', { name: 'Close image picker' }));
+    expect(screen.queryByLabelText('Select pose image')).not.toBeInTheDocument();
+    expect(onProjectChange.mock.lastCall?.[0].nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'pose', custom: true, label: 'Untitled pose' }),
+    ]));
+  });
+
+  it('persists configurable block actions and restores them with undo', async () => {
+    const onProjectChange = vi.fn();
+    const customProject = project({
+      document: {
+        schemaVersion: 1,
+        viewport: { x: 0, y: 0, zoom: 1 },
+        nodes: [
+          { id: 'generate', kind: 'generate', position: { x: 300, y: 450 } },
+          {
+            id: 'character-block-configurable',
+            kind: 'character',
+            position: { x: 20, y: 30 },
+            custom: true,
+            width: 330,
+            height: 388,
+            lastExpandedWidth: 330,
+            lastExpandedHeight: 388,
+            imageFit: 'fill',
+            label: 'Configurable portrait',
+            imageUrl: '/storage/configurable.png',
+            assetType: 'character',
+            assetId: 'character-configurable',
+          },
+        ],
+        edges: [{
+          id: 'character-block-configurable-generate',
+          source: 'character-block-configurable',
+          target: 'generate',
+          targetHandle: 'character',
+        }],
+        locked: false,
+      },
+    });
+    const { container } = render(
+      <CanvasPanel {...props({ project: customProject, onProjectChange })} />,
+    );
+    const block = container.querySelector('[data-id="character-block-configurable"]') as HTMLElement;
+    fireEvent.click(block);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Configure Configurable portrait' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Larger' }));
+    expect(onProjectChange.mock.lastCall?.[0].nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'character-block-configurable',
+        width: 396,
+        height: 466,
+        lastExpandedWidth: 396,
+        lastExpandedHeight: 466,
+      }),
+    ]));
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Collapse' }));
+    expect(onProjectChange.mock.lastCall?.[0].nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'character-block-configurable', collapsed: true, height: 64 }),
+    ]));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo canvas move' }));
+    expect(onProjectChange.mock.lastCall?.[0].nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'character-block-configurable', height: 466 }),
+    ]));
+    expect(onProjectChange.mock.lastCall?.[0].nodes.find(
+      (node: { id: string }) => node.id === 'character-block-configurable',
+    ).collapsed).toBeFalsy();
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Image: Fill' }));
+    expect(onProjectChange.mock.lastCall?.[0].nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'character-block-configurable', imageFit: 'fit' }),
+    ]));
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Rename' }));
+    fireEvent.change(screen.getByLabelText('Block name'), { target: { value: 'Campaign hero' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save name' }));
+    expect(onProjectChange.mock.lastCall?.[0].nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'character-block-configurable', label: 'Campaign hero' }),
+    ]));
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Reset size' }));
+    expect(onProjectChange.mock.lastCall?.[0].nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'character-block-configurable', width: 330, height: 388 }),
+    ]));
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Duplicate' }));
+    expect(onProjectChange.mock.lastCall?.[0].nodes.filter(
+      (node: { custom?: boolean }) => node.custom,
+    )).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Undo canvas move' }));
+    expect(onProjectChange.mock.lastCall?.[0].nodes.filter(
+      (node: { custom?: boolean }) => node.custom,
+    )).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Disconnect' }));
+    expect(onProjectChange.mock.lastCall?.[0].edges).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ source: 'character-block-configurable' }),
+    ]));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove from canvas' }));
+    expect(container.querySelector('[data-id="character-block-configurable"]')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Undo canvas move' }));
+    expect(container.querySelector('[data-id="character-block-configurable"]')).toBeInTheDocument();
+  });
+
+  it('disables image-block additions while the canvas is locked', () => {
+    render(<CanvasPanel {...props({ project: project() })} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Lock canvas' }));
+    expect(screen.getByRole('button', { name: 'Add character image block' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Add pose image block' })).toBeDisabled();
+  });
+
+  it('projects a drawer drop through the saved pan and zoom', () => {
+    const onProjectChange = vi.fn();
+    const { container } = render(
+      <CanvasPanel {...props({ project: project(), onProjectChange })} />,
+    );
+    const dataTransfer = {
+      types: ['application/x-poseforge-node'],
+      dropEffect: 'none',
+      getData: vi.fn(() => JSON.stringify({
+        kind: 'pose',
+        asset: {
+          id: 'pose-dropped',
+          type: 'pose',
+          label: 'Dropped pose',
+          imageUrl: '/storage/dropped-pose.png',
+        },
+      })),
+    };
+    fireEvent.drop(container.querySelector('.react-flow') as HTMLElement, {
+      clientX: 500,
+      clientY: 400,
+      dataTransfer,
+    });
+
+    const dropped = onProjectChange.mock.lastCall?.[0].nodes.find(
+      (node: { label?: string }) => node.label === 'Dropped pose',
+    );
+    expect(dropped).toBeTruthy();
+    expect(Number.isFinite(dropped.position.x)).toBe(true);
+    expect(Number.isFinite(dropped.position.y)).toBe(true);
   });
 });

@@ -151,14 +151,26 @@ export interface Recipe {
 
 /** GET/PUT /api/studio-projects */
 export type StudioProjectNodeKind = 'character' | 'pose' | 'generate' | 'result';
+export type StudioProjectNodeAssetType = 'character' | 'pose' | 'generation' | 'upload';
+export type StudioProjectNodeImageFit = 'fit' | 'fill';
 
 export interface StudioProjectNode {
   id: string;
   kind: StudioProjectNodeKind;
   position: { x: number; y: number };
+  custom?: boolean;
   width?: number;
   height?: number;
   collapsed?: boolean;
+  lastExpandedWidth?: number;
+  lastExpandedHeight?: number;
+  imageFit?: StudioProjectNodeImageFit;
+  label?: string;
+  labelEdited?: boolean;
+  meta?: string;
+  imageUrl?: string;
+  assetType?: StudioProjectNodeAssetType;
+  assetId?: string;
 }
 
 export interface StudioProjectEdge {
@@ -174,6 +186,7 @@ export interface StudioProjectDocument {
   viewport: { x: number; y: number; zoom: number } | null;
   nodes: StudioProjectNode[];
   edges: StudioProjectEdge[];
+  edgeState?: 'explicit';
   locked: boolean;
 }
 

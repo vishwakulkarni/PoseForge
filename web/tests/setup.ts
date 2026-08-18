@@ -44,6 +44,14 @@ if (!window.IntersectionObserver) {
   } as unknown as typeof IntersectionObserver;
 }
 
+// React Flow reads the viewport scale through DOMMatrixReadOnly when node
+// internals are refreshed after project hydration. jsdom does not implement it.
+if (!window.DOMMatrixReadOnly) {
+  window.DOMMatrixReadOnly = class {
+    m22 = 1;
+  } as unknown as typeof DOMMatrixReadOnly;
+}
+
 // Radix Select/Dialog call these during open/close transitions.
 if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = vi.fn();

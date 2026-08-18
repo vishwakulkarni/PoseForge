@@ -2418,7 +2418,11 @@
 
 .poseforge-node {
   position: relative;
-  width: 330px;
+  container-type: inline-size;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
   overflow: visible;
   border: 1px solid var(--pf-canvas-border);
   border-radius: 12px;
@@ -2474,10 +2478,15 @@
 }
 
 .poseforge-node-media {
-  height: 330px;
+  width: 100%;
+  min-height: 0;
+  flex: 1;
+  padding: 0;
   overflow: hidden;
+  border: 0;
   border-radius: 11px 11px 0 0;
   background: var(--pf-canvas-node-media);
+  cursor: pointer;
 }
 
 .poseforge-node-media img,
@@ -2486,6 +2495,11 @@
   height: 100%;
   display: block;
   object-fit: cover;
+}
+
+.poseforge-node[data-image-fit='fit'] .poseforge-node-media img,
+.poseforge-node[data-image-fit='fit'] .poseforge-result-media > img {
+  object-fit: contain;
 }
 
 .poseforge-node-placeholder {
@@ -2542,7 +2556,8 @@
 }
 
 .poseforge-generate-body {
-  min-height: 112px;
+  min-height: 0;
+  height: 100%;
   display: grid;
   grid-template-columns: 40px 1fr auto;
   align-items: center;
@@ -2584,11 +2599,12 @@
   animation: nodePulse 1.3s ease-in-out infinite;
 }
 
-.poseforge-node-result { width: 480px; }
+.poseforge-node-result { width: 100%; }
 
 .poseforge-result-media {
   width: 100%;
-  aspect-ratio: 1 / 1;
+  min-height: 0;
+  flex: 1;
   display: block;
   padding: 0;
   overflow: hidden;
@@ -2599,9 +2615,104 @@
   cursor: pointer;
 }
 
-.poseforge-node-result[data-aspect='4:5'] .poseforge-result-media { aspect-ratio: 4 / 5; }
-.poseforge-node-result[data-aspect='16:9'] .poseforge-result-media { aspect-ratio: 16 / 9; }
-.poseforge-node-result[data-aspect='9:16'] .poseforge-result-media { aspect-ratio: 9 / 16; }
+.poseforge-node-result[data-aspect='4:5'] .poseforge-result-media { aspect-ratio: auto; }
+.poseforge-node-result[data-aspect='16:9'] .poseforge-result-media { aspect-ratio: auto; }
+.poseforge-node-result[data-aspect='9:16'] .poseforge-result-media { aspect-ratio: auto; }
+
+.poseforge-collapsed-body {
+  min-width: 0;
+  height: 100%;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 40px 12px 14px;
+}
+
+.poseforge-collapsed-body strong,
+.poseforge-collapsed-body small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.poseforge-collapsed-body strong { font-size: 13px; }
+.poseforge-collapsed-body small { color: var(--pf-canvas-text-secondary); font-size: 9px; }
+
+.poseforge-resize-line { border-color: var(--pf-accent) !important; }
+.poseforge-resize-handle {
+  width: 10px !important;
+  height: 10px !important;
+  border: 2px solid var(--pf-canvas-handle-ring) !important;
+  border-radius: 50% !important;
+  background: var(--pf-accent) !important;
+}
+
+.poseforge-block-menu {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 8;
+}
+
+.poseforge-block-menu-trigger {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--pf-canvas-border);
+  border-radius: 8px;
+  color: var(--pf-canvas-text-secondary);
+  background: var(--pf-canvas-node-elevated);
+  box-shadow: var(--pf-canvas-tool-shadow);
+  cursor: pointer;
+}
+
+.poseforge-block-menu-popover {
+  position: absolute;
+  top: 34px;
+  right: 0;
+  width: 180px;
+  max-height: 300px;
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid var(--pf-canvas-border);
+  border-radius: 10px;
+  background: var(--pf-canvas-node);
+  box-shadow: var(--pf-canvas-shadow);
+}
+
+.poseforge-block-menu-popover > button,
+.poseforge-block-menu-popover form button {
+  width: 100%;
+  min-height: 30px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--pf-canvas-text);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.poseforge-block-menu-popover > button:hover:not(:disabled),
+.poseforge-block-menu-popover form button:hover:not(:disabled) {
+  color: var(--pf-accent);
+  background: var(--pf-accent-soft);
+}
+
+.poseforge-block-menu-popover button:disabled { opacity: 0.45; cursor: default; }
+.poseforge-block-menu-popover form { display: grid; gap: 6px; padding: 4px; }
+.poseforge-block-menu-popover form label { color: var(--pf-canvas-text-secondary); font-size: 9px; }
+.poseforge-block-menu-popover form input {
+  width: 100%;
+  height: 30px;
+  border: 1px solid var(--pf-canvas-border);
+  border-radius: 6px;
+  color: var(--pf-canvas-text);
+  background: var(--pf-canvas-node-subtle);
+}
 
 .poseforge-result-state {
   width: 100%;
@@ -2810,6 +2921,26 @@
   transition: min-height 180ms ease, border-radius 180ms ease;
 }
 
+.poseforge-palette-card[draggable='true'],
+.poseforge-palette-open[draggable='true'],
+.poseforge-palette-item[draggable='true'] {
+  cursor: grab;
+}
+
+.poseforge-palette-card[draggable='true']:active,
+.poseforge-palette-open[draggable='true']:active,
+.poseforge-palette-item[draggable='true']:active {
+  cursor: grabbing;
+  opacity: 0.72;
+}
+
+.poseforge-palette-card:disabled,
+.poseforge-palette-open:disabled,
+.poseforge-palette-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
 button.poseforge-palette-card { font: inherit; }
 .poseforge-palette-card > strong,
 .poseforge-palette-card > small,
@@ -2910,6 +3041,209 @@ button.poseforge-palette-card { font: inherit; }
   font-style: normal;
 }
 
+.poseforge-source-picker.react-flow__panel {
+  z-index: 20;
+  width: min(620px, calc(100vw - 30px));
+  max-height: min(620px, calc(100vh - 110px));
+  display: flex;
+  flex-direction: column;
+  margin: 15px;
+  overflow: hidden;
+  border: 1px solid var(--pf-canvas-border);
+  border-radius: 12px;
+  color: var(--pf-canvas-text);
+  background: var(--pf-canvas-node);
+  box-shadow: 0 24px 70px rgb(0 0 0 / 0.24), var(--pf-canvas-shadow);
+}
+
+.poseforge-source-picker-head {
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--pf-canvas-border);
+}
+
+.poseforge-source-picker-head strong,
+.poseforge-source-picker-head small {
+  display: block;
+}
+
+.poseforge-source-picker-head strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.poseforge-source-picker-head small {
+  margin-top: 3px;
+  color: var(--pf-canvas-text-secondary);
+  font-size: 10px;
+}
+
+.poseforge-source-picker-head > button {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--pf-canvas-border);
+  border-radius: 8px;
+  color: var(--pf-canvas-text-secondary);
+  background: var(--pf-canvas-node-elevated);
+  cursor: pointer;
+}
+
+.poseforge-source-upload {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 14px 14px 0;
+  padding: 12px;
+  border: 1px dashed color-mix(in srgb, var(--pf-accent) 55%, var(--pf-canvas-border));
+  border-radius: 10px;
+  color: var(--pf-accent);
+  background: var(--pf-accent-soft);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.poseforge-source-upload:hover,
+.poseforge-source-upload:focus-within {
+  border-style: solid;
+  background: color-mix(in srgb, var(--pf-accent-soft) 72%, var(--pf-canvas-node));
+}
+
+.poseforge-source-upload.is-uploading {
+  cursor: wait;
+  opacity: 0.68;
+}
+
+.poseforge-source-upload input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.poseforge-source-error {
+  margin: 10px 14px 0;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--pf-error) 36%, var(--pf-canvas-border));
+  border-radius: 8px;
+  color: var(--pf-error);
+  background: var(--pf-error-bg);
+  font-size: 10px;
+}
+
+.poseforge-source-picker-scroll {
+  min-height: 0;
+  display: grid;
+  gap: 18px;
+  padding: 16px 14px 18px;
+  overflow-y: auto;
+}
+
+.poseforge-source-picker-scroll section {
+  min-width: 0;
+}
+
+.poseforge-source-picker-scroll h3 {
+  margin: 0 0 8px;
+  color: var(--pf-canvas-text-secondary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.poseforge-source-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.poseforge-source-grid > button {
+  min-width: 0;
+  padding: 5px;
+  overflow: hidden;
+  border: 1px solid var(--pf-canvas-border);
+  border-radius: 9px;
+  color: var(--pf-canvas-text);
+  background: var(--pf-canvas-node-subtle);
+  cursor: pointer;
+  text-align: left;
+}
+
+.poseforge-source-grid > button:hover,
+.poseforge-source-grid > button:focus-visible {
+  border-color: var(--pf-accent);
+  box-shadow: 0 0 0 2px var(--pf-accent-soft);
+  outline: none;
+}
+
+.poseforge-source-grid img {
+  width: 100%;
+  aspect-ratio: 1;
+  display: block;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--pf-canvas-node-media);
+}
+
+.poseforge-source-grid span {
+  display: block;
+  margin: 7px 3px 3px;
+  overflow: hidden;
+  font-size: 9px;
+  font-weight: 550;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.poseforge-source-grid > p {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 16px;
+  border: 1px dashed var(--pf-canvas-border);
+  border-radius: 9px;
+  color: var(--pf-canvas-text-tertiary);
+  background: var(--pf-canvas-node-subtle);
+  font-size: 10px;
+  text-align: center;
+}
+
+@container (max-width: 280px) {
+  .poseforge-node-label {
+    min-height: 50px;
+    padding: 8px 40px 9px 9px;
+  }
+
+  .poseforge-node-label > span,
+  .poseforge-collapsed-body small,
+  .poseforge-generate-body small {
+    display: none;
+  }
+
+  .poseforge-generate-body {
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 10px 14px 10px 10px;
+  }
+
+  .poseforge-node-icon {
+    width: 32px;
+    height: 32px;
+  }
+}
+
 .poseforge-viewport-status.react-flow__panel {
   margin: 15px;
   color: rgb(255 255 255 / 0.32);
@@ -2922,4 +3256,27 @@ button.poseforge-palette-card { font: inherit; }
 @media (max-width: 920px) {
   .poseforge-palette-stack { width: 135px; }
   .palette-generate { display: none; }
+  .poseforge-source-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 560px) {
+  .poseforge-source-picker.react-flow__panel {
+    width: calc(100vw - 20px);
+    max-height: calc(100vh - 78px);
+    margin: 10px;
+  }
+
+  .poseforge-source-picker-head small { display: none; }
+  .poseforge-source-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .react-flow__node:hover .poseforge-node { transform: none; }
+  .poseforge-node,
+  .poseforge-palette-card,
+  .poseforge-palette-items { transition: none; }
+  .poseforge-spinner,
+  .poseforge-ready-dot.running,
+  .poseforge-save-status.is-saving > span,
+  .poseforge-save-status.is-loading > span { animation: none; }
 }

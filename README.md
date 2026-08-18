@@ -8,6 +8,8 @@
 [![macOS maintainer tested](https://img.shields.io/badge/macOS-maintainer%20tested-000000?logo=apple&logoColor=white)](docs/COMPATIBILITY.md)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
+[Open the GitHub Pages product preview](https://vishwakulkarni.github.io/PoseForge/) · The full Studio runs locally because generation, storage, and PostgreSQL are intentionally not hosted on GitHub Pages.
+
 ## Turn the AI subscription you already pay for into a private, local-first photo studio
 
 Give PoseForge an identity photo and a pose reference. It returns the same

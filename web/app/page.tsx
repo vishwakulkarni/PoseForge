@@ -19,6 +19,8 @@ import { Button } from '@/components/ui/button';
 import { HeroCarousel } from './hero-carousel';
 import styles from './landing.module.css';
 
+const PUBLIC_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+
 const CREATOR_FEATURES = [
   {
     icon: Layers3,
@@ -184,7 +186,7 @@ export default function LandingPage() {
           <div className={styles.showcaseVisual}>
             <div className={styles.cropFrame}>
               <Image
-                src="/images/poseforge-transformation-hero.webp"
+                src={`${PUBLIC_BASE_PATH}/images/poseforge-transformation-hero.webp`}
                 alt="Finished cobalt editorial portrait created from the pose reference"
                 width={1693}
                 height={929}
@@ -261,7 +263,7 @@ export default function LandingPage() {
               </div>
               <div className={styles.imageWrap}>
                 <Image
-                  src="/images/poseforge-indian-family-pose-transfer-v2.webp"
+                  src={`${PUBLIC_BASE_PATH}/images/poseforge-indian-family-pose-transfer-v2.webp`}
                   alt="An Indian family identity reference, an American family pose reference, and the Indian family transformed into that pose"
                   width={1800}
                   height={854}
@@ -335,7 +337,7 @@ export default function LandingPage() {
       <section className={`pf-container ${styles.finalSection}`}>
         <div className={styles.finalCta}>
           <Image
-            src="/images/mascot-painter-dog.svg"
+            src={`${PUBLIC_BASE_PATH}/images/mascot-painter-dog.svg`}
             alt=""
             width={148}
             height={148}

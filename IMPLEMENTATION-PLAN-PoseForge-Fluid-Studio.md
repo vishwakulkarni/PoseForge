@@ -319,33 +319,33 @@ A user can drag or keyboard-add an image block, populate it from an approved sou
 
 #### Drawer and drop behavior
 
-- [ ] **IMG-01 — Define drawer payload and source-node contract** — 3 points — Web/Backend  
+- [x] **IMG-01 — Define drawer payload and source-node contract** — 3 points — Web/Backend  
   Define Character and Pose source types, asset references, empty state, labels, preview metadata, and stable IDs.  
   **Depends on:** FND-03, FLD-01.
 
-- [ ] **IMG-02 — Implement draggable drawer cards and ghost state** — 5 points — Web/Design  
+- [x] **IMG-02 — Implement draggable drawer cards and ghost state** — 5 points — Web/Design  
   Add Character Image and Pose Image cards, drag ghost, valid/invalid drop indication, locked state, and Escape cancellation.  
   **Depends on:** IMG-01, FLD-05.
 
-- [ ] **IMG-03 — Create node at projected canvas coordinates** — 5 points — Web  
+- [x] **IMG-03 — Create node at projected canvas coordinates** — 5 points — Web  
   Convert pointer screen coordinates using current pan/zoom, create the node once, adjust only to keep it reachable, and persist the exact position.  
   **Depends on:** IMG-02, FLD-02.
 
-- [ ] **IMG-04 — Add click and keyboard alternative** — 3 points — Web  
+- [x] **IMG-04 — Add click and keyboard alternative** — 3 points — Web  
   Enter/click creates a block in the unobscured viewport center, selects it, and starts the same source-selection flow as drag/drop.  
   **Depends on:** IMG-02.
 
 #### Image selection
 
-- [ ] **IMG-05 — Build in-Studio image picker state** — 8 points — Web/Design  
+- [x] **IMG-05 — Build in-Studio image picker state** — 8 points — Web/Design  
   Support Upload, existing Characters, existing Poses, suggestions, and generated/history assets where valid. Preserve an explicit empty block when the chooser is dismissed.  
   **Depends on:** IMG-01; asset endpoints must be available.
 
-- [ ] **IMG-06 — Implement upload and asset validation** — 5 points — Web/Backend  
+- [x] **IMG-06 — Implement upload and asset validation** — 5 points — Web/Backend  
   Validate content type, extension, configured size/dimensions, corruption, ownership, upload failure, and duplicate reuse. Keep the block recoverable on failure.  
   **Depends on:** IMG-05.
 
-- [ ] **IMG-07 — Populate or replace source without geometry changes** — 3 points — Web  
+- [x] **IMG-07 — Populate or replace source without geometry changes** — 3 points — Web  
   Assign the asset, update preview/metadata/handle, and autosave without changing position, dimensions, or valid connections.  
   **Depends on:** IMG-05, FLD-04.
 
@@ -366,11 +366,11 @@ A user can drag or keyboard-add an image block, populate it from an approved sou
 ### Feature 3 acceptance gate
 
 - [ ] A drop at non-default pan and zoom appears under the pointer in canvas coordinates.
-- [ ] A new node remains where placed after image selection and reload.
+- [x] A new node remains where placed after image selection and reload.
 - [ ] Upload, library, suggestion, and generated/history entry points enforce ownership and type rules.
-- [ ] Cancel and recoverable errors leave a clear, usable empty block.
-- [ ] Locked canvas rejects drop without creating hidden or duplicate state.
-- [ ] Keyboard users can complete the same add-and-select journey.
+- [x] Cancel and recoverable errors leave a clear, usable empty block.
+- [x] Locked canvas rejects drop without creating hidden or duplicate state.
+- [x] Keyboard users can complete the same add-and-select journey.
 
 ### Risks
 
@@ -402,33 +402,33 @@ Users can resize, collapse, rename, duplicate, and restore blocks without breaki
 
 #### Shared configuration framework
 
-- [ ] **BOX-01 — Define type-specific geometry constraints** — 3 points — Design/Web  
+- [x] **BOX-01 — Define type-specific geometry constraints** — 3 points — Design/Web  
   Approve default/min/max dimensions and responsive content breakpoints for Character, Pose, Forge Composition, and Result blocks.  
   **Depends on:** FND-01.
 
-- [ ] **BOX-02 — Add persisted dimensions and collapsed state** — 5 points — Web/Backend  
+- [x] **BOX-02 — Add persisted dimensions and collapsed state** — 5 points — Web/Backend  
   Extend typed node data and project mutations with width, height, collapsed state, last-expanded size, and image fit mode.  
   **Depends on:** FND-03, FLD-02, BOX-01.
 
-- [ ] **BOX-03 — Implement selected-state resize controls** — 8 points — Web  
+- [x] **BOX-03 — Implement selected-state resize controls** — 8 points — Web  
   Add React Flow resize handles with type limits, live feedback, one history command per gesture, lock support, and debounced persistence.  
   **Depends on:** BOX-02, FLD-05, FLD-06.
 
-- [ ] **BOX-04 — Implement collapse and expand** — 5 points — Web  
+- [x] **BOX-04 — Implement collapse and expand** — 5 points — Web  
   Collapse to accessible header/tab, retain ports and status meaning, restore last dimensions, and persist behavior.  
   **Depends on:** BOX-02.
 
-- [ ] **BOX-05 — Add shared block action menu** — 5 points — Web/Design  
+- [x] **BOX-05 — Add shared block action menu** — 5 points — Web/Design  
   Provide Rename, Duplicate, Reset size, Collapse/Expand, Disconnect where valid, Remove from canvas, and permanent-delete routing where allowed.  
   **Depends on:** BOX-02, FLD-06.
 
 #### Type-specific content
 
-- [ ] **BOX-06 — Add source image Fit/Fill behavior** — 3 points — Web  
+- [x] **BOX-06 — Add source image Fit/Fill behavior** — 3 points — Web  
   Reflow previews at supported widths and preserve the source asset. Label frame behavior clearly; do not imply destructive cropping.  
   **Depends on:** BOX-03, IMG-07.
 
-- [ ] **BOX-07 — Add Result aspect-aware resizing** — 5 points — Web  
+- [x] **BOX-07 — Add Result aspect-aware resizing** — 5 points — Web  
   Preserve intrinsic aspect by default, use responsive thumbnails, and keep high-resolution loading out of the canvas card.  
   **Depends on:** BOX-03; final result contract lands in Feature 2.
 
@@ -436,7 +436,7 @@ Users can resize, collapse, rename, duplicate, and restore blocks without breaki
   Show mode, engine, output count, aspect ratio, input count, validation, and run state at supported dimensions.  
   **Depends on:** BOX-03; final values land in Feature 5.
 
-- [ ] **BOX-09 — Update Tidy to respect measured dimensions** — 3 points — Web  
+- [x] **BOX-09 — Update Tidy to respect measured dimensions** — 3 points — Web  
   Revalidate spacing, edge routing, collapsed nodes, and selection-only layout after resize support.  
   **Depends on:** BOX-03, BOX-04, FLD-07.
 
@@ -448,12 +448,12 @@ Users can resize, collapse, rename, duplicate, and restore blocks without breaki
 
 ### Feature 4 acceptance gate
 
-- [ ] Every block type stops cleanly at approved size limits.
+- [x] Every block type stops cleanly at approved size limits.
 - [ ] Content, actions, handles, focus indicators, and ports never overlap at supported sizes.
-- [ ] Collapse/expand and Reset size are undoable and persist across reload.
-- [ ] Image frame changes do not modify or re-encode the source asset.
-- [ ] Tidy respects actual current dimensions.
-- [ ] Resize is operable through a non-pointer control.
+- [x] Collapse/expand and Reset size are undoable and persist across reload.
+- [x] Image frame changes do not modify or re-encode the source asset.
+- [x] Tidy respects actual current dimensions.
+- [x] Resize is operable through a non-pointer control.
 
 ### Risks
 

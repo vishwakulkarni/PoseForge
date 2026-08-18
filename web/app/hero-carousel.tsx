@@ -5,27 +5,29 @@ import { ChevronRight } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import styles from './landing.module.css';
 
+const PUBLIC_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+
 type HeroFrame = { id: string; src: string; alt: string };
 
 const HERO_FRAMES: HeroFrame[] = [
   {
     id: 'overhead',
-    src: '/demo/indian-model-american-poses/demo-01-overhead.png',
+    src: `${PUBLIC_BASE_PATH}/demo/indian-model-american-poses/demo-01-overhead.png`,
     alt: 'Identity portrait, overhead pose reference, and identity-preserving final result shown together',
   },
   {
     id: 'seated',
-    src: '/demo/indian-model-american-poses/demo-02-seated.png',
+    src: `${PUBLIC_BASE_PATH}/demo/indian-model-american-poses/demo-02-seated.png`,
     alt: 'Identity portrait, seated pose reference, and identity-preserving final result shown together',
   },
   {
     id: 'lunge',
-    src: '/demo/indian-model-american-poses/demo-03-lunge.png',
+    src: `${PUBLIC_BASE_PATH}/demo/indian-model-american-poses/demo-03-lunge.png`,
     alt: 'Identity portrait, side-lunge pose reference, and identity-preserving final result shown together',
   },
   {
     id: 'nri-family-walking',
-    src: '/demo/nri-family-american-poses/demo-04-nri-family-walking.png',
+    src: `${PUBLIC_BASE_PATH}/demo/nri-family-american-poses/demo-04-nri-family-walking.png`,
     alt: 'PoseForge identity-preserving pose transfer showing an NRI family identity, walking pose reference, and final generated image',
   },
 ];

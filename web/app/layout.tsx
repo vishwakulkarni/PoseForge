@@ -21,9 +21,20 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const isGitHubPages = process.env.GITHUB_PAGES === 'true';
+
   return (
     <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
       <body>
+        {isGitHubPages ? (
+          <aside className="github-pages-notice" aria-label="GitHub Pages preview notice">
+            <span>GitHub Pages preview</span>
+            <p>Generation, uploads, and saved projects run in the local PoseForge app.</p>
+            <a href="https://github.com/vishwakulkarni/PoseForge#quickstart">
+              Install PoseForge
+            </a>
+          </aside>
+        ) : null}
         <Providers>{children}</Providers>
       </body>
     </html>

@@ -313,3 +313,34 @@
     transition-duration: 0.01ms !important;
   }
 }
+/* GitHub Pages hosts the static product preview; the full local app owns its API. */
+.github-pages-notice {
+  min-height: 40px;
+  padding: 8px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: #17131d;
+  color: #f4f1f8;
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.github-pages-notice span {
+  color: #aaa4ff;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.github-pages-notice p { margin: 0; }
+
+.github-pages-notice a {
+  color: #fff;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

@@ -6,9 +6,11 @@ import {
   useCharacters,
   useCreateCharacter,
   useCreateGeneration,
+  useCreatePoseReference,
   useCreateRecipe,
   useEngines,
   useGenerationsPolling,
+  useGenerations,
   usePoseReferences,
   usePoseSuggestions,
   usePresets,
@@ -41,7 +43,11 @@ import {
 import { Button } from '@/components/ui/button';
 import { Field, Input } from '@/components/ui/field';
 import { SourcesPanel } from '@/components/studio/sources-panel';
-import { CanvasPanel, type CanvasState } from '@/components/studio/canvas';
+import {
+  CanvasPanel,
+  type CanvasAsset,
+  type CanvasState,
+} from '@/components/studio/canvas';
 import { Inspector } from '@/components/studio/inspector';
 import { GenerationDock } from '@/components/studio/dock';
 import { useStudioProjectWorkspace } from '@/lib/studio/project-workspace';
@@ -235,6 +241,8 @@ export function StudioView() {
   const { data: recipes } = useRecipes();
   const createGeneration = useCreateGeneration();
   const createCharacter = useCreateCharacter();
+  const createPoseReference = useCreatePoseReference();
+  const { data: generationHistory } = useGenerations({ limit: 30, status: 'completed' });
 
   const { generations, settled, completed, failed } = useGenerationsPolling(
     state.activeGenerationIds,
@@ -338,6 +346,71 @@ export function StudioView() {
     () => selectedSuggestedPoses.map((pose) => pose.title ?? 'Untitled pose'),
     [selectedSuggestedPoses],
   );
+  const characterAssets = React.useMemo<CanvasAsset[]>(
+    () => (characters ?? []).flatMap((character) => character.primaryPhotoUrl
+      ? [{
+          id: character.id,
+          type: 'character' as const,
+          label: character.name,
+          imageUrl: character.primaryPhotoUrl,
+          meta: 'Saved character',
+        }]
+      : []),
+    [characters],
+  );
+  const poseAssets = React.useMemo<CanvasAsset[]>(
+    () => (poses ?? []).map((pose) => ({
+      id: pose.id,
+      type: 'pose' as const,
+      label: pose.title ?? 'Untitled pose',
+      imageUrl: pose.imageUrl,
+      meta: pose.category ?? 'Pose library',
+    })),
+    [poses],
+  );
+  const generatedAssets = React.useMemo<CanvasAsset[]>(
+    () => (generationHistory?.generations ?? []).flatMap((generation, index) =>
+      generation.outputUrl
+        ? [{
+            id: generation.id,
+            type: 'generation' as const,
+            label: generation.poseTitle ?? `Generated image ${index + 1}`,
+            imageUrl: generation.outputUrl,
+            meta: 'Generated result',
+          }]
+        : [],
+    ),
+    [generationHistory],
+  );
+  const uploadCanvasAsset = React.useCallback(async (
+    kind: 'character' | 'pose',
+    file: File,
+  ): Promise<CanvasAsset> => {
+    const form = new FormData();
+    const fallbackName = file.name.replace(/\.[^.]+$/, '').trim() || `Uploaded ${kind}`;
+    if (kind === 'character') {
+      form.append('name', `${fallbackName} ${Date.now().toString(36)}`);
+      form.append('characterPhoto', file);
+      const created = await createCharacter.mutateAsync(form);
+      return {
+        id: created.id,
+        type: 'character',
+        label: created.name,
+        imageUrl: created.primaryPhotoUrl,
+        meta: 'Uploaded character',
+      };
+    }
+    form.append('title', fallbackName);
+    form.append('posePhoto', file);
+    const created = await createPoseReference.mutateAsync(form);
+    return {
+      id: created.id,
+      type: 'pose',
+      label: created.title ?? fallbackName,
+      imageUrl: created.imageUrl,
+      meta: created.category ?? 'Uploaded pose',
+    };
+  }, [createCharacter, createPoseReference]);
   const hasPose = hasManualPose || selectedSuggestedPoses.length > 0;
   const allSlotsFilled = filledSlots.length === state.slots.length && filledSlots.length > 0;
   const collageNeedsUpload =
@@ -644,7 +717,6 @@ export function StudioView() {
             plannedOutputs={plannedOutputs}
             outputPoseLabels={outputPoseLabels}
             activeIndex={state.activeResultIndex}
-            onOpenSources={() => setLeftPanelCollapsed(false)}
             onSelectSubject={(id) => {
               if (id !== activeSubjectId) setSelectedSuggestionIds([]);
               setSelectedSubjectId(id);
@@ -657,6 +729,10 @@ export function StudioView() {
             projectSaveState={projectWorkspace.saveState}
             onProjectChange={projectWorkspace.save}
             onRetryProjectSave={() => void projectWorkspace.retry()}
+            characterAssets={characterAssets}
+            poseAssets={poseAssets}
+            generatedAssets={generatedAssets}
+            onUploadAsset={uploadCanvasAsset}
           />
 
           <PanelResizeHandle
