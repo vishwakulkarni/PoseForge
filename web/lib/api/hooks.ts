@@ -30,6 +30,8 @@ export const queryKeys = {
     ['pose-suggestions', subjectCount, seed] as const,
   generations: (filters?: Record<string, unknown>) => ['generations', filters ?? {}] as const,
   generation: (id: string) => ['generations', id] as const,
+  studioProjectDefault: ['studio-projects', 'default'] as const,
+  studioProject: (id: string) => ['studio-projects', id] as const,
   recipes: ['recipes'] as const,
   settings: ['settings'] as const,
   metrics: (scope: MetricsScope) => ['metrics', scope] as const,
@@ -280,6 +282,18 @@ export function useDeleteRecipe() {
   return useMutation({
     mutationFn: (id: string) => api.recipes.remove(id),
     onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.recipes }),
+  });
+}
+
+/* ------------------------------------------------------ Studio projects */
+
+export function useDefaultStudioProject() {
+  return useQuery({
+    queryKey: queryKeys.studioProjectDefault,
+    queryFn: api.studioProjects.getDefault,
+    staleTime: Infinity,
+    retry: (failureCount, error) =>
+      error instanceof ApiError && error.isNotFound ? false : failureCount < 3,
   });
 }
 

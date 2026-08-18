@@ -167,6 +167,40 @@ export const handlers = [
   ),
   http.get('/api/presets', () => HttpResponse.json({ presets: [] })),
   http.get('/api/recipes', () => HttpResponse.json({ recipes: [] })),
+  http.get('/api/studio-projects/default', () =>
+    HttpResponse.json({
+      id: '33333333-3333-4333-8333-333333333333',
+      name: 'My Studio',
+      schemaVersion: 1,
+      revision: 0,
+      document: {
+        schemaVersion: 1,
+        viewport: null,
+        nodes: [],
+        edges: [],
+        locked: false,
+      },
+      isDefault: true,
+      createdAt: '2026-08-17T10:00:00.000Z',
+      updatedAt: '2026-08-17T10:00:00.000Z',
+    }),
+  ),
+  http.put('/api/studio-projects/:id', async ({ request, params }) => {
+    const body = (await request.json()) as {
+      expectedRevision: number;
+      document: Record<string, unknown>;
+    };
+    return HttpResponse.json({
+      id: params.id,
+      name: 'My Studio',
+      schemaVersion: 1,
+      revision: body.expectedRevision + 1,
+      document: body.document,
+      isDefault: true,
+      createdAt: '2026-08-17T10:00:00.000Z',
+      updatedAt: '2026-08-17T10:01:00.000Z',
+    });
+  }),
   http.get('/api/generations', () =>
     HttpResponse.json({ generations: [], nextCursor: null }),
   ),

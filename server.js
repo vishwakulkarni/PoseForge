@@ -45,6 +45,7 @@ function createApplication(nextHandler) {
   app.use("/api/generations", require("./routes/generations"));
   app.use("/api/pose-references", require("./routes/pose-references"));
   app.use("/api/recipes", require("./routes/recipes"));
+  app.use("/api/studio-projects", require("./routes/studio-projects"));
   app.use("/api/media", require("./routes/media"));
   app.use("/api/passport", require("./routes/passport"));
   app.use("/api/metrics", require("./routes/metrics"));

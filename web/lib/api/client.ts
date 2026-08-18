@@ -14,6 +14,8 @@ import type {
   Preset,
   Recipe,
   Settings,
+  StudioProject,
+  StudioProjectDocument,
   UsageEstimate,
 } from './types';
 
@@ -165,6 +167,26 @@ export const api = {
     create: (input: { name: string; settings: unknown; characterCount: number }) =>
       request<Recipe>('/api/recipes', { method: 'POST', body: JSON.stringify(input) }),
     remove: (id: string) => request<void>(`/api/recipes/${id}`, { method: 'DELETE' }),
+  },
+
+  studioProjects: {
+    getDefault: () => request<StudioProject>('/api/studio-projects/default'),
+    get: (id: string) => request<StudioProject>(`/api/studio-projects/${id}`),
+    create: (input: { name?: string; document?: StudioProjectDocument }) =>
+      request<StudioProject>('/api/studio-projects', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    update: (
+      id: string,
+      input: { expectedRevision: number; document: StudioProjectDocument },
+    ) =>
+      request<StudioProject>(`/api/studio-projects/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(input),
+      }),
+    remove: (id: string) =>
+      request<void>(`/api/studio-projects/${id}`, { method: 'DELETE' }),
   },
 
   settings: {

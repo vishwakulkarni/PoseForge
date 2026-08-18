@@ -28,7 +28,19 @@ test("database schema and seed data", async (t) => {
   }
 
   await t.test("core tables exist", async () => {
-    const tables = ["characters", "character_photos", "presets", "settings", "generations", "pose_references", "generation_characters", "studio_recipes"];
+    const tables = [
+      "characters",
+      "character_photos",
+      "presets",
+      "settings",
+      "generations",
+      "pose_references",
+      "generation_characters",
+      "studio_recipes",
+      "studio_projects",
+      "studio_composition_revisions",
+      "studio_runs",
+    ];
     for (const table of tables) {
       const result = await pool.query("SELECT to_regclass($1) AS exists", [table]);
       assert.ok(result.rows[0].exists, `expected table "${table}" to exist — did you run npm run migrate?`);
@@ -124,6 +136,24 @@ test("database schema and seed data", async (t) => {
     `);
     assert.equal(result.rows[0]?.data_type, "jsonb");
     assert.match(result.rows[0]?.column_default || "", /jsonb/);
+  });
+
+  await t.test("Studio projects and generation lineage are available", async () => {
+    const projectColumns = await pool.query(`
+      SELECT column_name, data_type FROM information_schema.columns
+      WHERE table_name = 'studio_projects' AND column_name = ANY($1::text[])
+    `, [["schema_version", "revision", "document", "is_default"]]);
+    const columns = Object.fromEntries(projectColumns.rows.map((row) => [row.column_name, row.data_type]));
+    assert.equal(columns.schema_version, "integer");
+    assert.equal(columns.revision, "bigint");
+    assert.equal(columns.document, "jsonb");
+    assert.equal(columns.is_default, "boolean");
+
+    const generationColumns = await pool.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'generations' AND column_name = ANY($1::text[])
+    `, [["studio_run_id", "composition_node_id", "composition_revision_id", "parent_generation_id"]]);
+    assert.equal(generationColumns.rowCount, 4);
   });
 });
 

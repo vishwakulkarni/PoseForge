@@ -2232,13 +2232,15 @@
   }
 
   .canvas-panel {
+    height: 560px;
     min-height: 560px;
+    flex: 0 0 560px;
     order: -1;
     border-bottom: 1px solid var(--pf-border);
   }
 
   .canvas-viewport {
-    min-height: 470px;
+    min-height: 0;
   }
 
   .inspector-scroll {
@@ -2276,12 +2278,23 @@
   }
 
   .canvas-panel {
+    height: 470px;
     min-height: 470px;
+    flex-basis: 470px;
   }
 
   .canvas-viewport {
-    min-height: 360px;
-    padding: 18px;
+    min-height: 0;
+    padding: 0;
+  }
+
+  /* Bottom-anchored React Flow panels can fall below a flexing mobile canvas
+     while the page reflows. Keep the primary tool cluster in the stable top
+     inset on small screens so lock/zoom controls remain directly operable. */
+  .poseforge-controls.react-flow__panel {
+    top: 15px !important;
+    bottom: auto !important;
+    margin: 0 0 0 15px !important;
   }
 
   .canvas-artboard[data-aspect='9:16'] {
@@ -2305,6 +2318,7 @@
   /* Component tokens: light canvas follows the cool React Flow reference. */
   --pf-canvas-pane: #f8fafc;
   --pf-canvas-dot: #91919a;
+  --pf-canvas-edge: #635bff;
   --pf-canvas-node: #ffffff;
   --pf-canvas-node-media: #f1f3f7;
   --pf-canvas-node-subtle: #f7f8fa;
@@ -2335,6 +2349,7 @@
   /* Dark surround remains neutral enough for judging generated photographs. */
   --pf-canvas-pane: #141018;
   --pf-canvas-dot: #3a3442;
+  --pf-canvas-edge: #9b94ff;
   --pf-canvas-node: #1c1721;
   --pf-canvas-node-media: #16121a;
   --pf-canvas-node-subtle: #18131d;
@@ -2377,6 +2392,16 @@
 .canvas-viewport .react-flow,
 .canvas-viewport .react-flow__renderer {
   background: var(--pf-canvas-pane);
+}
+
+/* A percentage-height React Flow root collapses to 0px when the responsive
+   flex canvas has a computed (rather than declared) height. Pinning the only
+   canvas child to the pane keeps desktop and mobile geometry definite. */
+.canvas-viewport > .react-flow {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .canvas-viewport .react-flow__pane { cursor: grab; }
@@ -2649,7 +2674,11 @@
 
 .poseforge-node-generate .poseforge-handle[data-handleid='character'] { left: 36%; }
 .poseforge-node-generate .poseforge-handle[data-handleid='pose'] { left: 64%; }
-.canvas-viewport .react-flow__edge-path { stroke: var(--pf-accent); stroke-width: 2; }
+.canvas-viewport .react-flow__edge-path { stroke: var(--pf-canvas-edge); stroke-width: 2; }
+.canvas-viewport .react-flow__arrowhead polyline {
+  stroke: var(--pf-canvas-edge);
+  fill: var(--pf-canvas-edge);
+}
 .canvas-viewport .react-flow__connection-path { stroke: var(--pf-accent-hover); stroke-width: 2; }
 
 .poseforge-controls.react-flow__panel {
@@ -2687,6 +2716,52 @@
 .poseforge-controls .poseforge-zoom-value {
   color: var(--pf-canvas-text-tertiary);
   font-size: 8px;
+  font-weight: 650;
+}
+
+.poseforge-save-status.react-flow__panel {
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 15px;
+  padding: 6px 8px;
+  border: 1px solid var(--pf-canvas-border);
+  border-radius: 8px;
+  color: var(--pf-canvas-text-secondary);
+  background: var(--pf-canvas-node);
+  box-shadow: var(--pf-canvas-tool-shadow);
+  font-size: 10px;
+}
+
+.poseforge-save-status > span {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--pf-canvas-disabled);
+}
+
+.poseforge-save-status > strong { font-weight: 550; }
+.poseforge-save-status.is-saved > span { background: var(--pf-success); }
+.poseforge-save-status.is-pending > span { background: var(--pf-warning); }
+.poseforge-save-status.is-saving > span,
+.poseforge-save-status.is-loading > span {
+  background: var(--pf-warning);
+  animation: nodePulse 1.3s ease-in-out infinite;
+}
+.poseforge-save-status.is-error > span,
+.poseforge-save-status.is-conflict > span { background: var(--pf-error); }
+
+.poseforge-save-status button {
+  min-height: 22px;
+  padding: 2px 7px;
+  border: 1px solid var(--pf-canvas-border);
+  border-radius: 6px;
+  color: var(--pf-canvas-text);
+  background: var(--pf-canvas-node-elevated);
+  cursor: pointer;
+  font: inherit;
   font-weight: 650;
 }
 

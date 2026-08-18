@@ -149,6 +149,45 @@ export interface Recipe {
   updatedAt: string;
 }
 
+/** GET/PUT /api/studio-projects */
+export type StudioProjectNodeKind = 'character' | 'pose' | 'generate' | 'result';
+
+export interface StudioProjectNode {
+  id: string;
+  kind: StudioProjectNodeKind;
+  position: { x: number; y: number };
+  width?: number;
+  height?: number;
+  collapsed?: boolean;
+}
+
+export interface StudioProjectEdge {
+  id: string;
+  source: string;
+  target: string;
+  sourceHandle?: string;
+  targetHandle?: string;
+}
+
+export interface StudioProjectDocument {
+  schemaVersion: 1;
+  viewport: { x: number; y: number; zoom: number } | null;
+  nodes: StudioProjectNode[];
+  edges: StudioProjectEdge[];
+  locked: boolean;
+}
+
+export interface StudioProject {
+  id: string;
+  name: string;
+  schemaVersion: number;
+  revision: number;
+  document: StudioProjectDocument;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /** GET /api/settings */
 export interface Credential {
   configured: boolean;

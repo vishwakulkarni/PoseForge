@@ -128,6 +128,42 @@ describe('Studio workbench layout', () => {
       'true',
     );
   });
+
+  it('saves canvas mutations through the versioned Studio project', async () => {
+    let savedDocument: Record<string, unknown> | null = null;
+    server.use(
+      http.put('/api/studio-projects/:id', async ({ request, params }) => {
+        const body = (await request.json()) as {
+          expectedRevision: number;
+          document: Record<string, unknown>;
+        };
+        savedDocument = body.document;
+        return HttpResponse.json({
+          id: params.id,
+          name: 'My Studio',
+          schemaVersion: 1,
+          revision: body.expectedRevision + 1,
+          document: body.document,
+          isDefault: true,
+          createdAt: '2026-08-17T10:00:00.000Z',
+          updatedAt: '2026-08-17T10:01:00.000Z',
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<StudioView />);
+
+    expect(await screen.findByLabelText('Studio project: Saved')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Lock canvas' }));
+
+    expect(screen.getByLabelText('Studio project: Unsaved changes')).toBeInTheDocument();
+    expect(savedDocument).toBeNull();
+    await waitFor(
+      () => expect(savedDocument).toMatchObject({ locked: true }),
+      { timeout: 7_000 },
+    );
+    expect(await screen.findByLabelText('Studio project: Saved')).toBeInTheDocument();
+  }, 10_000);
 });
 
 describe('mode switching', () => {

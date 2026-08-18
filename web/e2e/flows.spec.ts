@@ -59,11 +59,23 @@ test.describe('studio', () => {
     await expect(page.locator('[data-id="pose-empty"]')).toBeVisible();
     await expect(page.locator('[data-id="generate"]')).toBeVisible();
     await expect(page.locator('[data-id="result-placeholder-0"]')).toBeVisible();
+    const edgePaths = page.locator('.react-flow__edge-path');
+    await expect(edgePaths.first()).toBeVisible();
+    await expect(edgePaths.first()).toHaveAttribute('marker-end', /type=arrowclosed/);
+    await expect(page.locator('.react-flow__arrowhead polyline').first()).toHaveCSS(
+      'fill',
+      'rgb(99, 91, 255)',
+    );
     await expect(page.getByRole('button', { name: 'Fit all nodes' })).toBeVisible();
     await expect(page.getByLabel('Node palette')).toBeVisible();
+    expect(await page.locator('.react-flow').evaluate((element) =>
+      element.getBoundingClientRect().height,
+    )).toBeGreaterThan(300);
+    await expect(page.getByLabel('Canvas controls')).toBeInViewport();
   });
 
   test('locks and unlocks spatial canvas interactions', async ({ page }) => {
+    await expect(page.getByLabel('Studio project: Saved')).toBeVisible();
     await page.getByRole('button', { name: 'Lock canvas' }).click();
     await expect(page.getByRole('button', { name: 'Unlock canvas' })).toBeVisible();
     await page.getByRole('button', { name: 'Unlock canvas' }).click();
@@ -90,7 +102,119 @@ test.describe('studio', () => {
     await expect(node).toHaveCSS('background-color', 'rgb(28, 23, 33)');
     await expect(controls).toHaveCSS('background-color', 'rgb(28, 23, 33)');
     await expect(drawerCard).toHaveCSS('background-color', 'rgb(33, 27, 38)');
+    await expect(page.locator('.react-flow__arrowhead polyline').first()).toHaveCSS(
+      'fill',
+      'rgb(155, 148, 255)',
+    );
     await expect(flow).toHaveClass(/dark/);
+  });
+
+  test('hydrates before editing and persists the final rapid drag position', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name === 'mobile', 'Desktop pointer-drag persistence regression.');
+    // The describe-level navigation uses the real API. Let that workspace
+    // settle before replacing the project endpoints for this isolated case.
+    await expect(page.getByLabel('Studio project: Saved')).toBeVisible();
+    await page.waitForTimeout(500);
+    const projectId = '33333333-3333-4333-8333-333333333333';
+    let revision = 7;
+    let putCount = 0;
+    let document = {
+      schemaVersion: 1,
+      // Keep the Generate node clear of the bottom drawer while still using a
+      // non-default camera that proves hydration does not trigger fit-view.
+      viewport: { x: -240, y: -80, zoom: 0.8 },
+      nodes: [
+        { id: 'character-empty', kind: 'character', position: { x: 0, y: 0 } },
+        { id: 'pose-empty', kind: 'pose', position: { x: 380, y: 0 } },
+        { id: 'generate', kind: 'generate', position: { x: 190, y: 450 } },
+        { id: 'result-placeholder-0', kind: 'result', position: { x: 115, y: 670 } },
+      ],
+      edges: [
+        { id: 'character-empty-generate', source: 'character-empty', target: 'generate', targetHandle: 'character' },
+        { id: 'pose-empty-generate', source: 'pose-empty', target: 'generate', targetHandle: 'pose' },
+        { id: 'generate-result-placeholder-0', source: 'generate', target: 'result-placeholder-0' },
+      ],
+      locked: false,
+    };
+    const response = () => ({
+      id: projectId,
+      name: 'Canvas regression project',
+      schemaVersion: 1,
+      revision,
+      document,
+      isDefault: true,
+      createdAt: '2026-08-17T10:00:00.000Z',
+      updatedAt: '2026-08-17T10:05:00.000Z',
+    });
+
+    await page.route(`**/api/studio-projects/${projectId}`, async (route) => {
+      const body = await route.request().postDataJSON() as {
+        expectedRevision: number;
+        document: typeof document;
+      };
+      expect(body.expectedRevision).toBe(revision);
+      await new Promise((resolve) => setTimeout(resolve, 80));
+      document = body.document;
+      revision += 1;
+      putCount += 1;
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(response()) });
+    });
+    await page.route('**/api/studio-projects/default', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(response()) });
+    });
+
+    await page.reload();
+    await expect(page.locator('html[data-poseforge-hydrated="true"]')).toBeAttached();
+    const lock = page.getByRole('button', { name: 'Lock canvas' });
+    await expect(page.getByLabel('Studio project: Saved')).toBeVisible();
+    await expect(lock).toBeEnabled();
+    const settledPutCount = putCount;
+    await page.waitForTimeout(250);
+    expect(putCount).toBe(settledPutCount);
+    expect(document.viewport).toEqual({ x: -240, y: -80, zoom: 0.8 });
+
+    const canvasNodes = page.locator('.react-flow__node');
+    const originalNodeTransforms = await canvasNodes.evaluateAll((nodes) =>
+      nodes.map((node) => (node as HTMLElement).style.transform),
+    );
+    await page.getByRole('button', { name: 'Zoom in' }).click();
+    await page.getByRole('button', { name: 'Zoom in' }).click();
+    await expect(canvasNodes).toHaveCount(4);
+    await page.getByRole('button', { name: 'Zoom out' }).click();
+    await page.getByRole('button', { name: 'Zoom out' }).click();
+    await expect(canvasNodes).toHaveCount(4);
+    expect(await canvasNodes.evaluateAll((nodes) =>
+      nodes.map((node) => (node as HTMLElement).style.transform),
+    )).toEqual(originalNodeTransforms);
+
+    const generate = page.locator('[data-id="generate"]');
+    const start = document.nodes.find((node) => node.id === 'generate')!.position;
+    const box = await generate.boundingBox();
+    expect(box).not.toBeNull();
+    const x = box!.x + box!.width / 2;
+    const y = box!.y + box!.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x + 45, y + 25, { steps: 2 });
+    await page.mouse.move(x + 95, y + 55, { steps: 2 });
+    await page.mouse.up();
+
+    await expect(page.getByLabel('Studio project: Unsaved changes')).toBeVisible();
+    await page.waitForTimeout(4_500);
+    expect(putCount).toBe(settledPutCount);
+    await expect.poll(() => document.nodes.find((node) => node.id === 'generate')!.position)
+      .not.toEqual(start);
+    expect(putCount).toBe(settledPutCount + 1);
+    await expect(page.getByLabel('Studio project: Saved')).toBeVisible();
+    const savedPosition = { ...document.nodes.find((node) => node.id === 'generate')!.position };
+
+    await page.reload();
+    await expect(page.getByLabel('Studio project: Saved')).toBeVisible();
+    await expect(generate).toHaveCSS(
+      'transform',
+      `matrix(1, 0, 0, 1, ${savedPosition.x}, ${savedPosition.y})`,
+    );
   });
 
   test('keeps generate disabled until sources exist', async ({ page }) => {

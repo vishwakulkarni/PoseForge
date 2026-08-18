@@ -44,6 +44,7 @@ import { SourcesPanel } from '@/components/studio/sources-panel';
 import { CanvasPanel, type CanvasState } from '@/components/studio/canvas';
 import { Inspector } from '@/components/studio/inspector';
 import { GenerationDock } from '@/components/studio/dock';
+import { useStudioProjectWorkspace } from '@/lib/studio/project-workspace';
 
 const TIPS = [
   'Use a clear, front-facing identity photo for the strongest match.',
@@ -224,6 +225,7 @@ export function StudioView() {
   const [selectedSubjectId, setSelectedSubjectId] = React.useState<string | null>(null);
   const [selectedSuggestionIds, setSelectedSuggestionIds] = React.useState<string[]>([]);
   const [suggestionSubmitting, setSuggestionSubmitting] = React.useState(false);
+  const projectWorkspace = useStudioProjectWorkspace();
 
   const { data: characters } = useCharacters();
   const { data: engineData } = useEngines();
@@ -276,37 +278,66 @@ export function StudioView() {
 
   /* --------------------------------------------------------- derived */
 
-  const filledSlots = state.slots.filter((slot) => slot.characterId || slot.file);
+  const filledSlots = React.useMemo(
+    () => state.slots.filter((slot) => slot.characterId || slot.file),
+    [state.slots],
+  );
   const hasManualPose = Boolean(state.poseFile || state.poseReferenceId);
-  const canvasSubjects = state.slots.flatMap((slot, index) =>
-    slot.characterId || slot.file
-      ? [{
-          id: slot.key,
-          label: slot.name ?? slot.file?.name ?? `Person ${index + 1}`,
-          imageUrl: slot.previewUrl,
-        }]
-      : [],
+  const canvasSubjects = React.useMemo(
+    () => state.slots.flatMap((slot, index) =>
+      slot.characterId || slot.file
+        ? [{
+            id: slot.key,
+            label: slot.name ?? slot.file?.name ?? `Person ${index + 1}`,
+            imageUrl: slot.previewUrl,
+          }]
+        : [],
+    ),
+    [state.slots],
   );
   const activeSubjectId = selectedSubjectId &&
     canvasSubjects.some((subject) => subject.id === selectedSubjectId)
     ? selectedSubjectId
     : (canvasSubjects[0]?.id ?? null);
   const selectedPose = poses?.find((pose) => pose.id === state.poseReferenceId);
-  const canvasPose = hasManualPose && state.posePreviewUrl
-    ? {
-        label: state.poseFile?.name ?? selectedPose?.title ?? 'Pose reference',
-        imageUrl: state.posePreviewUrl,
-      }
-    : null;
+  const canvasPose = React.useMemo(
+    () => hasManualPose && state.posePreviewUrl
+      ? {
+          label: state.poseFile?.name ?? selectedPose?.title ?? 'Pose reference',
+          imageUrl: state.posePreviewUrl,
+        }
+      : null,
+    [hasManualPose, selectedPose?.title, state.poseFile?.name, state.posePreviewUrl],
+  );
   const { data: poseSuggestions, isLoading: suggestionsLoading } = usePoseSuggestions(
     canvasSubjects.length,
     activeSubjectId,
     !hasManualPose,
   );
-  const selectedSuggestedPoses = selectedSuggestionIds.flatMap((id) => {
-    const pose = poseSuggestions?.find((item) => item.id === id);
-    return pose ? [pose] : [];
-  });
+  const selectedSuggestedPoses = React.useMemo(
+    () => selectedSuggestionIds.flatMap((id) => {
+      const pose = poseSuggestions?.find((item) => item.id === id);
+      return pose ? [pose] : [];
+    }),
+    [poseSuggestions, selectedSuggestionIds],
+  );
+  const canvasPoseSuggestions = React.useMemo(
+    () => (poseSuggestions ?? []).map((pose) => ({
+      id: pose.id,
+      label: pose.title ?? 'Untitled pose',
+      imageUrl: pose.imageUrl,
+      category: pose.category,
+    })),
+    [poseSuggestions],
+  );
+  const selectedSuggestedPoseIds = React.useMemo(
+    () => selectedSuggestedPoses.map((pose) => pose.id),
+    [selectedSuggestedPoses],
+  );
+  const outputPoseLabels = React.useMemo(
+    () => selectedSuggestedPoses.map((pose) => pose.title ?? 'Untitled pose'),
+    [selectedSuggestedPoses],
+  );
   const hasPose = hasManualPose || selectedSuggestedPoses.length > 0;
   const allSlotsFilled = filledSlots.length === state.slots.length && filledSlots.length > 0;
   const collageNeedsUpload =
@@ -605,18 +636,13 @@ export function StudioView() {
             status={canvasStatus}
             subjects={canvasSubjects}
             pose={canvasPose}
-            poseSuggestions={(poseSuggestions ?? []).map((pose) => ({
-              id: pose.id,
-              label: pose.title ?? 'Untitled pose',
-              imageUrl: pose.imageUrl,
-              category: pose.category,
-            }))}
+            poseSuggestions={canvasPoseSuggestions}
             suggestionsLoading={suggestionsLoading}
-            selectedSuggestionIds={selectedSuggestedPoses.map((pose) => pose.id)}
+            selectedSuggestionIds={selectedSuggestedPoseIds}
             selectedSubjectId={activeSubjectId}
             generations={generations}
             plannedOutputs={plannedOutputs}
-            outputPoseLabels={selectedSuggestedPoses.map((pose) => pose.title ?? 'Untitled pose')}
+            outputPoseLabels={outputPoseLabels}
             activeIndex={state.activeResultIndex}
             onOpenSources={() => setLeftPanelCollapsed(false)}
             onSelectSubject={(id) => {
@@ -627,6 +653,10 @@ export function StudioView() {
             onSelectVariant={(index) => dispatch({ type: 'setActiveResultIndex', index })}
             onRegenerate={() => void submit(new Event('submit') as unknown as React.FormEvent)}
             tip={TIPS[state.mode === 'advanced' ? 2 : filledSlots.length ? 1 : 0]}
+            project={projectWorkspace.project}
+            projectSaveState={projectWorkspace.saveState}
+            onProjectChange={projectWorkspace.save}
+            onRetryProjectSave={() => void projectWorkspace.retry()}
           />
 
           <PanelResizeHandle
