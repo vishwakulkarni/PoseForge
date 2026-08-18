@@ -20,6 +20,11 @@ import { HeroCarousel } from './hero-carousel';
 import styles from './landing.module.css';
 
 const PUBLIC_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+const IS_GITHUB_PAGES = process.env.GITHUB_PAGES === 'true';
+const INSTALL_URL = 'https://github.com/vishwakulkarni/PoseForge#quickstart';
+const STUDIO_HREF = IS_GITHUB_PAGES ? INSTALL_URL : '/studio';
+const POSES_HREF = IS_GITHUB_PAGES ? '/docs/user-guide#characters-and-poses' : '/poses';
+const ADVANCED_HREF = IS_GITHUB_PAGES ? '/docs/user-guide#studio' : '/studio?mode=advanced';
 
 const CREATOR_FEATURES = [
   {
@@ -110,13 +115,13 @@ export default function LandingPage() {
 
               <div className={styles.heroActions}>
                 <Button asChild variant="primary" size="lg" className={styles.primaryCta}>
-                  <Link href="/studio">
-                    Create your first frame
+                  <Link href={STUDIO_HREF}>
+                    {IS_GITHUB_PAGES ? 'Install PoseForge' : 'Create your first frame'}
                     <ArrowRight />
                   </Link>
                 </Button>
-                <Link href="/poses" className={styles.textCta}>
-                  Explore pose ideas
+                <Link href={POSES_HREF} className={styles.textCta}>
+                  {IS_GITHUB_PAGES ? 'Read the pose guide' : 'Explore pose ideas'}
                   <span aria-hidden>↗</span>
                 </Link>
               </div>
@@ -217,8 +222,8 @@ export default function LandingPage() {
               ))}
             </ul>
             <Button asChild variant="secondary">
-              <Link href="/studio?mode=advanced">
-                Explore Advanced mode
+              <Link href={ADVANCED_HREF}>
+                {IS_GITHUB_PAGES ? 'Read the Studio guide' : 'Explore Advanced mode'}
                 <ArrowRight />
               </Link>
             </Button>
@@ -246,8 +251,8 @@ export default function LandingPage() {
               ))}
             </ul>
             <Button asChild variant="primary">
-              <Link href="/studio">
-                Create a family portrait
+              <Link href={STUDIO_HREF}>
+                {IS_GITHUB_PAGES ? 'Install PoseForge' : 'Create a family portrait'}
                 <ArrowRight />
               </Link>
             </Button>
@@ -348,8 +353,8 @@ export default function LandingPage() {
           <h2>Stop waiting for the perfect reshoot.</h2>
           <p>Pick the face. Pick the pose. Forge the photograph.</p>
           <Button asChild variant="primary" size="lg" className={styles.primaryCta}>
-            <Link href="/studio">
-              Open PoseForge Studio
+            <Link href={STUDIO_HREF}>
+              {IS_GITHUB_PAGES ? 'Install PoseForge' : 'Open PoseForge Studio'}
               <ArrowRight />
             </Link>
           </Button>

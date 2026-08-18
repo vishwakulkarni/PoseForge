@@ -29,7 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {isGitHubPages ? (
           <aside className="github-pages-notice" aria-label="GitHub Pages preview notice">
             <span>GitHub Pages preview</span>
-            <p>Generation, uploads, and saved projects run in the local PoseForge app.</p>
+            <p>This site contains the product overview and docs. The full Studio runs locally.</p>
             <a href="https://github.com/vishwakulkarni/PoseForge#quickstart">
               Install PoseForge
             </a>

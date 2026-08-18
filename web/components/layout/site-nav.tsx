@@ -18,6 +18,13 @@ export const NAV_ITEMS = [
   { label: 'Settings', href: '/settings' },
 ] as const;
 
+const GITHUB_PAGES_NAV_ITEMS = [
+  { label: 'Home', href: '/' },
+  { label: 'Docs', href: '/docs' },
+] as const;
+const IS_GITHUB_PAGES = process.env.NEXT_PUBLIC_GITHUB_PAGES === 'true';
+const INSTALL_URL = 'https://github.com/vishwakulkarni/PoseForge#quickstart';
+
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
@@ -59,6 +66,7 @@ function BrandMark() {
 export function SiteNav() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const navItems = IS_GITHUB_PAGES ? GITHUB_PAGES_NAV_ITEMS : NAV_ITEMS;
 
   const isActive = React.useCallback(
     (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href)),
@@ -88,7 +96,7 @@ export function SiteNav() {
           </Link>
 
           <ul className="pf-primary-nav items-center gap-0.5 justify-self-center rounded-full border border-[var(--pf-border)] bg-[var(--pf-surface-muted)] p-1 xl:gap-1">
-            {NAV_ITEMS.map((item) => (
+            {navItems.map((item) => (
               <li key={item.href}>
                 <Link
                   href={item.href}
@@ -109,7 +117,11 @@ export function SiteNav() {
           <div className="flex items-center gap-2 justify-self-end">
             <ThemeToggle />
             <Button asChild variant="inverse" size="sm" className="pf-desktop-cta">
-              <Link href="/studio">Open Studio</Link>
+              {IS_GITHUB_PAGES ? (
+                <a href={INSTALL_URL}>Install PoseForge</a>
+              ) : (
+                <Link href="/studio">Open Studio</Link>
+              )}
             </Button>
             <Button
               size="icon"
@@ -132,7 +144,7 @@ export function SiteNav() {
           aria-label="Mobile"
           className="pf-mobile-nav-panel fixed inset-x-3 top-[calc(var(--pf-nav-h)+8px)] z-[99] rounded-[16px] border border-[var(--pf-border)] bg-[var(--pf-surface)] p-2.5 shadow-[var(--pf-shadow-lg)]"
         >
-          {NAV_ITEMS.map((item) => (
+          {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -151,6 +163,15 @@ export function SiteNav() {
               {item.label}
             </Link>
           ))}
+          {IS_GITHUB_PAGES ? (
+            <a
+              href={INSTALL_URL}
+              onClick={() => setMobileOpen(false)}
+              className="mt-1 block rounded-[10px] bg-[var(--pf-text-primary)] px-3.5 py-3 text-sm font-[700] text-[var(--pf-bg)]"
+            >
+              Install PoseForge
+            </a>
+          ) : null}
         </nav>
       ) : null}
     </>

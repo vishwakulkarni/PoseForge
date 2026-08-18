@@ -39,8 +39,12 @@ jobs:
         working-directory: web
         env:
           GITHUB_PAGES: 'true'
+          NEXT_PUBLIC_GITHUB_PAGES: 'true'
           NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
         run: npm run build
+
+      - name: Keep only landing and documentation routes
+        run: npm run pages:prepare
 
       - name: Check exported links
         env:
