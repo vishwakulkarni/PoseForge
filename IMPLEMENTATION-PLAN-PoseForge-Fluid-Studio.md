@@ -17,8 +17,8 @@ The six requested features remain individually traceable, but the recommended de
 
 - [x] Foundation — persistent Studio Project and delivery controls
 - [x] Feature 1 — fluid canvas
-- [ ] Feature 3 — drag and add image blocks
-- [ ] Feature 4 — configurable blocks
+- [x] Feature 3 — drag and add image blocks
+- [x] Feature 4 — configurable blocks
 - [ ] Feature 5 — Forge Composition owns Normal and Advanced settings
 - [ ] Feature 2 — multiple outputs and Generate Again
 - [ ] Feature 6 — large generated-image viewer
@@ -38,7 +38,16 @@ Foundation and Fluid Canvas were implemented on August 17, 2026:
 - Kept the full canvas palette on semantic day/night tokens and added theme-correct save-state styling.
 - Added schema, route, migration, hydration, save, lock, and camera-stability tests; verified the production build.
 
-Undo/redo will automatically gain add/remove/resize/collapse commands as those mutations are introduced in Features 3 and 4. The persistence and history boundary needed by those commands now exists; this phase does not add future feature interactions early.
+Undo/redo now includes add/remove/resize/collapse commands through the shared persistence and history boundary established by the Fluid Canvas work.
+
+Features 3 and 4 were completed on August 18, 2026:
+
+- Added drag, click, and keyboard creation for Character and Pose image blocks with projected drop coordinates, visible drop-state feedback, strict source-type validation, recoverable empty states, and in-Studio selection from uploads, libraries, suggestions, and generated history.
+- Added a selected-source inspector with preview, source metadata, Fit/Fill controls, asset-location links, replace, disconnect, and remove actions.
+- Added privacy-safe, page-local source funnel events for drawer start, add success, picker source, validation failures, upload outcomes, asset selection, and time-to-populated-block. No event is persisted or transmitted.
+- Added constrained pointer resizing and keyboard-operable presets, collapse/expand, rename, duplicate, reset, Fit/Fill, disconnect, remove, undo/redo, measured Tidy, durable geometry, and lock-aware actions.
+- Added compact Forge summaries for mode, engine, input count, output count, aspect ratio, validation, and run state.
+- Added component and browser coverage for non-default camera drops, source inspection, invalid drops, local events, min/max sizing, collapse ports, locked actions, persistence, theme inversion, and first-open edge rendering.
 
 ```mermaid
 flowchart LR
@@ -349,25 +358,25 @@ A user can drag or keyboard-add an image block, populate it from an approved sou
   Assign the asset, update preview/metadata/handle, and autosave without changing position, dimensions, or valid connections.  
   **Depends on:** IMG-05, FLD-04.
 
-- [ ] **IMG-08 — Implement source-node inspector** — 5 points — Web  
+- [x] **IMG-08 — Implement source-node inspector** — 5 points — Web  
   Add Select/Replace image, source type, preview mode, metadata, locate asset, disconnect, and remove-from-canvas actions.  
   **Depends on:** IMG-05, IMG-07.
 
 #### Verification
 
-- [ ] **IMG-09 — Add drag/picker accessibility and end-to-end tests** — 5 points — QA/Web  
+- [x] **IMG-09 — Add drag/picker accessibility and end-to-end tests** — 5 points — QA/Web  
   Cover non-default zoom/pan, locked drop, canceled picker, rejected upload, keyboard add, replace without movement, reload, and both themes.  
   **Depends on:** IMG-02 through IMG-08.
 
-- [ ] **IMG-10 — Instrument source-add funnel** — 2 points — Analytics/Web  
+- [x] **IMG-10 — Instrument source-add funnel** — 2 points — Analytics/Web  
   Capture drawer start, drop/click success, block type, picker source, validation failure, asset selection, and time to populated block.  
   **Depends on:** IMG-03, IMG-05.
 
 ### Feature 3 acceptance gate
 
-- [ ] A drop at non-default pan and zoom appears under the pointer in canvas coordinates.
+- [x] A drop at non-default pan and zoom appears under the pointer in canvas coordinates.
 - [x] A new node remains where placed after image selection and reload.
-- [ ] Upload, library, suggestion, and generated/history entry points enforce ownership and type rules.
+- [x] Upload, library, suggestion, and generated/history entry points enforce ownership and type rules.
 - [x] Cancel and recoverable errors leave a clear, usable empty block.
 - [x] Locked canvas rejects drop without creating hidden or duplicate state.
 - [x] Keyboard users can complete the same add-and-select journey.
@@ -432,7 +441,7 @@ Users can resize, collapse, rename, duplicate, and restore blocks without breaki
   Preserve intrinsic aspect by default, use responsive thumbnails, and keep high-resolution loading out of the canvas card.  
   **Depends on:** BOX-03; final result contract lands in Feature 2.
 
-- [ ] **BOX-08 — Add compact Forge summary layout** — 3 points — Web/Design  
+- [x] **BOX-08 — Add compact Forge summary layout** — 3 points — Web/Design  
   Show mode, engine, output count, aspect ratio, input count, validation, and run state at supported dimensions.  
   **Depends on:** BOX-03; final values land in Feature 5.
 
@@ -442,14 +451,14 @@ Users can resize, collapse, rename, duplicate, and restore blocks without breaki
 
 #### Verification
 
-- [ ] **BOX-10 — Add resize/collapse visual and interaction tests** — 5 points — QA/Web  
+- [x] **BOX-10 — Add resize/collapse visual and interaction tests** — 5 points — QA/Web  
   Test min/max clamping, reflow, port reachability, lock, undo/redo, reset, persistence, day/night, reduced motion, and keyboard alternatives.  
   **Depends on:** BOX-03 through BOX-09.
 
 ### Feature 4 acceptance gate
 
 - [x] Every block type stops cleanly at approved size limits.
-- [ ] Content, actions, handles, focus indicators, and ports never overlap at supported sizes.
+- [x] Content, actions, handles, focus indicators, and ports never overlap at supported sizes.
 - [x] Collapse/expand and Reset size are undoable and persist across reload.
 - [x] Image frame changes do not modify or re-encode the source asset.
 - [x] Tidy respects actual current dimensions.

@@ -391,7 +391,7 @@ describe('the dock', () => {
 
     expect((select as HTMLSelectElement).value).toBe('gemini');
     // Gemini is not ready in the fixture, and its reason is surfaced.
-    expect(await screen.findByText(/no api key/i)).toBeInTheDocument();
+    expect((await screen.findAllByText(/no api key/i)).length).toBeGreaterThan(0);
   });
 });
 

@@ -109,6 +109,118 @@ test.describe('studio', () => {
     await expect(flow).toHaveClass(/dark/);
   });
 
+  test('drags, populates, inspects, and configures image blocks at a saved zoom', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name === 'mobile', 'Desktop HTML drag-and-drop regression.');
+    const projectId = '44444444-4444-4444-8444-444444444444';
+    let revision = 2;
+    let document = {
+      schemaVersion: 1 as const,
+      viewport: { x: -120, y: -40, zoom: 0.75 },
+      nodes: [
+        { id: 'character-empty', kind: 'character', position: { x: 0, y: 0 } },
+        { id: 'pose-empty', kind: 'pose', position: { x: 380, y: 0 } },
+        { id: 'generate', kind: 'generate', position: { x: 190, y: 450 } },
+        { id: 'result-placeholder-0', kind: 'result', position: { x: 115, y: 670 } },
+      ],
+      edges: [
+        { id: 'character-empty-generate', source: 'character-empty', target: 'generate', targetHandle: 'character' },
+        { id: 'pose-empty-generate', source: 'pose-empty', target: 'generate', targetHandle: 'pose' },
+        { id: 'generate-result-placeholder-0', source: 'generate', target: 'result-placeholder-0' },
+      ],
+      edgeState: 'explicit' as const,
+      locked: false,
+    };
+    const response = () => ({
+      id: projectId,
+      name: 'Image block acceptance project',
+      schemaVersion: 1,
+      revision,
+      document,
+      isDefault: true,
+      createdAt: '2026-08-18T10:00:00.000Z',
+      updatedAt: '2026-08-18T10:05:00.000Z',
+    });
+
+    await page.route('**/api/characters', async (route) => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          characters: [{
+            id: 'character-e2e',
+            name: 'E2E portrait',
+            primaryPhotoUrl: '/storage/e2e-portrait.png',
+            createdAt: '2026-08-18T10:00:00.000Z',
+          }],
+        }),
+      });
+    });
+    await page.route(`**/api/studio-projects/${projectId}`, async (route) => {
+      const body = route.request().postDataJSON() as { document: typeof document };
+      document = body.document;
+      revision += 1;
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(response()) });
+    });
+    await page.route('**/api/studio-projects/default', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(response()) });
+    });
+
+    await page.reload();
+    await expect(page.locator('html[data-poseforge-hydrated="true"]')).toBeAttached();
+    await expect(page.getByLabel('Studio project: Saved')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Reset zoom from 75%' })).toBeVisible();
+
+    const canvas = page.locator('.react-flow');
+    const pane = page.locator('.react-flow__pane');
+    const canvasBox = await canvas.boundingBox();
+    expect(canvasBox).not.toBeNull();
+    const targetPosition = { x: Math.round(canvasBox!.width * 0.24), y: 220 };
+    const palettePose = page.getByRole('button', { name: 'Add pose image block' });
+    await expect(palettePose).toHaveAttribute('draggable', 'true');
+    const dataTransfer = await page.evaluateHandle(() => new DataTransfer());
+    await palettePose.dispatchEvent('dragstart', { dataTransfer });
+    await pane.dispatchEvent('dragover', {
+      dataTransfer,
+      clientX: canvasBox!.x + targetPosition.x,
+      clientY: canvasBox!.y + targetPosition.y,
+    });
+    await pane.dispatchEvent('drop', {
+      dataTransfer,
+      clientX: canvasBox!.x + targetPosition.x,
+      clientY: canvasBox!.y + targetPosition.y,
+    });
+    await palettePose.dispatchEvent('dragend', { dataTransfer });
+    await expect(page.getByLabel('Select pose image')).toBeVisible();
+    await page.getByRole('button', { name: 'Close image picker' }).click();
+
+    const droppedPose = page.locator('.react-flow__node[data-id^="pose-block-"]');
+    await expect(droppedPose).toHaveCount(1);
+    const droppedBox = await droppedPose.boundingBox();
+    expect(droppedBox).not.toBeNull();
+    expect(canvasBox!.x + targetPosition.x).toBeGreaterThanOrEqual(droppedBox!.x);
+    expect(canvasBox!.x + targetPosition.x).toBeLessThanOrEqual(droppedBox!.x + droppedBox!.width);
+    expect(Math.abs(droppedBox!.y - (canvasBox!.y + targetPosition.y - 27))).toBeLessThan(24);
+    await expect(page.getByLabel('Selected image block inspector')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Configure Untitled pose' }).click();
+    await page.getByRole('menuitem', { name: 'Smaller' }).click();
+    await page.getByRole('menuitem', { name: 'Collapse' }).click();
+    await expect(droppedPose.locator('.poseforge-collapsed-body')).toBeVisible();
+    await expect(droppedPose.locator('.poseforge-handle')).toHaveCount(1);
+
+    await page.getByRole('button', { name: 'Add character image block' }).click();
+    const picker = page.getByLabel('Select character image');
+    await expect(picker).toBeVisible();
+    await picker.getByRole('button', { name: 'E2E portrait' }).click();
+    const inspector = page.getByLabel('Selected image block inspector');
+    await expect(inspector).toContainText('E2E portrait');
+    await expect(inspector).toContainText('Character library');
+    await expect(inspector.getByRole('link', { name: 'Locate asset' })).toHaveAttribute('href', '/characters');
+    await inspector.getByRole('button', { name: 'Fit' }).click();
+    await expect(inspector.getByRole('button', { name: 'Fit' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
   test('hydrates before editing and persists the final rapid drag position', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name === 'mobile', 'Desktop pointer-drag persistence regression.');
     // The describe-level navigation uses the real API. Let that workspace

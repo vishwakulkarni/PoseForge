@@ -79,6 +79,34 @@ export interface CanvasAsset {
   meta?: string;
 }
 
+export type StudioCanvasEntryMethod = 'click' | 'keyboard' | 'drag';
+
+// These events stay inside the current browser page. PoseForge intentionally
+// does not transmit or persist product analytics; consumers can observe this
+// typed CustomEvent stream for local diagnostics and opt-in test harnesses.
+export type StudioCanvasEventName =
+  | 'source_drawer_started'
+  | 'source_block_added'
+  | 'source_picker_opened'
+  | 'source_asset_selected'
+  | 'source_upload_started'
+  | 'source_upload_succeeded'
+  | 'source_validation_failed'
+  | 'source_upload_failed';
+
+export interface StudioCanvasEvent {
+  name: StudioCanvasEventName;
+  timestamp: string;
+  projectId: string | null;
+  theme: 'light' | 'dark';
+  blockCount: number;
+  kind?: 'character' | 'pose';
+  entryMethod?: StudioCanvasEntryMethod;
+  sourceType?: StudioProjectNodeAssetType;
+  reason?: string;
+  elapsedMs?: number;
+}
+
 export interface CanvasPanelProps {
   aspectRatio: string;
   status: CanvasState;
@@ -105,6 +133,10 @@ export interface CanvasPanelProps {
   poseAssets?: CanvasAsset[];
   generatedAssets?: CanvasAsset[];
   onUploadAsset?: (kind: 'character' | 'pose', file: File) => Promise<CanvasAsset>;
+  mode?: 'normal' | 'advanced';
+  engineLabel?: string;
+  forgeValidation?: string;
+  onStudioEvent?: (event: StudioCanvasEvent) => void;
 }
 
 type StudioNodeKind = 'character' | 'pose' | 'generate' | 'result';
@@ -130,6 +162,11 @@ interface StudioNodeData extends Record<string, unknown> {
   labelEdited?: boolean;
   assetType?: StudioProjectNodeAssetType;
   assetId?: string;
+  studioMode?: 'normal' | 'advanced';
+  engineLabel?: string;
+  inputCount?: number;
+  outputCount?: number;
+  validation?: string;
 }
 
 type StudioFlowNode = Node<StudioNodeData, 'poseforge'>;
@@ -200,6 +237,11 @@ const EMPTY_SUGGESTIONS: CanvasPoseSuggestion[] = [];
 const EMPTY_IDS: string[] = [];
 const EMPTY_LABELS: string[] = [];
 const EMPTY_ASSETS: CanvasAsset[] = [];
+
+function isAssetValidForKind(kind: 'character' | 'pose', asset: CanvasAsset) {
+  if (!asset.id || !asset.label || !asset.imageUrl) return false;
+  return asset.type === kind || asset.type === 'generation' || asset.type === 'upload';
+}
 
 const NODE_GEOMETRY: Record<StudioNodeKind, NodeGeometry> = {
   character: { width: 330, height: 388, minWidth: 220, minHeight: 250, maxWidth: 560, maxHeight: 720 },
@@ -495,9 +537,19 @@ function StudioNode({ id, data, selected }: NodeProps<StudioFlowNode>) {
       ) : data.kind === 'generate' ? (
         <div className="poseforge-generate-body">
           <span className="poseforge-node-icon"><Sparkles size={20} strokeWidth={1.7} /></span>
-          <span>
+          <span className="poseforge-generate-copy">
             <strong>{data.label}</strong>
-            <small>{data.meta}</small>
+            <span
+              className="poseforge-forge-summary"
+              aria-label={`${data.studioMode ?? 'normal'} mode, ${data.engineLabel ?? 'selected engine'}, ${data.outputCount ?? 1} outputs, ${data.aspectRatio ?? '1:1'}, ${data.inputCount ?? 0} inputs`}
+            >
+              <i>{data.studioMode === 'advanced' ? 'Advanced' : 'Normal'}</i>
+              <i>{data.engineLabel ?? 'Selected engine'}</i>
+              <i>{data.outputCount ?? 1} output{data.outputCount === 1 ? '' : 's'}</i>
+              <i>{data.aspectRatio ?? '1:1'}</i>
+              <i>{data.inputCount ?? 0} input{data.inputCount === 1 ? '' : 's'}</i>
+            </span>
+            <small>{data.validation ?? data.meta}</small>
           </span>
           <span className={cn('poseforge-ready-dot', data.status)} aria-hidden />
         </div>
@@ -628,7 +680,7 @@ function buildFlow(
   props: Pick<CanvasPanelProps,
     'aspectRatio' | 'status' | 'subjects' | 'pose' | 'poseSuggestions' |
     'selectedSuggestionIds' | 'selectedSubjectId' | 'generations' | 'plannedOutputs' |
-    'outputPoseLabels' | 'activeIndex'
+    'outputPoseLabels' | 'activeIndex' | 'mode' | 'engineLabel' | 'forgeValidation'
   >,
 ) {
   const {
@@ -643,6 +695,9 @@ function buildFlow(
     plannedOutputs,
     outputPoseLabels = [],
     activeIndex,
+    mode = 'normal',
+    engineLabel = 'Selected engine',
+    forgeValidation,
   } = props;
   const selectedSuggestions = selectedSuggestionIds.flatMap((id) => {
     const suggestion = poseSuggestions.find((item) => item.id === id);
@@ -727,6 +782,12 @@ function buildFlow(
       label: status === 'running' ? 'Generating composition' : 'Forge composition',
       meta: `${characterInputs.length} character${characterInputs.length === 1 ? '' : 's'} · ${poseInputs.length} pose${poseInputs.length === 1 ? '' : 's'}`,
       status,
+      studioMode: mode,
+      engineLabel,
+      inputCount,
+      outputCount,
+      aspectRatio,
+      validation: forgeValidation ?? (status === 'ready' ? 'Ready to generate' : status === 'running' ? 'Generation in progress' : 'Add sources to continue'),
     },
   });
 
@@ -864,6 +925,8 @@ function DrawerPalette({
   onViewportChange,
   locked,
   onAddNode,
+  onDrawerStart,
+  onDrawerEnd,
 }: {
   subjects: CanvasSubject[];
   suggestions: CanvasPoseSuggestion[];
@@ -872,7 +935,13 @@ function DrawerPalette({
   onToggleSuggestion?: (id: string) => void;
   onViewportChange: (viewport: Viewport) => void;
   locked: boolean;
-  onAddNode: (kind: 'character' | 'pose', asset?: CanvasAsset) => void;
+  onAddNode: (
+    kind: 'character' | 'pose',
+    asset: CanvasAsset | undefined,
+    entryMethod: StudioCanvasEntryMethod,
+  ) => void;
+  onDrawerStart: (kind: 'character' | 'pose') => void;
+  onDrawerEnd: () => void;
 }) {
   const { fitView, getViewport } = useReactFlow();
 
@@ -890,8 +959,10 @@ function DrawerPalette({
           onDragStart={(event) => {
             event.dataTransfer.setData('application/x-poseforge-node', JSON.stringify({ kind: 'character' }));
             event.dataTransfer.effectAllowed = 'copy';
+            onDrawerStart('character');
           }}
-          onClick={() => onAddNode('character')}
+          onDragEnd={onDrawerEnd}
+          onClick={(event) => onAddNode('character', undefined, event.detail === 0 ? 'keyboard' : 'click')}
         >
           <span className="poseforge-palette-pill"><UserRound size={13} />Character</span>
           <strong>{subjects.length ? `${subjects.length} on canvas` : 'Add identity'}</strong>
@@ -912,8 +983,10 @@ function DrawerPalette({
             onDragStart={(event) => {
               event.dataTransfer.setData('application/x-poseforge-node', JSON.stringify({ kind: 'pose' }));
               event.dataTransfer.effectAllowed = 'copy';
+              onDrawerStart('pose');
             }}
-            onClick={() => onAddNode('pose')}
+            onDragEnd={onDrawerEnd}
+            onClick={(event) => onAddNode('pose', undefined, event.detail === 0 ? 'keyboard' : 'click')}
           >
             <span className="poseforge-palette-pill"><PersonStanding size={13} />Pose</span>
             <strong>{selectedSuggestionIds.length ? `${selectedSuggestionIds.length} selected` : 'Add reference'}</strong>
@@ -944,7 +1017,9 @@ function DrawerPalette({
                         },
                       }));
                       event.dataTransfer.effectAllowed = 'copy';
+                      onDrawerStart('pose');
                     }}
+                    onDragEnd={onDrawerEnd}
                     onClick={() => onToggleSuggestion?.(suggestion.id)}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element -- provider and local storage URLs */}
@@ -1001,14 +1076,26 @@ function SourcePicker({
   onClose: () => void;
 }) {
   const typeLabel = node.data.kind === 'character' ? 'character' : 'pose';
+  const closeButton = React.useRef<HTMLButtonElement>(null);
+
+  React.useEffect(() => {
+    closeButton.current?.focus();
+  }, []);
+
   return (
-    <Panel position="top-center" className="poseforge-source-picker nodrag nopan" aria-label={`Select ${typeLabel} image`}>
+    <Panel
+      position="top-center"
+      className="poseforge-source-picker nodrag nopan"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Select ${typeLabel} image`}
+    >
       <div className="poseforge-source-picker-head">
         <div>
           <strong>Select {typeLabel} image</strong>
           <small>The block stays in place when its source changes.</small>
         </div>
-        <button type="button" aria-label="Close image picker" onClick={onClose}><X size={16} /></button>
+        <button ref={closeButton} type="button" aria-label="Close image picker" onClick={onClose}><X size={16} /></button>
       </div>
       <label className={cn('poseforge-source-upload', uploading && 'is-uploading')}>
         <ImageIcon size={18} />
@@ -1058,6 +1145,114 @@ function SourcePicker({
   );
 }
 
+function SourceNodeInspector({
+  node,
+  connectionCount,
+  locked,
+  onClose,
+  onOpenPicker,
+  onSetImageFit,
+  onDisconnect,
+  onRemove,
+}: {
+  node: StudioFlowNode;
+  connectionCount: number;
+  locked: boolean;
+  onClose: () => void;
+  onOpenPicker: () => void;
+  onSetImageFit: (fit: StudioProjectNodeImageFit) => void;
+  onDisconnect: () => void;
+  onRemove: () => void;
+}) {
+  const size = nodeSize(node);
+  const typeLabel = node.data.kind === 'character' ? 'Character' : 'Pose';
+  const sourceLabel = node.data.assetType === 'generation'
+    ? 'Generated history'
+    : node.data.assetType === 'upload'
+      ? 'Uploaded image'
+      : node.data.assetType === 'character'
+        ? 'Character library'
+        : node.data.assetType === 'pose'
+          ? 'Pose library'
+          : 'No source selected';
+  const locateHref = node.data.assetType === 'generation'
+    ? '/history'
+    : node.data.assetType === 'character'
+      ? '/characters'
+      : node.data.assetType === 'pose'
+        ? '/poses'
+        : node.data.kind === 'character'
+          ? '/characters'
+          : '/poses';
+
+  return (
+    <Panel
+      position="top-right"
+      className="poseforge-source-inspector nodrag nopan"
+      aria-label="Selected image block inspector"
+    >
+      <div className="poseforge-source-inspector-head">
+        <div>
+          <span>{typeLabel} block</span>
+          <strong>{node.data.label}</strong>
+        </div>
+        <button type="button" aria-label="Close image block inspector" onClick={onClose}>
+          <X size={15} />
+        </button>
+      </div>
+
+      {node.data.imageUrl ? (
+        <div className="poseforge-source-inspector-preview">
+          {/* eslint-disable-next-line @next/next/no-img-element -- local asset routes */}
+          <img src={node.data.imageUrl} alt={`${node.data.label} preview`} />
+        </div>
+      ) : (
+        <div className="poseforge-source-inspector-empty">Select an image to populate this block.</div>
+      )}
+
+      <dl className="poseforge-source-inspector-meta">
+        <div><dt>Source</dt><dd>{sourceLabel}</dd></div>
+        <div><dt>Details</dt><dd>{node.data.meta}</dd></div>
+        <div><dt>Size</dt><dd>{Math.round(size.width)} × {Math.round(size.height)}</dd></div>
+        <div><dt>Connections</dt><dd>{connectionCount}</dd></div>
+      </dl>
+
+      <div className="poseforge-source-inspector-section">
+        <span>Preview mode</span>
+        <div className="poseforge-source-fit" role="group" aria-label="Image preview mode">
+          {(['fit', 'fill'] as const).map((fit) => (
+            <button
+              key={fit}
+              type="button"
+              aria-pressed={(node.data.imageFit ?? 'fill') === fit}
+              disabled={locked}
+              onClick={() => onSetImageFit(fit)}
+            >
+              {fit === 'fit' ? 'Fit' : 'Fill'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="poseforge-source-inspector-actions">
+        <button type="button" disabled={locked} onClick={onOpenPicker}>
+          {node.data.imageUrl ? 'Replace image' : 'Select image'}
+        </button>
+        <Link href={locateHref}>Locate asset</Link>
+        <button type="button" disabled={locked || connectionCount === 0} onClick={onDisconnect}>
+          Disconnect
+        </button>
+        <button type="button" disabled={locked || !node.data.custom} onClick={onRemove}>
+          Remove from canvas
+        </button>
+      </div>
+      {!node.data.custom ? (
+        <p className="poseforge-source-inspector-note">Authored sources are removed from the Sources panel.</p>
+      ) : null}
+    </Panel>
+  );
+}
+
 function CanvasFlow(props: CanvasPanelProps) {
   const {
     aspectRatio,
@@ -1080,6 +1275,10 @@ function CanvasFlow(props: CanvasPanelProps) {
     poseAssets = EMPTY_ASSETS,
     generatedAssets = EMPTY_ASSETS,
     onUploadAsset,
+    mode = 'normal',
+    engineLabel = 'Selected engine',
+    forgeValidation,
+    onStudioEvent,
   } = props;
   const flow = React.useMemo(() => buildFlow({
     aspectRatio,
@@ -1093,10 +1292,16 @@ function CanvasFlow(props: CanvasPanelProps) {
     plannedOutputs,
     outputPoseLabels,
     activeIndex,
+    mode,
+    engineLabel,
+    forgeValidation,
   }), [
     activeIndex,
     aspectRatio,
     generations,
+    engineLabel,
+    forgeValidation,
+    mode,
     outputPoseLabels,
     plannedOutputs,
     pose,
@@ -1116,8 +1321,11 @@ function CanvasFlow(props: CanvasPanelProps) {
   const [pickerNodeId, setPickerNodeId] = React.useState<string | null>(null);
   const [pickerError, setPickerError] = React.useState<string | null>(null);
   const [uploadingAsset, setUploadingAsset] = React.useState(false);
+  const [draggingKind, setDraggingKind] = React.useState<'character' | 'pose' | null>(null);
+  const [dragOverCanvas, setDragOverCanvas] = React.useState(false);
   const dragSnapshot = React.useRef<CanvasSnapshot | null>(null);
   const resizeSnapshot = React.useRef<CanvasSnapshot | null>(null);
+  const sourceStartedAt = React.useRef(new Map<string, number>());
   const hydratedProject = React.useRef<string | null>(null);
   const hydrationSequence = React.useRef(0);
   const persistenceReady = React.useRef(!props.onProjectChange);
@@ -1144,6 +1352,22 @@ function CanvasFlow(props: CanvasPanelProps) {
     onProjectChange,
     onRetryProjectSave,
   } = props;
+
+  const emitStudioEvent = React.useCallback((
+    name: StudioCanvasEventName,
+    details: Omit<Partial<StudioCanvasEvent>, 'name' | 'timestamp' | 'projectId' | 'theme' | 'blockCount'> = {},
+  ) => {
+    const event: StudioCanvasEvent = {
+      name,
+      timestamp: new Date().toISOString(),
+      projectId: project?.id ?? null,
+      theme: resolvedTheme === 'dark' ? 'dark' : 'light',
+      blockCount: nodesRef.current.length,
+      ...details,
+    };
+    onStudioEvent?.(event);
+    window.dispatchEvent(new CustomEvent<StudioCanvasEvent>('poseforge:studio-event', { detail: event }));
+  }, [onStudioEvent, project?.id, resolvedTheme]);
 
   const commitNodes = React.useCallback((nextNodes: StudioFlowNode[]) => {
     nodesRef.current = nextNodes;
@@ -1373,9 +1597,30 @@ function CanvasFlow(props: CanvasPanelProps) {
     kind: 'character' | 'pose',
     asset?: CanvasAsset,
     clientPoint?: { x: number; y: number },
+    entryMethod: StudioCanvasEntryMethod = 'click',
   ) => {
-    if (!workspaceReady || lockedRef.current) return;
+    if (entryMethod !== 'drag') {
+      emitStudioEvent('source_drawer_started', { kind, entryMethod });
+    }
+    if (!workspaceReady || lockedRef.current) {
+      emitStudioEvent('source_validation_failed', {
+        kind,
+        entryMethod,
+        reason: lockedRef.current ? 'canvas_locked' : 'workspace_loading',
+      });
+      return;
+    }
+    if (asset && !isAssetValidForKind(kind, asset)) {
+      emitStudioEvent('source_validation_failed', {
+        kind,
+        entryMethod,
+        sourceType: asset.type,
+        reason: 'asset_type_mismatch',
+      });
+      return;
+    }
     const id = `${kind}-block-${crypto.randomUUID()}`;
+    const startedAt = performance.now();
     const geometry = NODE_GEOMETRY[kind];
     let position: { x: number; y: number };
     if (clientPoint) {
@@ -1425,9 +1670,26 @@ function CanvasFlow(props: CanvasPanelProps) {
         ]
       : edgesRef.current;
     commitMutation(nextNodes, nextEdges);
+    sourceStartedAt.current.set(id, startedAt);
+    emitStudioEvent('source_block_added', {
+      kind,
+      entryMethod,
+      ...(asset ? { sourceType: asset.type } : {}),
+    });
     setPickerError(null);
     setPickerNodeId(asset ? null : id);
-  }, [commitMutation, screenToFlowPosition, workspaceReady]);
+    if (asset) {
+      emitStudioEvent('source_asset_selected', {
+        kind,
+        entryMethod,
+        sourceType: asset.type,
+        elapsedMs: Math.max(0, Math.round(performance.now() - startedAt)),
+      });
+      sourceStartedAt.current.delete(id);
+    } else {
+      emitStudioEvent('source_picker_opened', { kind, entryMethod });
+    }
+  }, [commitMutation, emitStudioEvent, screenToFlowPosition, workspaceReady]);
 
   const updateNode = React.useCallback((
     id: string,
@@ -1440,6 +1702,17 @@ function CanvasFlow(props: CanvasPanelProps) {
   }, [commitMutation]);
 
   const selectAsset = React.useCallback((id: string, asset: CanvasAsset) => {
+    const current = nodesRef.current.find((node) => node.id === id);
+    if (!current || (current.data.kind !== 'character' && current.data.kind !== 'pose')) return;
+    if (!isAssetValidForKind(current.data.kind, asset)) {
+      setPickerError('That source type cannot be used in this block.');
+      emitStudioEvent('source_validation_failed', {
+        kind: current.data.kind,
+        sourceType: asset.type,
+        reason: 'asset_type_mismatch',
+      });
+      return;
+    }
     updateNode(id, (node) => ({
       ...node,
       data: {
@@ -1453,33 +1726,60 @@ function CanvasFlow(props: CanvasPanelProps) {
         empty: false,
       },
     }));
+    const startedAt = sourceStartedAt.current.get(id);
+    emitStudioEvent('source_asset_selected', {
+      kind: current.data.kind,
+      sourceType: asset.type,
+      ...(startedAt == null ? {} : {
+        elapsedMs: Math.max(0, Math.round(performance.now() - startedAt)),
+      }),
+    });
+    sourceStartedAt.current.delete(id);
     setPickerNodeId(null);
     setPickerError(null);
-  }, [updateNode]);
+  }, [emitStudioEvent, updateNode]);
 
   const uploadAsset = React.useCallback(async (file: File) => {
     if (!pickerNodeId || !onUploadAsset) return;
+    const node = nodesRef.current.find((item) => item.id === pickerNodeId);
+    if (!node || (node.data.kind !== 'character' && node.data.kind !== 'pose')) return;
     if (!file.type.startsWith('image/') && !/\.(heic|heif|jpe?g|png|webp)$/i.test(file.name)) {
       setPickerError('Choose a supported image file.');
+      emitStudioEvent('source_validation_failed', {
+        kind: node.data.kind,
+        reason: 'unsupported_file_type',
+      });
       return;
     }
     if (file.size > 25 * 1024 * 1024) {
       setPickerError('Image files must be 25 MB or smaller.');
+      emitStudioEvent('source_validation_failed', {
+        kind: node.data.kind,
+        reason: 'file_too_large',
+      });
       return;
     }
-    const node = nodesRef.current.find((item) => item.id === pickerNodeId);
-    if (!node || (node.data.kind !== 'character' && node.data.kind !== 'pose')) return;
     setUploadingAsset(true);
     setPickerError(null);
+    emitStudioEvent('source_upload_started', { kind: node.data.kind, sourceType: 'upload' });
     try {
       const asset = await onUploadAsset(node.data.kind, file);
       selectAsset(node.id, asset);
+      emitStudioEvent('source_upload_succeeded', {
+        kind: node.data.kind,
+        sourceType: asset.type,
+      });
     } catch (cause) {
       setPickerError(cause instanceof Error ? cause.message : 'The image could not be uploaded.');
+      emitStudioEvent('source_upload_failed', {
+        kind: node.data.kind,
+        sourceType: 'upload',
+        reason: 'upload_rejected',
+      });
     } finally {
       setUploadingAsset(false);
     }
-  }, [onUploadAsset, pickerNodeId, selectAsset]);
+  }, [emitStudioEvent, onUploadAsset, pickerNodeId, selectAsset]);
 
   const resizeStart = React.useCallback(() => {
     resizeSnapshot.current = canvasSnapshot(
@@ -1605,6 +1905,7 @@ function CanvasFlow(props: CanvasPanelProps) {
     const nextEdges = edgesRef.current.filter((edge) => edge.source !== id && edge.target !== id);
     commitMutation(nextNodes, nextEdges);
     if (pickerNodeId === id) setPickerNodeId(null);
+    sourceStartedAt.current.delete(id);
   }, [commitMutation, pickerNodeId]);
 
   const nodeActions = React.useMemo(() => ({
@@ -1613,6 +1914,10 @@ function CanvasFlow(props: CanvasPanelProps) {
     onRegenerate,
     locked,
     onOpenPicker: (id: string) => {
+      const node = nodesRef.current.find((item) => item.id === id);
+      if (node && (node.data.kind === 'character' || node.data.kind === 'pose')) {
+        emitStudioEvent('source_picker_opened', { kind: node.data.kind });
+      }
       setPickerError(null);
       setPickerNodeId(id);
     },
@@ -1631,6 +1936,7 @@ function CanvasFlow(props: CanvasPanelProps) {
   }), [
     disconnectNode,
     duplicateNode,
+    emitStudioEvent,
     locked,
     onRegenerate,
     onSelectVariant,
@@ -1819,6 +2125,16 @@ function CanvasFlow(props: CanvasPanelProps) {
   const pickerNode = pickerNodeId
     ? nodes.find((node) => node.id === pickerNodeId) ?? null
     : null;
+  const selectedSourceNode = nodes.find((node) =>
+    node.selected && (node.data.kind === 'character' || node.data.kind === 'pose'),
+  ) ?? null;
+  const selectedSourceConnectionCount = selectedSourceNode
+    ? edges.filter((edge) => edge.source === selectedSourceNode.id || edge.target === selectedSourceNode.id).length
+    : 0;
+
+  const clearSourceSelection = React.useCallback(() => {
+    commitNodes(nodesRef.current.map((node) => node.selected ? { ...node, selected: false } : node));
+  }, [commitNodes]);
 
   return (
     <StudioNodeActionsContext.Provider value={nodeActions}>
@@ -1897,9 +2213,17 @@ function CanvasFlow(props: CanvasPanelProps) {
         if (workspaceReady && !locked && event.dataTransfer.types.includes('application/x-poseforge-node')) {
           event.preventDefault();
           event.dataTransfer.dropEffect = 'copy';
+          setDragOverCanvas(true);
+        }
+      }}
+      onDragLeave={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as globalThis.Node | null)) {
+          setDragOverCanvas(false);
         }
       }}
       onDrop={(event) => {
+        setDragOverCanvas(false);
+        setDraggingKind(null);
         if (!workspaceReady || locked) return;
         const payload = event.dataTransfer.getData('application/x-poseforge-node');
         if (!payload) return;
@@ -1910,10 +2234,10 @@ function CanvasFlow(props: CanvasPanelProps) {
             const point = Number.isFinite(event.clientX) && Number.isFinite(event.clientY)
               ? { x: event.clientX, y: event.clientY }
               : undefined;
-            addImageNode(parsed.kind, parsed.asset, point);
+            addImageNode(parsed.kind, parsed.asset, point, 'drag');
           }
         } catch {
-          // Ignore drag payloads from other applications.
+          emitStudioEvent('source_validation_failed', { reason: 'invalid_drag_payload' });
         }
       }}
     >
@@ -1943,6 +2267,37 @@ function CanvasFlow(props: CanvasPanelProps) {
         state={!workspaceReady && onProjectChange ? 'loading' : projectSaveState}
         onRetry={onRetryProjectSave}
       />
+      {draggingKind ? (
+        <Panel
+          position="top-center"
+          className={cn('poseforge-drop-hint nodrag nopan', dragOverCanvas && 'is-valid')}
+          aria-live="polite"
+        >
+          {dragOverCanvas ? 'Release to add' : 'Drag onto the canvas'} {draggingKind} block
+        </Panel>
+      ) : null}
+      {selectedSourceNode && !pickerNodeId ? (
+        <SourceNodeInspector
+          node={selectedSourceNode}
+          connectionCount={selectedSourceConnectionCount}
+          locked={locked}
+          onClose={clearSourceSelection}
+          onOpenPicker={() => {
+            emitStudioEvent('source_picker_opened', { kind: selectedSourceNode.data.kind as 'character' | 'pose' });
+            setPickerError(null);
+            setPickerNodeId(selectedSourceNode.id);
+          }}
+          onSetImageFit={(fit) => {
+            if ((selectedSourceNode.data.imageFit ?? 'fill') === fit) return;
+            updateNode(selectedSourceNode.id, (node) => ({
+              ...node,
+              data: { ...node.data, imageFit: fit },
+            }));
+          }}
+          onDisconnect={() => disconnectNode(selectedSourceNode.id)}
+          onRemove={() => removeNode(selectedSourceNode.id)}
+        />
+      ) : null}
       <DrawerPalette
         subjects={subjects}
         suggestions={poseSuggestions}
@@ -1951,7 +2306,16 @@ function CanvasFlow(props: CanvasPanelProps) {
         onToggleSuggestion={onToggleSuggestion}
         onViewportChange={persistViewport}
         locked={locked || !workspaceReady}
-        onAddNode={addImageNode}
+        onAddNode={(kind, asset, entryMethod) => addImageNode(kind, asset, undefined, entryMethod)}
+        onDrawerStart={(kind) => {
+          setDraggingKind(kind);
+          setDragOverCanvas(false);
+          emitStudioEvent('source_drawer_started', { kind, entryMethod: 'drag' });
+        }}
+        onDrawerEnd={() => {
+          setDraggingKind(null);
+          setDragOverCanvas(false);
+        }}
       />
       {pickerNode && (pickerNode.data.kind === 'character' || pickerNode.data.kind === 'pose') ? (
         <SourcePicker

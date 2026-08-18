@@ -733,6 +733,21 @@ export function StudioView() {
             poseAssets={poseAssets}
             generatedAssets={generatedAssets}
             onUploadAsset={uploadCanvasAsset}
+            mode={state.mode}
+            engineLabel={selectedEngine?.label ?? engine}
+            forgeValidation={
+              errors[0] ?? (
+                generating
+                  ? `${completed + failed} of ${state.activeGenerationIds.length || plannedOutputs} outputs finished`
+                  : canGenerate
+                    ? 'Ready to generate'
+                    : collageNeedsUpload
+                      ? 'Upload a pose collage to continue'
+                      : selectedEngine && !selectedEngine.ready
+                        ? (selectedEngine.reason ?? 'Selected engine is unavailable')
+                        : 'Add sources to continue'
+              )
+            }
           />
 
           <PanelResizeHandle
