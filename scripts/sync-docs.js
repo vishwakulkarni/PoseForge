@@ -94,6 +94,43 @@ const DOCUMENTS = [
   },
 ];
 
+const DOC_ROUTES = new Map(
+  DOCUMENTS.map((doc) => [path.posix.normalize(doc.src), `/docs/${doc.slug}`]),
+);
+
+/**
+ * Repository markdown links are relative to their source files. Once mirrored
+ * into /docs/<slug>, those same hrefs resolve from a different directory and
+ * become 404s. Translate links to known documents into canonical app routes;
+ * absolute URLs, anchors, assets, and code examples remain untouched.
+ */
+function rewriteDocumentLinks(markdown, doc) {
+  let insideFence = false;
+  const sourceDirectory = path.posix.dirname(doc.src);
+
+  return markdown
+    .split("\n")
+    .map((line) => {
+      if (/^\s*```/.test(line)) {
+        insideFence = !insideFence;
+        return line;
+      }
+      if (insideFence) return line;
+
+      return line.replace(/(\[[^\]]*\]\()([^\s)]+)([^)]*\))/g, (match, opening, destination, closing) => {
+        if (/^(?:[a-z][a-z\d+.-]*:|#|\/)/i.test(destination)) return match;
+
+        const hashIndex = destination.indexOf("#");
+        const pathname = hashIndex === -1 ? destination : destination.slice(0, hashIndex);
+        const hash = hashIndex === -1 ? "" : destination.slice(hashIndex);
+        const resolved = path.posix.normalize(path.posix.join(sourceDirectory, pathname));
+        const route = DOC_ROUTES.get(resolved);
+        return route ? `${opening}${route}${hash}${closing}` : match;
+      });
+    })
+    .join("\n");
+}
+
 /**
  * MDX treats `{` as an expression and `<` as JSX. Escaping them in prose
  * keeps arbitrary markdown safe, while fenced code blocks pass through
@@ -132,7 +169,7 @@ function build(doc) {
 
   return (
     `---\ntitle: ${quote(doc.title)}\ndescription: ${quote(doc.description)}\n---\n\n` +
-    escapeForMdx(body)
+    escapeForMdx(rewriteDocumentLinks(body, doc))
   );
 }
 
@@ -170,4 +207,9 @@ function main() {
   if (stale) process.exit(1);
 }
 
-main();
+if (require.main === module) main();
+
+module.exports = {
+  DOCUMENTS,
+  rewriteDocumentLinks,
+};

@@ -177,9 +177,27 @@ Eight product tables, no ORM:
 - **`studio_recipes`** — named, reusable Advanced-mode settings stored as
   JSONB. Recipes contain creative controls only; they never retain identity
   or pose images.
+- **`studio_projects`** — the versioned, persistent Studio canvas document.
+  It stores viewport, node geometry, edges, and lock state in validated JSONB,
+  with an optimistic `revision` that prevents one browser tab from silently
+  overwriting another. The local-first app creates one default project on
+  first use; the schema supports additional named projects later.
+- **`studio_composition_revisions`** — immutable, per-node snapshots reserved
+  for the Forge-owned settings phase. Existing canvas persistence does not
+  write revisions until a generation run is submitted.
+- **`studio_runs`** — durable run lineage between an immutable composition
+  revision and one or more generation rows. Its nullable foreign keys on
+  `generations` preserve backward compatibility with pre-project history.
 
 Advanced generations also store `studio_mode`, sanitized `advanced_settings`
 JSONB, and an optional `batch_id` that groups multi-variant requests.
+
+The Studio client serializes project saves: each request uses the last
+acknowledged revision, and newer canvas gestures coalesce behind an in-flight
+save. React Flow remains the interaction renderer, while the project document
+is the durable source of viewport, positions, edges, and lock state. Source
+and result data are still reconciled from the current generation form until
+the per-node configuration migration is complete.
 
 Run `npm run migrate` to apply `db/migrations/*.sql` in order; it tracks
 what's already applied in a `schema_migrations` table, so it's safe to run

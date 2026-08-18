@@ -36,6 +36,7 @@
     "migrate": "node db/migrate.js",
     "docs:sync": "node scripts/sync-docs.js",
     "docs:check": "node scripts/sync-docs.js --check",
+    "pages:check-links": "node scripts/check-static-links.js",
     "release:check": "node scripts/verify-release.js",
     "launch:score": "node scripts/score-launch-readiness.js",
     "demo:identity": "node scripts/build-identity-demo.js",

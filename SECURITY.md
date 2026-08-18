@@ -46,7 +46,7 @@ credential handling, logs, and telemetry policy.
 
 If you find a security issue in PoseForge itself (not in one of its
 third-party engines/dependencies), please report it privately rather than
-opening a public issue — open a [GitHub Security Advisory](../../security/advisories/new)
+opening a public issue — open a [GitHub Security Advisory](https://github.com/vishwakulkarni/PoseForge/security/advisories/new)
 on this repository, or contact the maintainer directly. We'll acknowledge
 reports within a few days and aim to have a fix or mitigation plan within
 two weeks for anything serious.

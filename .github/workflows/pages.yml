@@ -42,6 +42,11 @@ jobs:
           NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
         run: npm run build
 
+      - name: Check exported links
+        env:
+          NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
+        run: npm run pages:check-links
+
       - name: Disable Jekyll processing
         run: touch web/out/.nojekyll
 
