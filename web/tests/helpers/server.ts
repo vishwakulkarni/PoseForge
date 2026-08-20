@@ -167,6 +167,19 @@ export const handlers = [
   ),
   http.get('/api/presets', () => HttpResponse.json({ presets: [] })),
   http.get('/api/recipes', () => HttpResponse.json({ recipes: [] })),
+  http.get('/api/studio-projects', () =>
+    HttpResponse.json({
+      projects: [{
+        id: '33333333-3333-4333-8333-333333333333',
+        name: 'My Studio',
+        schemaVersion: 1,
+        revision: 0,
+        isDefault: true,
+        createdAt: '2026-08-17T10:00:00.000Z',
+        updatedAt: '2026-08-17T10:00:00.000Z',
+      }],
+    }),
+  ),
   http.get('/api/studio-projects/default', () =>
     HttpResponse.json({
       id: '33333333-3333-4333-8333-333333333333',

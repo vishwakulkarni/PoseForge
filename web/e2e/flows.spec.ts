@@ -68,10 +68,136 @@ test.describe('studio', () => {
     );
     await expect(page.getByRole('button', { name: 'Fit all nodes' })).toBeVisible();
     await expect(page.getByLabel('Node palette')).toBeVisible();
+    const projectSwitcher = page.getByRole('button', { name: /switch studio project/i });
+    await expect(projectSwitcher).toBeVisible();
+    await projectSwitcher.click();
+    await expect(page.getByRole('dialog', { name: 'Studio projects' })).toBeVisible();
+    await expect(page.getByLabel('Create new project')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog', { name: 'Studio projects' })).toBeHidden();
     expect(await page.locator('.react-flow').evaluate((element) =>
       element.getBoundingClientRect().height,
     )).toBeGreaterThan(300);
     await expect(page.getByLabel('Canvas controls')).toBeInViewport();
+  });
+
+  test('creates a Studio project and keeps it in the project dropdown', async ({ page }) => {
+    const defaultId = '33333333-3333-4333-8333-333333333333';
+    const createdId = '88888888-8888-4888-8888-888888888888';
+    const now = '2026-08-19T12:00:00.000Z';
+    const blankDocument = {
+      schemaVersion: 1 as const,
+      viewport: null,
+      nodes: [],
+      edges: [],
+      locked: false,
+    };
+    const defaultProject = {
+      id: defaultId,
+      name: 'My Studio',
+      schemaVersion: 1,
+      revision: 0,
+      document: blankDocument,
+      isDefault: true,
+      createdAt: now,
+      updatedAt: now,
+    };
+    let submittedName: string | null = null;
+    let listRequests = 0;
+    const observedRequests: string[] = [];
+    page.on('request', (request) => {
+      const pathname = new URL(request.url()).pathname;
+      if (pathname.includes('studio-projects') || request.isNavigationRequest()) {
+        observedRequests.push(`${request.method()} ${pathname}`);
+      }
+    });
+
+    await page.evaluate(() => localStorage.removeItem('poseforge:active-studio-project'));
+    await page.route('**/api/studio-projects/default', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(defaultProject),
+      });
+    });
+    await page.route('**/api/studio-projects', async (route) => {
+      if (route.request().method() === 'POST') {
+        const body = route.request().postDataJSON() as { name: string };
+        submittedName = body.name;
+        await route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            ...defaultProject,
+            id: createdId,
+            name: body.name,
+            isDefault: false,
+          }),
+        });
+        return;
+      }
+      if (route.request().method() === 'DELETE') {
+        await route.fulfill({ status: 204 });
+        return;
+      }
+      listRequests += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          projects: [{
+            ...defaultProject,
+            document: undefined,
+          }],
+        }),
+      });
+    });
+    await page.route(`**/api/studio-projects/${createdId}`, async (route) => {
+      if (route.request().method() === 'DELETE') {
+        await route.fulfill({ status: 204 });
+        return;
+      }
+      await route.fallback();
+    });
+
+    await page.reload();
+    await expect(page.locator('html[data-poseforge-hydrated="true"]')).toBeAttached();
+    const switcher = page.getByRole('button', {
+      name: 'Switch Studio project. Current project: My Studio',
+    });
+    await switcher.click();
+    await page.getByLabel('Create new project').fill('Holiday launch');
+    const createButton = page.getByRole('button', { name: 'Create', exact: true });
+    await expect(createButton).toBeEnabled();
+    await createButton.click();
+    await expect.poll(() => submittedName).toBe('Holiday launch');
+    expect(observedRequests).toContain('POST /api/studio-projects');
+    expect(observedRequests.filter((request) => request === 'GET /studio')).toHaveLength(1);
+    await expect.poll(() => page.evaluate(() =>
+      localStorage.getItem('poseforge:active-studio-project'),
+    )).toBe(createdId);
+
+    await expect(page.getByRole('button', {
+      name: 'Switch Studio project. Current project: Holiday launch',
+    })).toBeVisible();
+    expect(submittedName).toBe('Holiday launch');
+    expect(listRequests).toBe(1);
+
+    await page.getByRole('button', {
+      name: 'Switch Studio project. Current project: Holiday launch',
+    }).click();
+    const menu = page.getByRole('dialog', { name: 'Studio projects' });
+    await expect(menu.getByRole('button', { name: /Holiday launch Updated/ })).toBeVisible();
+    await expect(menu.getByLabel('Current project')).toBeVisible();
+    await menu.getByRole('button', { name: 'Delete Holiday launch' }).click();
+    await expect(page.getByRole('button', {
+      name: 'Switch Studio project. Current project: My Studio',
+    })).toBeVisible();
+    await page.getByRole('button', {
+      name: 'Switch Studio project. Current project: My Studio',
+    }).click();
+    await expect(page.getByRole('dialog', { name: 'Studio projects' })
+      .getByRole('button', { name: /holiday launch/i })).toHaveCount(0);
   });
 
   test('locks and unlocks spatial canvas interactions', async ({ page }) => {

@@ -28,13 +28,17 @@ import {
 } from '@xyflow/react';
 import {
   BrushCleaning,
+  Check,
+  ChevronDown,
   Image as ImageIcon,
   LockKeyhole,
   Maximize2,
   Menu,
   PersonStanding,
+  Plus,
   Redo2,
   Sparkles,
+  Trash2,
   Undo2,
   UnlockKeyhole,
   UserRound,
@@ -50,8 +54,12 @@ import type {
   StudioProjectNode,
   StudioProjectNodeAssetType,
   StudioProjectNodeImageFit,
+  StudioProjectSummary,
 } from '@/lib/api/types';
-import type { StudioProjectSaveState } from '@/lib/studio/project-workspace';
+import type {
+  StudioProjectActionState,
+  StudioProjectSaveState,
+} from '@/lib/studio/project-workspace';
 
 export type CanvasState = 'idle' | 'ready' | 'running' | 'done';
 
@@ -129,6 +137,13 @@ export interface CanvasPanelProps {
   projectSaveState?: StudioProjectSaveState;
   onProjectChange?: (document: StudioProjectDocument) => void;
   onRetryProjectSave?: () => void;
+  projects?: StudioProjectSummary[];
+  projectsLoading?: boolean;
+  projectActionState?: StudioProjectActionState;
+  projectActionError?: string | null;
+  onSwitchProject?: (id: string) => Promise<void>;
+  onCreateProject?: (name: string) => Promise<StudioProject>;
+  onDeleteProject?: (id: string) => Promise<void>;
   characterAssets?: CanvasAsset[];
   poseAssets?: CanvasAsset[];
   generatedAssets?: CanvasAsset[];
@@ -237,6 +252,7 @@ const EMPTY_SUGGESTIONS: CanvasPoseSuggestion[] = [];
 const EMPTY_IDS: string[] = [];
 const EMPTY_LABELS: string[] = [];
 const EMPTY_ASSETS: CanvasAsset[] = [];
+const EMPTY_PROJECTS: StudioProjectSummary[] = [];
 
 function isAssetValidForKind(kind: 'character' | 'pose', asset: CanvasAsset) {
   if (!asset.id || !asset.label || !asset.imageUrl) return false;
@@ -883,11 +899,55 @@ function CanvasControls({
 function ProjectSaveStatus({
   state,
   onRetry,
+  project,
+  projects = EMPTY_PROJECTS,
+  projectsLoading = false,
+  actionState = 'idle',
+  actionError,
+  onSwitchProject,
+  onCreateProject,
+  onDeleteProject,
 }: {
   state?: StudioProjectSaveState;
   onRetry?: () => void;
+  project?: StudioProject | null;
+  projects?: StudioProjectSummary[];
+  projectsLoading?: boolean;
+  actionState?: StudioProjectActionState;
+  actionError?: string | null;
+  onSwitchProject?: (id: string) => Promise<void>;
+  onCreateProject?: (name: string) => Promise<StudioProject>;
+  onDeleteProject?: (id: string) => Promise<void>;
 }) {
-  if (!state) return null;
+  const [open, setOpen] = React.useState(false);
+  const [name, setName] = React.useState('');
+  const [localError, setLocalError] = React.useState<string | null>(null);
+  const control = React.useRef<HTMLDivElement>(null);
+  const trigger = React.useRef<HTMLButtonElement>(null);
+  const busy = actionState !== 'idle';
+
+  React.useEffect(() => {
+    if (!open) return;
+    const closeOutside = (event: MouseEvent) => {
+      const container = control.current;
+      if (container && !event.composedPath().includes(container)) setOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setOpen(false);
+      trigger.current?.focus();
+    };
+    // Dismiss after the click completes so pressing the create submit button
+    // cannot unmount its form between pointerdown and submit.
+    document.addEventListener('click', closeOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('click', closeOutside);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [open]);
+
+  if (!state && !project) return null;
   const label = state === 'loading'
     ? 'Loading workspace…'
     : state === 'pending'
@@ -900,18 +960,157 @@ function ProjectSaveStatus({
           ? 'Save conflict'
           : 'Couldn’t save';
 
+  const switchTo = async (id: string) => {
+    if (!onSwitchProject || id === project?.id) return;
+    setLocalError(null);
+    try {
+      await onSwitchProject(id);
+      setOpen(false);
+    } catch (cause) {
+      setLocalError(cause instanceof Error ? cause.message : 'The Studio project could not be opened.');
+    }
+  };
+
+  const create = async () => {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setLocalError('Enter a project name.');
+      return;
+    }
+    if (!onCreateProject) return;
+    setLocalError(null);
+    try {
+      await onCreateProject(trimmed);
+      setName('');
+      setOpen(false);
+    } catch (cause) {
+      setLocalError(cause instanceof Error ? cause.message : 'The Studio project could not be created.');
+    }
+  };
+
+  const remove = async (item: StudioProjectSummary) => {
+    if (!onDeleteProject || item.isDefault) return;
+    setLocalError(null);
+    try {
+      await onDeleteProject(item.id);
+      setOpen(false);
+    } catch (cause) {
+      setLocalError(cause instanceof Error ? cause.message : 'The Studio project could not be deleted.');
+    }
+  };
+
   return (
     <Panel
       position="top-right"
-      className={cn('poseforge-save-status', 'nodrag', 'nopan', `is-${state}`)}
-      aria-live="polite"
-      aria-label={`Studio project: ${label}`}
+      className={cn('poseforge-project-control', 'nodrag', 'nopan', state && `is-${state}`)}
     >
-      <span aria-hidden />
-      <strong>{label}</strong>
-      {(state === 'error' || state === 'conflict') && onRetry ? (
-        <button type="button" className="nodrag" onClick={onRetry}>Retry</button>
-      ) : null}
+      <div ref={control} className="poseforge-project-control-inner">
+        <div
+          className="poseforge-save-status"
+          aria-live="polite"
+          aria-label={`Studio project: ${label}`}
+        >
+          <span aria-hidden />
+          <strong>{label}</strong>
+          {(state === 'error' || state === 'conflict') && onRetry ? (
+            <button type="button" className="nodrag" onClick={onRetry}>Retry</button>
+          ) : null}
+        </div>
+        <button
+          ref={trigger}
+          type="button"
+          className="poseforge-project-trigger"
+          aria-label={`Switch Studio project. Current project: ${project?.name ?? 'Loading'}`}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          disabled={!project || (!onSwitchProject && !onCreateProject)}
+          onClick={() => {
+            setOpen((current) => !current);
+            setLocalError(null);
+          }}
+        >
+          <span>{project?.name ?? 'Studio projects'}</span>
+          <ChevronDown size={13} aria-hidden />
+        </button>
+        {open ? (
+          <div className="poseforge-project-menu" role="dialog" aria-label="Studio projects">
+            <span className="poseforge-project-menu-label">
+              Studio projects
+            </span>
+            <div className="poseforge-project-list">
+              {projectsLoading ? (
+                <p>Loading projects…</p>
+              ) : projects.length ? projects.map((item) => (
+                <div className="poseforge-project-item-row" key={item.id}>
+                  <button
+                    type="button"
+                    className="poseforge-project-item"
+                    disabled={busy}
+                    onClick={() => void switchTo(item.id)}
+                  >
+                    <span>
+                      <strong>{item.name}</strong>
+                      <small>Updated {new Date(item.updatedAt).toLocaleDateString()}</small>
+                    </span>
+                    {item.id === project?.id ? <Check size={14} aria-label="Current project" /> : null}
+                  </button>
+                  {!item.isDefault && onDeleteProject ? (
+                    <button
+                      type="button"
+                      className="poseforge-project-delete"
+                      aria-label={`Delete ${item.name}`}
+                      title={`Delete ${item.name}`}
+                      disabled={busy}
+                      onClick={() => void remove(item)}
+                    >
+                      <Trash2 size={14} aria-hidden />
+                    </button>
+                  ) : null}
+                </div>
+              )) : (
+                <p>No Studio projects found.</p>
+              )}
+            </div>
+            <div className="poseforge-project-separator" />
+            <form
+              className="poseforge-project-create"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void create();
+              }}
+            >
+              <label htmlFor="poseforge-new-project-name">Create new project</label>
+              <div>
+                <input
+                  id="poseforge-new-project-name"
+                  value={name}
+                  maxLength={100}
+                  placeholder="Project name"
+                  disabled={busy}
+                  onChange={(event) => setName(event.target.value)}
+                />
+                <button
+                  type="submit"
+                  disabled={busy || !name.trim()}
+                  onClick={(event) => {
+                    // Start the action before the document-level outside-click
+                    // listener can dismiss and unmount this nonmodal popover.
+                    event.preventDefault();
+                    event.stopPropagation();
+                    void create();
+                  }}
+                >
+                  <Plus size={14} aria-hidden />
+                  {actionState === 'creating' ? 'Creating…' : 'Create'}
+                </button>
+              </div>
+            </form>
+            {(localError || actionError) ? (
+              <p className="poseforge-project-error" role="alert">{localError ?? actionError}</p>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
     </Panel>
   );
 }
@@ -1351,6 +1550,13 @@ function CanvasFlow(props: CanvasPanelProps) {
     projectSaveState,
     onProjectChange,
     onRetryProjectSave,
+    projects,
+    projectsLoading,
+    projectActionState,
+    projectActionError,
+    onSwitchProject,
+    onCreateProject,
+    onDeleteProject,
   } = props;
 
   const emitStudioEvent = React.useCallback((
@@ -2266,6 +2472,14 @@ function CanvasFlow(props: CanvasPanelProps) {
       <ProjectSaveStatus
         state={!workspaceReady && onProjectChange ? 'loading' : projectSaveState}
         onRetry={onRetryProjectSave}
+        project={project}
+        projects={projects}
+        projectsLoading={projectsLoading}
+        actionState={projectActionState}
+        actionError={projectActionError}
+        onSwitchProject={onSwitchProject}
+        onCreateProject={onCreateProject}
+        onDeleteProject={onDeleteProject}
       />
       {draggingKind ? (
         <Panel

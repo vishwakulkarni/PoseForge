@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import {
   CanvasPanel,
   type CanvasPanelProps,
@@ -198,6 +199,64 @@ describe('PoseForge workflow canvas', () => {
     });
     expect(screen.getByRole('button', { name: 'Zoom in' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Fit all nodes' })).toBeEnabled();
+  });
+
+  it('switches and creates Studio projects from the control beside save status', async () => {
+    const user = userEvent.setup();
+    const current = project();
+    const second = project({
+      id: '44444444-4444-4444-8444-444444444444',
+      name: 'Campaign concepts',
+      isDefault: false,
+      updatedAt: '2026-08-18T12:00:00.000Z',
+    });
+    const created = project({
+      id: '55555555-5555-4555-8555-555555555555',
+      name: 'Holiday launch',
+      isDefault: false,
+      updatedAt: '2026-08-19T12:00:00.000Z',
+    });
+    const onSwitchProject = vi.fn(async () => {});
+    const onCreateProject = vi.fn(async () => created);
+    const onDeleteProject = vi.fn(async () => {});
+    render(
+      <CanvasPanel
+        {...props({
+          project: current,
+          projectSaveState: 'saved',
+          onProjectChange: vi.fn(),
+          projects: [current, second],
+          onSwitchProject,
+          onCreateProject,
+          onDeleteProject,
+        })}
+      />,
+    );
+
+    const trigger = screen.getByRole('button', {
+      name: 'Switch Studio project. Current project: My Studio',
+    });
+    await user.click(trigger);
+    const projectMenu = await screen.findByRole('dialog', { name: 'Studio projects' });
+    const currentItem = within(projectMenu).getByText('My Studio').closest('button') as HTMLElement;
+    expect(within(currentItem).getByLabelText('Current project')).toBeInTheDocument();
+    expect(within(projectMenu).queryByRole('button', { name: 'Delete My Studio' })).not.toBeInTheDocument();
+    expect(within(projectMenu).getByRole('button', { name: 'Delete Campaign concepts' })).toBeInTheDocument();
+
+    fireEvent.click(within(projectMenu).getByText('Campaign concepts').closest('button') as HTMLElement);
+    await waitFor(() => expect(onSwitchProject).toHaveBeenCalledWith(second.id));
+
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Studio projects' })).not.toBeInTheDocument());
+    await user.click(trigger);
+    fireEvent.change(screen.getByLabelText('Create new project'), {
+      target: { value: 'Holiday launch' },
+    });
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+    await waitFor(() => expect(onCreateProject).toHaveBeenCalledWith('Holiday launch'));
+
+    await user.click(trigger);
+    await user.click(screen.getByRole('button', { name: 'Delete Campaign concepts' }));
+    await waitFor(() => expect(onDeleteProject).toHaveBeenCalledWith(second.id));
   });
 
   it('does not accept canvas mutations before the saved workspace is hydrated', () => {

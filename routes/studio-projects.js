@@ -27,6 +27,18 @@ function shape(row) {
   };
 }
 
+function summary(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    schemaVersion: row.schema_version,
+    revision: Number(row.revision),
+    isDefault: row.is_default,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 function validateDocument(input) {
   const bytes = Buffer.byteLength(JSON.stringify(input ?? null), "utf8");
   if (bytes > MAX_DOCUMENT_BYTES) {
@@ -41,6 +53,16 @@ router.use((req, res, next) => {
   if (!enabled()) return res.status(404).json({ error: "Fluid Studio is disabled." });
   next();
 });
+
+router.get("/", asyncHandler(async (req, res) => {
+  const result = await pool.query(
+    `SELECT id, name, schema_version, revision, is_default, created_at, updated_at
+     FROM studio_projects
+     WHERE archived_at IS NULL
+     ORDER BY is_default DESC, updated_at DESC, created_at DESC`
+  );
+  res.json({ projects: result.rows.map(summary) });
+}));
 
 router.get("/default", asyncHandler(async (req, res) => {
   let result = await pool.query(
@@ -119,10 +141,18 @@ router.put("/:id", asyncHandler(async (req, res) => {
 
 router.delete("/:id", asyncHandler(async (req, res) => {
   if (!isUuid(req.params.id)) return res.status(404).json({ error: "Studio project not found." });
+  const existing = await pool.query(
+    "SELECT is_default FROM studio_projects WHERE id = $1 AND archived_at IS NULL",
+    [req.params.id]
+  );
+  if (!existing.rowCount) return res.status(404).json({ error: "Studio project not found." });
+  if (existing.rows[0].is_default) {
+    return res.status(400).json({ error: "The My Studio project cannot be deleted." });
+  }
   const result = await pool.query(
     `UPDATE studio_projects
      SET archived_at = now(), is_default = false, updated_at = now()
-     WHERE id = $1 AND archived_at IS NULL`,
+     WHERE id = $1 AND archived_at IS NULL AND is_default = false`,
     [req.params.id]
   );
   if (!result.rowCount) return res.status(404).json({ error: "Studio project not found." });
@@ -130,4 +160,3 @@ router.delete("/:id", asyncHandler(async (req, res) => {
 }));
 
 module.exports = router;
-

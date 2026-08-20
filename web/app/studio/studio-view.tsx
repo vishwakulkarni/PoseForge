@@ -729,6 +729,13 @@ export function StudioView() {
             projectSaveState={projectWorkspace.saveState}
             onProjectChange={projectWorkspace.save}
             onRetryProjectSave={() => void projectWorkspace.retry()}
+            projects={projectWorkspace.projects}
+            projectsLoading={projectWorkspace.projectsLoading}
+            projectActionState={projectWorkspace.projectActionState}
+            projectActionError={projectWorkspace.projectActionError}
+            onSwitchProject={projectWorkspace.switchProject}
+            onCreateProject={projectWorkspace.createProject}
+            onDeleteProject={projectWorkspace.deleteProject}
             characterAssets={characterAssets}
             poseAssets={poseAssets}
             generatedAssets={generatedAssets}

@@ -201,6 +201,8 @@ export interface StudioProject {
   updatedAt: string;
 }
 
+export type StudioProjectSummary = Omit<StudioProject, 'document'>;
+
 /** GET /api/settings */
 export interface Credential {
   configured: boolean;

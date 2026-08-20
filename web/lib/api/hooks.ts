@@ -30,6 +30,7 @@ export const queryKeys = {
     ['pose-suggestions', subjectCount, seed] as const,
   generations: (filters?: Record<string, unknown>) => ['generations', filters ?? {}] as const,
   generation: (id: string) => ['generations', id] as const,
+  studioProjects: ['studio-projects'] as const,
   studioProjectDefault: ['studio-projects', 'default'] as const,
   studioProject: (id: string) => ['studio-projects', id] as const,
   recipes: ['recipes'] as const,
@@ -287,10 +288,30 @@ export function useDeleteRecipe() {
 
 /* ------------------------------------------------------ Studio projects */
 
-export function useDefaultStudioProject() {
+export function useStudioProjects() {
+  return useQuery({
+    queryKey: queryKeys.studioProjects,
+    queryFn: api.studioProjects.list,
+    staleTime: 30_000,
+  });
+}
+
+export function useDefaultStudioProject(enabled = true) {
   return useQuery({
     queryKey: queryKeys.studioProjectDefault,
     queryFn: api.studioProjects.getDefault,
+    enabled,
+    staleTime: Infinity,
+    retry: (failureCount, error) =>
+      error instanceof ApiError && error.isNotFound ? false : failureCount < 3,
+  });
+}
+
+export function useStudioProject(id: string | null) {
+  return useQuery({
+    queryKey: queryKeys.studioProject(id ?? ''),
+    queryFn: () => api.studioProjects.get(id!),
+    enabled: Boolean(id),
     staleTime: Infinity,
     retry: (failureCount, error) =>
       error instanceof ApiError && error.isNotFound ? false : failureCount < 3,

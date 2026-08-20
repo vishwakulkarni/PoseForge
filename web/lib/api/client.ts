@@ -16,6 +16,7 @@ import type {
   Settings,
   StudioProject,
   StudioProjectDocument,
+  StudioProjectSummary,
   UsageEstimate,
 } from './types';
 
@@ -170,6 +171,8 @@ export const api = {
   },
 
   studioProjects: {
+    list: () => request<{ projects: StudioProjectSummary[] }>('/api/studio-projects')
+      .then((response) => response.projects),
     getDefault: () => request<StudioProject>('/api/studio-projects/default'),
     get: (id: string) => request<StudioProject>(`/api/studio-projects/${id}`),
     create: (input: { name?: string; document?: StudioProjectDocument }) =>
