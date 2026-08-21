@@ -79,6 +79,28 @@ describe('slot management', () => {
     expect(withFile.slots[0].characterId).toBeNull();
     expect(withFile.slots[0].file).toBeInstanceOf(File);
   });
+
+  it('hydrates the character and pose selections owned by a Studio project', () => {
+    const state = studioReducer(initialStudioState({ activeGenerationIds: ['old-run'] }), {
+      type: 'hydrateProjectSources',
+      characters: [{
+        key: 'slot-project',
+        characterId: 'char-project',
+        name: 'Mira',
+        previewUrl: '/storage/mira.png',
+      }],
+      pose: { id: 'pose-project', previewUrl: '/storage/pose.png' },
+    });
+
+    expect(state.slots).toEqual([expect.objectContaining({
+      key: 'slot-project',
+      characterId: 'char-project',
+      name: 'Mira',
+    })]);
+    expect(state.poseReferenceId).toBe('pose-project');
+    expect(state.posePreviewUrl).toBe('/storage/pose.png');
+    expect(state.activeGenerationIds).toEqual([]);
+  });
 });
 
 describe('pose selection', () => {

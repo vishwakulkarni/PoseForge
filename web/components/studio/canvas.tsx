@@ -27,7 +27,6 @@ import {
   useUpdateNodeInternals,
 } from '@xyflow/react';
 import {
-  BrushCleaning,
   Check,
   ChevronDown,
   Image as ImageIcon,
@@ -37,6 +36,7 @@ import {
   PersonStanding,
   Plus,
   Redo2,
+  RotateCcw,
   Sparkles,
   Trash2,
   Undo2,
@@ -47,6 +47,7 @@ import {
   ZoomOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import type {
   Generation,
   StudioProject,
@@ -67,11 +68,15 @@ export interface CanvasSubject {
   id: string;
   label: string;
   imageUrl: string | null;
+  assetType?: Extract<StudioProjectNodeAssetType, 'character' | 'upload'>;
+  assetId?: string;
 }
 
 export interface CanvasPose {
   label: string;
   imageUrl: string;
+  assetType?: Extract<StudioProjectNodeAssetType, 'pose' | 'upload'>;
+  assetId?: string;
 }
 
 export interface CanvasPoseSuggestion extends CanvasPose {
@@ -129,6 +134,10 @@ export interface CanvasPanelProps {
   outputPoseLabels?: string[];
   activeIndex: number;
   onSelectSubject?: (id: string) => void;
+  onSelectCharacterAsset?: (subjectId: string, asset: CanvasAsset) => void;
+  onSelectPoseAsset?: (asset: CanvasAsset) => void;
+  onDeleteSubject?: (subjectId: string) => void;
+  onDeletePose?: () => void;
   onToggleSuggestion?: (id: string) => void;
   onSelectVariant: (index: number) => void;
   onRegenerate: () => void;
@@ -136,6 +145,8 @@ export interface CanvasPanelProps {
   project?: StudioProject | null;
   projectSaveState?: StudioProjectSaveState;
   onProjectChange?: (document: StudioProjectDocument) => void;
+  /** Reset this project's graph to the empty default composition. */
+  onResetCanvas?: () => void;
   onRetryProjectSave?: () => void;
   projects?: StudioProjectSummary[];
   projectsLoading?: boolean;
@@ -177,6 +188,7 @@ interface StudioNodeData extends Record<string, unknown> {
   labelEdited?: boolean;
   assetType?: StudioProjectNodeAssetType;
   assetId?: string;
+  sourceId?: string;
   studioMode?: 'normal' | 'advanced';
   engineLabel?: string;
   inputCount?: number;
@@ -284,6 +296,13 @@ function samePositions(left: PositionMap, right: PositionMap) {
   );
 }
 
+function samePosition(
+  left: { x: number; y: number },
+  right: { x: number; y: number },
+) {
+  return left.x === right.x && left.y === right.y;
+}
+
 function sameEdges(left: Edge[], right: Edge[]) {
   if (left.length !== right.length) return false;
   const comparable = (edge: Edge) =>
@@ -353,6 +372,38 @@ function nodeSize(node: StudioFlowNode) {
   };
 }
 
+function nearestOpenPosition(
+  desired: { x: number; y: number },
+  geometry: Pick<NodeGeometry, 'width' | 'height'>,
+  nodes: StudioFlowNode[],
+) {
+  const gap = 32;
+  const stepX = geometry.width + gap;
+  const stepY = geometry.height + gap;
+  const isOpen = (position: { x: number; y: number }) => nodes.every((node) => {
+    const size = nodeSize(node);
+    return position.x + geometry.width + gap <= node.position.x ||
+      position.x >= node.position.x + size.width + gap ||
+      position.y + geometry.height + gap <= node.position.y ||
+      position.y >= node.position.y + size.height + gap;
+  });
+
+  for (let radius = 0; radius <= nodes.length + 1; radius += 1) {
+    for (let y = -radius; y <= radius; y += 1) {
+      for (let x = -radius; x <= radius; x += 1) {
+        if (Math.max(Math.abs(x), Math.abs(y)) !== radius) continue;
+        const candidate = {
+          x: desired.x + x * stepX,
+          y: desired.y + y * stepY,
+        };
+        if (isOpen(candidate)) return candidate;
+      }
+    }
+  }
+
+  return desired;
+}
+
 function configurableNode(
   node: StudioFlowNode,
   saved?: StudioProjectNode,
@@ -401,35 +452,6 @@ function savedCustomNode(saved: StudioProjectNode): StudioFlowNode {
       lastExpandedHeight: saved.lastExpandedHeight,
     },
   }, saved);
-}
-
-function measuredTidyPositions(nodes: StudioFlowNode[]): PositionMap {
-  const rows: StudioFlowNode[][] = [
-    nodes.filter((node) => node.data.kind === 'character' || node.data.kind === 'pose'),
-    nodes.filter((node) => node.data.kind === 'generate'),
-    nodes.filter((node) => node.data.kind === 'result'),
-  ];
-  const gapX = 48;
-  const gapY = 110;
-  const rowWidths = rows.map((row) => row.reduce(
-    (total, node, index) => total + nodeSize(node).width + (index ? gapX : 0),
-    0,
-  ));
-  const canvasWidth = Math.max(...rowWidths, 0);
-  const positions: PositionMap = {};
-  let y = 0;
-  rows.forEach((row, rowIndex) => {
-    let x = (canvasWidth - rowWidths[rowIndex]) / 2;
-    let rowHeight = 0;
-    row.forEach((node) => {
-      const size = nodeSize(node);
-      positions[node.id] = { x, y };
-      x += size.width + gapX;
-      rowHeight = Math.max(rowHeight, size.height);
-    });
-    y += rowHeight + gapY;
-  });
-  return positions;
 }
 
 function styledSavedEdges(
@@ -546,6 +568,20 @@ function StudioNode({ id, data, selected }: NodeProps<StudioFlowNode>) {
                 }}
               >
                 <X size={14} />
+              </button>
+            ) : data.imageUrl ? (
+              <button
+                type="button"
+                className="nodrag poseforge-node-remove"
+                aria-label={`Delete ${data.kind} ${data.label}`}
+                title={`Delete ${data.kind}`}
+                disabled={actions.locked}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  actions.onRemove(id);
+                }}
+              >
+                <Trash2 size={14} />
               </button>
             ) : null}
           </div>
@@ -677,7 +713,9 @@ function StudioNode({ id, data, selected }: NodeProps<StudioFlowNode>) {
                   <button type="button" role="menuitem" disabled={actions.locked} onClick={() => actions.onToggleCollapse(id)}>{data.collapsed ? 'Expand' : 'Collapse'}</button>
                   <button type="button" role="menuitem" disabled={actions.locked} onClick={() => actions.onDuplicate(id)}>Duplicate</button>
                   <button type="button" role="menuitem" disabled={actions.locked} onClick={() => actions.onDisconnect(id)}>Disconnect</button>
-                  {data.custom ? <button type="button" role="menuitem" disabled={actions.locked} onClick={() => actions.onRemove(id)}>Remove from canvas</button> : null}
+                  {data.custom || ((data.kind === 'character' || data.kind === 'pose') && data.imageUrl) ? (
+                    <button type="button" role="menuitem" disabled={actions.locked} onClick={() => actions.onRemove(id)}>Remove from canvas</button>
+                  ) : null}
                 </>
               )}
             </div>
@@ -750,6 +788,9 @@ function buildFlow(
         imageUrl: subject.imageUrl,
         empty: !subject.imageUrl,
         active: subject.id === selectedSubjectId,
+        assetType: subject.assetType,
+        assetId: subject.assetId,
+        sourceId: subject.id,
       },
     });
     edges.push({
@@ -778,6 +819,8 @@ function buildFlow(
         imageUrl: poseInput.imageUrl || null,
         empty: !poseInput.imageUrl,
         suggestionId,
+        assetType: poseInput.assetType ?? (suggestionId ? 'pose' : undefined),
+        assetId: poseInput.assetId ?? suggestionId,
       },
     });
     edges.push({
@@ -852,7 +895,7 @@ function CanvasControls({
   onRedo,
   canUndo,
   canRedo,
-  onTidy,
+  onReset,
 }: {
   zoom: number;
   locked: boolean;
@@ -863,8 +906,9 @@ function CanvasControls({
   onRedo: () => void;
   canUndo: boolean;
   canRedo: boolean;
-  onTidy: () => void;
+  onReset: () => void;
 }) {
+  const [resetOpen, setResetOpen] = React.useState(false);
   const { zoomIn, zoomOut, zoomTo, fitView, getViewport } = useReactFlow();
   const runViewportCommand = async (command: Promise<boolean>) => {
     await command;
@@ -872,27 +916,41 @@ function CanvasControls({
   };
 
   return (
-    <Panel position="bottom-left" className="poseforge-controls nodrag nopan" aria-label="Canvas controls">
-      <button type="button" aria-label="Zoom in" title="Zoom in" disabled={disabled} onClick={() => void runViewportCommand(zoomIn())}><ZoomIn size={15} /></button>
-      <button type="button" aria-label="Zoom out" title="Zoom out" disabled={disabled} onClick={() => void runViewportCommand(zoomOut())}><ZoomOut size={15} /></button>
-      <button
-        type="button"
-        className="poseforge-zoom-value"
-        aria-label={`Reset zoom from ${Math.round(zoom * 100)}%`}
-        title="Reset to 100%"
-        disabled={disabled}
-        onClick={() => void runViewportCommand(zoomTo(1))}
-      >
-        {Math.round(zoom * 100)}%
-      </button>
-      <button type="button" aria-label="Fit all nodes" title="Fit all nodes" disabled={disabled} onClick={() => void runViewportCommand(fitView(FIT_OPTIONS))}><Maximize2 size={15} /></button>
-      <button type="button" aria-label={locked ? 'Unlock canvas' : 'Lock canvas'} title={locked ? 'Unlock canvas' : 'Lock canvas'} disabled={disabled} onClick={onToggleLock}>
-        {locked ? <LockKeyhole size={15} /> : <UnlockKeyhole size={15} />}
-      </button>
-      <button type="button" aria-label="Undo canvas move" title="Undo" disabled={disabled || !canUndo} onClick={onUndo}><Undo2 size={15} /></button>
-      <button type="button" aria-label="Redo canvas move" title="Redo" disabled={disabled || !canRedo} onClick={onRedo}><Redo2 size={15} /></button>
-      <button type="button" aria-label="Tidy canvas" title="Tidy canvas" disabled={disabled} onClick={onTidy}><BrushCleaning size={15} /></button>
-    </Panel>
+    <>
+      <Panel position="bottom-left" className="poseforge-controls nodrag nopan" aria-label="Canvas controls">
+        <button type="button" aria-label="Zoom in" title="Zoom in" disabled={disabled} onClick={() => void runViewportCommand(zoomIn())}><ZoomIn size={15} /></button>
+        <button type="button" aria-label="Zoom out" title="Zoom out" disabled={disabled} onClick={() => void runViewportCommand(zoomOut())}><ZoomOut size={15} /></button>
+        <button
+          type="button"
+          className="poseforge-zoom-value"
+          aria-label={`Reset zoom from ${Math.round(zoom * 100)}%`}
+          title="Reset to 100%"
+          disabled={disabled}
+          onClick={() => void runViewportCommand(zoomTo(1))}
+        >
+          {Math.round(zoom * 100)}%
+        </button>
+        <button type="button" aria-label="Fit all nodes" title="Fit all nodes" disabled={disabled} onClick={() => void runViewportCommand(fitView(FIT_OPTIONS))}><Maximize2 size={15} /></button>
+        <button type="button" aria-label="Reset canvas" title="Reset canvas" disabled={disabled} onClick={() => setResetOpen(true)}><RotateCcw size={15} /></button>
+        <button type="button" aria-label={locked ? 'Unlock canvas' : 'Lock canvas'} title={locked ? 'Unlock canvas' : 'Lock canvas'} disabled={disabled} onClick={onToggleLock}>
+          {locked ? <LockKeyhole size={15} /> : <UnlockKeyhole size={15} />}
+        </button>
+        <button type="button" aria-label="Undo canvas move" title="Undo" disabled={disabled || !canUndo} onClick={onUndo}><Undo2 size={15} /></button>
+        <button type="button" aria-label="Redo canvas move" title="Redo" disabled={disabled || !canRedo} onClick={onRedo}><Redo2 size={15} /></button>
+      </Panel>
+      <ConfirmDialog
+        open={resetOpen}
+        onOpenChange={setResetOpen}
+        title="Reset canvas?"
+        description="This clears every character, pose, result, and canvas change, then restores the default workflow."
+        confirmLabel="Reset canvas"
+        destructive
+        onConfirm={() => {
+          setResetOpen(false);
+          onReset();
+        }}
+      />
+    </>
   );
 }
 
@@ -1441,12 +1499,16 @@ function SourceNodeInspector({
         <button type="button" disabled={locked || connectionCount === 0} onClick={onDisconnect}>
           Disconnect
         </button>
-        <button type="button" disabled={locked || !node.data.custom} onClick={onRemove}>
+        <button
+          type="button"
+          disabled={locked || (!node.data.custom && !node.data.imageUrl)}
+          onClick={onRemove}
+        >
           Remove from canvas
         </button>
       </div>
       {!node.data.custom ? (
-        <p className="poseforge-source-inspector-note">Authored sources are removed from the Sources panel.</p>
+        <p className="poseforge-source-inspector-note">Removing this block also clears it in the Sources panel.</p>
       ) : null}
     </Panel>
   );
@@ -1467,6 +1529,10 @@ function CanvasFlow(props: CanvasPanelProps) {
     outputPoseLabels = EMPTY_LABELS,
     activeIndex,
     onSelectSubject,
+    onSelectCharacterAsset,
+    onSelectPoseAsset,
+    onDeleteSubject,
+    onDeletePose,
     onToggleSuggestion,
     onSelectVariant,
     onRegenerate,
@@ -1478,6 +1544,7 @@ function CanvasFlow(props: CanvasPanelProps) {
     engineLabel = 'Selected engine',
     forgeValidation,
     onStudioEvent,
+    onResetCanvas,
   } = props;
   const flow = React.useMemo(() => buildFlow({
     aspectRatio,
@@ -1522,6 +1589,18 @@ function CanvasFlow(props: CanvasPanelProps) {
   const [uploadingAsset, setUploadingAsset] = React.useState(false);
   const [draggingKind, setDraggingKind] = React.useState<'character' | 'pose' | null>(null);
   const [dragOverCanvas, setDragOverCanvas] = React.useState(false);
+  const sourceSelectionKey = React.useMemo(() => JSON.stringify({
+    subjects: subjects.map((subject) => ({
+      id: subject.id,
+      label: subject.label,
+      imageUrl: subject.imageUrl,
+      assetType: subject.assetType,
+      assetId: subject.assetId,
+    })),
+    pose,
+    selectedSuggestionIds,
+  }), [pose, selectedSuggestionIds, subjects]);
+  const previousSourceSelectionKey = React.useRef(sourceSelectionKey);
   const dragSnapshot = React.useRef<CanvasSnapshot | null>(null);
   const resizeSnapshot = React.useRef<CanvasSnapshot | null>(null);
   const sourceStartedAt = React.useRef(new Map<string, number>());
@@ -1532,6 +1611,7 @@ function CanvasFlow(props: CanvasPanelProps) {
   const edgesRef = React.useRef(edges);
   const viewportRef = React.useRef(viewport);
   const lockedRef = React.useRef(locked);
+  const previousAuthoredPositionsRef = React.useRef(nodePositions(flow.nodes));
   const savedPositionsRef = React.useRef(new Map<string, { x: number; y: number }>());
   const savedEdgesRef = React.useRef<StudioProjectDocument['edges']>([]);
   const hasExplicitEdgeStateRef = React.useRef(false);
@@ -1596,36 +1676,37 @@ function CanvasFlow(props: CanvasPanelProps) {
   }, []);
 
   // Reconcile changing source/result data without resetting user geometry or
-  // the camera. Newly materialized nodes take their authored default position;
-  // existing nodes retain their current position and selection.
+  // the camera. Nodes still at their previous authored position follow the new
+  // layout so inserted inputs cannot stack over them; manually moved nodes keep
+  // their current position.
   React.useEffect(() => {
     const currentNodes = nodesRef.current;
+    const previousAuthoredPositions = previousAuthoredPositionsRef.current;
     const authoredIds = new Set(flow.nodes.map((node) => node.id));
     const nextAuthoredNodes = flow.nodes.map((next) => {
       const savedPosition = savedPositionsRef.current.get(next.id);
       const positioned = savedPosition ? { ...next, position: { ...savedPosition } } : next;
       const existing = currentNodes.find((node) => node.id === next.id);
+      const previousAuthoredPosition = previousAuthoredPositions[next.id];
+      const followsAuthoredLayout = previousAuthoredPosition
+        ? samePosition(existing?.position ?? positioned.position, previousAuthoredPosition)
+        : false;
+      const sameAsset = existing?.data.assetType === next.data.assetType &&
+        existing?.data.assetId === next.data.assetId;
       return existing
         ? {
             ...next,
-            position: existing.position,
+            position: followsAuthoredLayout ? next.position : existing.position,
             selected: existing.selected,
             width: existing.width,
             height: existing.height,
             style: existing.style,
             data: {
               ...next.data,
-              label: existing.data.labelEdited || existing.data.assetType
+              label: sameAsset && existing.data.labelEdited
                 ? existing.data.label
                 : next.data.label,
-              labelEdited: existing.data.labelEdited,
-              ...(existing.data.assetType ? {
-                imageUrl: existing.data.imageUrl,
-                assetType: existing.data.assetType,
-                assetId: existing.data.assetId,
-                empty: existing.data.empty,
-                meta: existing.data.meta,
-              } : {}),
+              labelEdited: sameAsset ? existing.data.labelEdited : false,
               collapsed: existing.data.collapsed,
               lastExpandedWidth: existing.data.lastExpandedWidth,
               lastExpandedHeight: existing.data.lastExpandedHeight,
@@ -1636,6 +1717,7 @@ function CanvasFlow(props: CanvasPanelProps) {
     });
     const customNodes = currentNodes.filter((node) => node.data.custom && !authoredIds.has(node.id));
     const nextNodes = [...nextAuthoredNodes, ...customNodes];
+    previousAuthoredPositionsRef.current = nodePositions(flow.nodes);
     commitNodes(nextNodes);
 
     const nodeIds = new Set(nextNodes.map((node) => node.id));
@@ -1782,6 +1864,21 @@ function CanvasFlow(props: CanvasPanelProps) {
     onProjectChange?.(projectDocument(nextNodes, nextEdges, nextViewport, nextLocked));
   }, [onProjectChange]);
 
+  // Source choices originate outside React Flow as well as inside it. Persist
+  // the reconciled graph whenever that shared selection changes so reopening
+  // or switching Studio projects restores the same character and pose.
+  React.useEffect(() => {
+    if (previousSourceSelectionKey.current === sourceSelectionKey) return;
+    previousSourceSelectionKey.current = sourceSelectionKey;
+    if (!persistenceReady.current) return;
+    emitProject(
+      nodesRef.current,
+      edgesRef.current,
+      viewportRef.current,
+      lockedRef.current,
+    );
+  }, [emitProject, sourceSelectionKey]);
+
   const persistViewport = React.useCallback((nextViewport: Viewport) => {
     commitViewport(nextViewport);
     emitProject(nodesRef.current, edgesRef.current, nextViewport, lockedRef.current);
@@ -1825,6 +1922,15 @@ function CanvasFlow(props: CanvasPanelProps) {
       });
       return;
     }
+    const syncsCharacter = kind === 'character' && asset?.type === 'character' && onSelectCharacterAsset;
+    const syncsPose = kind === 'pose' && asset?.type === 'pose' && onSelectPoseAsset;
+    if (asset && (syncsCharacter || syncsPose)) {
+      if (kind === 'character') onSelectCharacterAsset?.('', asset);
+      else onSelectPoseAsset?.(asset);
+      emitStudioEvent('source_block_added', { kind, entryMethod, sourceType: asset.type });
+      emitStudioEvent('source_asset_selected', { kind, entryMethod, sourceType: asset.type });
+      return;
+    }
     const id = `${kind}-block-${crypto.randomUUID()}`;
     const startedAt = performance.now();
     const geometry = NODE_GEOMETRY[kind];
@@ -1838,7 +1944,11 @@ function CanvasFlow(props: CanvasPanelProps) {
         ? { x: pane.left + pane.width / 2, y: pane.top + pane.height / 2 }
         : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
       const projected = screenToFlowPosition(center);
-      position = { x: projected.x - geometry.width / 2, y: projected.y - geometry.height / 2 };
+      position = nearestOpenPosition(
+        { x: projected.x - geometry.width / 2, y: projected.y - geometry.height / 2 },
+        geometry,
+        nodesRef.current,
+      );
     }
     const node = configurableNode({
       id,
@@ -1895,7 +2005,7 @@ function CanvasFlow(props: CanvasPanelProps) {
     } else {
       emitStudioEvent('source_picker_opened', { kind, entryMethod });
     }
-  }, [commitMutation, emitStudioEvent, screenToFlowPosition, workspaceReady]);
+  }, [commitMutation, emitStudioEvent, onSelectCharacterAsset, onSelectPoseAsset, screenToFlowPosition, workspaceReady]);
 
   const updateNode = React.useCallback((
     id: string,
@@ -1917,6 +2027,38 @@ function CanvasFlow(props: CanvasPanelProps) {
         sourceType: asset.type,
         reason: 'asset_type_mismatch',
       });
+      return;
+    }
+    const syncsCharacter = current.data.kind === 'character' &&
+      asset.type === 'character' && Boolean(onSelectCharacterAsset);
+    const syncsPose = current.data.kind === 'pose' &&
+      asset.type === 'pose' && Boolean(onSelectPoseAsset);
+    if (syncsCharacter || syncsPose) {
+      if (current.data.kind === 'character') {
+        onSelectCharacterAsset?.(current.data.sourceId ?? '', asset);
+      } else {
+        onSelectPoseAsset?.(asset);
+      }
+      if (current.data.custom) {
+        const nextNodes = nodesRef.current.filter((node) => node.id !== id);
+        const nextEdges = edgesRef.current.filter((edge) => edge.source !== id && edge.target !== id);
+        commitMutation(nextNodes, nextEdges);
+      }
+      const startedAt = sourceStartedAt.current.get(id);
+      emitStudioEvent('source_asset_selected', {
+        kind: current.data.kind,
+        sourceType: asset.type,
+        ...(startedAt == null ? {} : {
+          elapsedMs: Math.max(0, Math.round(performance.now() - startedAt)),
+        }),
+      });
+      sourceStartedAt.current.delete(id);
+      setPickerNodeId(null);
+      setPickerError(null);
+      return;
+    }
+    if (!current.data.custom) {
+      setPickerError('Choose a library source that can be synchronized with the Sources panel.');
       return;
     }
     updateNode(id, (node) => ({
@@ -1943,7 +2085,7 @@ function CanvasFlow(props: CanvasPanelProps) {
     sourceStartedAt.current.delete(id);
     setPickerNodeId(null);
     setPickerError(null);
-  }, [emitStudioEvent, updateNode]);
+  }, [commitMutation, emitStudioEvent, onSelectCharacterAsset, onSelectPoseAsset, updateNode]);
 
   const uploadAsset = React.useCallback(async (file: File) => {
     if (!pickerNodeId || !onUploadAsset) return;
@@ -2107,12 +2249,25 @@ function CanvasFlow(props: CanvasPanelProps) {
 
   const removeNode = React.useCallback((id: string) => {
     if (lockedRef.current) return;
+    const source = nodesRef.current.find((node) => node.id === id);
+    if (source && !source.data.custom) {
+      if (source.data.suggestionId && onToggleSuggestion) {
+        onToggleSuggestion(source.data.suggestionId);
+      } else if (source.data.kind === 'character' && source.data.sourceId) {
+        onDeleteSubject?.(source.data.sourceId);
+      } else if (source.data.kind === 'pose') {
+        onDeletePose?.();
+      }
+      if (pickerNodeId === id) setPickerNodeId(null);
+      sourceStartedAt.current.delete(id);
+      return;
+    }
     const nextNodes = nodesRef.current.filter((node) => node.id !== id);
     const nextEdges = edgesRef.current.filter((edge) => edge.source !== id && edge.target !== id);
     commitMutation(nextNodes, nextEdges);
     if (pickerNodeId === id) setPickerNodeId(null);
     sourceStartedAt.current.delete(id);
-  }, [commitMutation, pickerNodeId]);
+  }, [commitMutation, onDeletePose, onDeleteSubject, onToggleSuggestion, pickerNodeId]);
 
   const nodeActions = React.useMemo(() => ({
     onToggleSuggestion,
@@ -2156,32 +2311,58 @@ function CanvasFlow(props: CanvasPanelProps) {
     updateNode,
   ]);
 
-  const tidy = React.useCallback(() => {
+  const resetToDefault = React.useCallback(() => {
     const currentNodes = nodesRef.current;
     const currentEdges = edgesRef.current;
     const currentViewport = viewportRef.current;
-    const currentLocked = lockedRef.current;
-    const current = nodePositions(currentNodes);
-    const tidyPositions = measuredTidyPositions(currentNodes);
-    if (samePositions(current, tidyPositions)) {
-      void fitView(FIT_OPTIONS).then(() => persistViewport(getViewport()));
-      return;
-    }
     setUndoStack((history) => [
       ...history.slice(-19),
       canvasSnapshot(currentNodes, currentEdges, currentViewport),
     ]);
     setRedoStack([]);
-    const nextNodes = currentNodes.map((node) => tidyPositions[node.id]
-      ? { ...node, position: { ...tidyPositions[node.id] } }
-      : node,
-    );
-    commitNodes(nextNodes);
-    emitProject(nextNodes, currentEdges, currentViewport, currentLocked);
-    window.requestAnimationFrame(() => {
-      void fitView(FIT_OPTIONS).then(() => persistViewport(getViewport()));
+    // Reset is the project's escape hatch: discard custom blocks, generated
+    // outputs, and source selections, then restore the four-node empty graph.
+    // This keeps every project recoverable without changing another project's
+    // saved document.
+    const defaultFlow = buildFlow({
+      aspectRatio,
+      status: 'idle',
+      subjects: [],
+      pose: null,
+      poseSuggestions: [],
+      selectedSuggestionIds: [],
+      selectedSubjectId: null,
+      generations: [],
+      plannedOutputs: 1,
+      outputPoseLabels: [],
+      activeIndex: 0,
+      mode,
+      engineLabel,
+      forgeValidation: 'Add sources to continue',
     });
-  }, [commitNodes, emitProject, fitView, getViewport, persistViewport]);
+    const nextNodes = defaultFlow.nodes.map((node) => ({ ...node, selected: false }));
+    const nextEdges = defaultFlow.edges;
+    const nextViewport = { x: 0, y: 0, zoom: 1 };
+    commitNodes(nextNodes);
+    commitEdges(nextEdges);
+    commitViewport(nextViewport);
+    commitLocked(false);
+    savedPositionsRef.current = new Map();
+    savedEdgesRef.current = nextEdges.map((edge) => ({
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+      ...(edge.sourceHandle ? { sourceHandle: edge.sourceHandle } : {}),
+      ...(edge.targetHandle ? { targetHandle: edge.targetHandle } : {}),
+    }));
+    hasExplicitEdgeStateRef.current = true;
+    suppressedEdgeIdsRef.current.clear();
+    emitProject(nextNodes, nextEdges, nextViewport, false);
+    onResetCanvas?.();
+    window.requestAnimationFrame(() => {
+      void setFlowViewport(nextViewport, { duration: 120 });
+    });
+  }, [aspectRatio, commitEdges, commitLocked, commitNodes, commitViewport, emitProject, engineLabel, mode, onResetCanvas, setFlowViewport]);
 
   const applySnapshot = React.useCallback((snapshot: CanvasSnapshot) => {
     const nextNodes = snapshot.nodes.map((node) => ({
@@ -2467,7 +2648,7 @@ function CanvasFlow(props: CanvasPanelProps) {
         onRedo={redo}
         canUndo={undoStack.length > 0}
         canRedo={redoStack.length > 0}
-        onTidy={tidy}
+        onReset={resetToDefault}
       />
       <ProjectSaveStatus
         state={!workspaceReady && onProjectChange ? 'loading' : projectSaveState}
@@ -2535,7 +2716,7 @@ function CanvasFlow(props: CanvasPanelProps) {
         <SourcePicker
           node={pickerNode}
           assets={pickerNode.data.kind === 'character' ? characterAssets : poseAssets}
-          generatedAssets={generatedAssets}
+          generatedAssets={pickerNode.data.custom ? generatedAssets : EMPTY_ASSETS}
           error={pickerError}
           uploading={uploadingAsset}
           canUpload={Boolean(onUploadAsset)}

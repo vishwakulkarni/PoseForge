@@ -334,17 +334,22 @@ test.describe('studio', () => {
     await page.getByRole('menuitem', { name: 'Collapse' }).click();
     await expect(droppedPose.locator('.poseforge-collapsed-body')).toBeVisible();
     await expect(droppedPose.locator('.poseforge-handle')).toHaveCount(1);
+    await page.getByLabel('Selected image block inspector')
+      .getByRole('button', { name: 'Remove from canvas' }).click();
+    await expect(droppedPose).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Add character image block' }).click();
     const picker = page.getByLabel('Select character image');
     await expect(picker).toBeVisible();
     await picker.getByRole('button', { name: 'E2E portrait' }).click();
-    const inspector = page.getByLabel('Selected image block inspector');
-    await expect(inspector).toContainText('E2E portrait');
-    await expect(inspector).toContainText('Character library');
-    await expect(inspector.getByRole('link', { name: 'Locate asset' })).toHaveAttribute('href', '/characters');
-    await inspector.getByRole('button', { name: 'Fit' }).click();
-    await expect(inspector.getByRole('button', { name: 'Fit' })).toHaveAttribute('aria-pressed', 'true');
+    const sources = page.getByLabel('Source assets');
+    await expect(sources.getByText('E2E portrait')).toBeVisible();
+    await expect(page.locator('.react-flow__node[data-id^="character-block-"]')).toHaveCount(0);
+    const synchronizedCharacter = page.locator('.poseforge-node-character');
+    await expect(synchronizedCharacter).toContainText('E2E portrait');
+    await synchronizedCharacter.getByRole('button', { name: 'Delete character E2E portrait' }).click();
+    await expect(sources.getByText('Add identity photo')).toBeVisible();
+    await expect(page.locator('[data-id="character-empty"]')).toContainText('Add a character');
   });
 
   test('hydrates before editing and persists the final rapid drag position', async ({ page }, testInfo) => {

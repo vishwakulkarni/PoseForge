@@ -2560,6 +2560,11 @@
   cursor: pointer;
 }
 
+.poseforge-node-remove:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .poseforge-generate-body {
   min-height: 0;
   height: 100%;

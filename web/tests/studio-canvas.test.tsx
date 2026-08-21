@@ -167,10 +167,57 @@ describe('PoseForge workflow canvas', () => {
     expect(screen.getByRole('button', { name: 'Fit all nodes' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Undo canvas move' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Redo canvas move' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Tidy canvas' })).toBeInTheDocument();
+    const reset = screen.getByRole('button', { name: 'Reset canvas' });
+    const lock = screen.getByRole('button', { name: 'Lock canvas' });
+    expect(reset).toBeInTheDocument();
+    expect(reset.nextElementSibling).toBe(lock);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Lock canvas' }));
+    fireEvent.click(lock);
     expect(screen.getByRole('button', { name: 'Unlock canvas' })).toBeInTheDocument();
+  });
+
+  it('resets the canvas to the empty default graph and clears photo selection', async () => {
+    const onProjectChange = vi.fn();
+    const onResetCanvas = vi.fn();
+    render(
+      <CanvasPanel
+        {...props({
+          project: project({
+            document: {
+              ...project().document,
+              nodes: [{ id: 'custom-block', kind: 'character', custom: true, position: { x: 900, y: 900 } }],
+            },
+          }),
+          onProjectChange,
+          onResetCanvas,
+          generations: [generation({ id: 'completed', status: 'completed', outputUrl: '/result.png' })],
+        })}
+      />,
+    );
+
+    const resetButton = screen.getByRole('button', { name: 'Reset canvas' });
+    await waitFor(() => expect(resetButton).toBeEnabled());
+    fireEvent.click(resetButton);
+    const confirm = screen.getByRole('alertdialog', { name: 'Reset canvas?' });
+    expect(confirm).toHaveTextContent('clears every character, pose, result, and canvas change');
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Reset canvas' }));
+
+    expect(onResetCanvas).toHaveBeenCalledTimes(1);
+    expect(onProjectChange).toHaveBeenLastCalledWith(expect.objectContaining({
+      locked: false,
+      viewport: { x: 0, y: 0, zoom: 1 },
+      nodes: expect.arrayContaining([
+        expect.objectContaining({ id: 'character-empty', kind: 'character' }),
+        expect.objectContaining({ id: 'pose-empty', kind: 'pose' }),
+        expect.objectContaining({ id: 'generate', kind: 'generate' }),
+        expect.objectContaining({ id: 'result-placeholder-0', kind: 'result' }),
+      ]),
+    }));
+    expect(onProjectChange.mock.lastCall?.[0].nodes).toHaveLength(4);
+    await waitFor(() => {
+      expect(screen.getByText('Add a character')).toBeInTheDocument();
+      expect(screen.getByText('Add a pose')).toBeInTheDocument();
+    });
   });
 
   it('cold-opens legacy saved geometry with authored arrows and keeps inspection controls available', async () => {
@@ -341,6 +388,42 @@ describe('PoseForge workflow canvas', () => {
       .toBe('translate(777px,888px)');
   });
 
+  it('re-aligns untouched workflow nodes when a character is inserted', async () => {
+    const oneSubject = [{
+      id: 'subject-1',
+      label: 'Anika',
+      imageUrl: '/storage/anika.png',
+    }];
+    const { container, rerender } = render(
+      <CanvasPanel {...props({ subjects: oneSubject })} />,
+    );
+
+    expect((container.querySelector('[data-id="pose-manual"]') as HTMLElement).style.transform)
+      .toBe('translate(380px,0px)');
+
+    rerender(
+      <CanvasPanel
+        {...props({
+          subjects: [
+            ...oneSubject,
+            { id: 'subject-2', label: 'Ravi', imageUrl: '/storage/ravi.png' },
+          ],
+        })}
+      />,
+    );
+
+    await waitFor(() => {
+      expect((container.querySelector('[data-id="character-subject-2"]') as HTMLElement).style.transform)
+        .toBe('translate(380px,0px)');
+      expect((container.querySelector('[data-id="pose-manual"]') as HTMLElement).style.transform)
+        .toBe('translate(760px,0px)');
+      expect((container.querySelector('[data-id="generate"]') as HTMLElement).style.transform)
+        .toBe('translate(380px,450px)');
+      expect((container.querySelector('[data-id="result-placeholder-0"]') as HTMLElement).style.transform)
+        .toBe('translate(305px,670px)');
+    });
+  });
+
   it('moves a focused node from the keyboard and saves the new position', () => {
     const onProjectChange = vi.fn();
     const { container } = render(
@@ -464,6 +547,128 @@ describe('PoseForge workflow canvas', () => {
       .toHaveTextContent('Mira');
     expect(restored.container.querySelector(`[data-id="${emptyBlock.id}"] img`))
       .toHaveAttribute('src', '/storage/mira.png');
+  });
+
+  it('places repeated character image blocks in separate open canvas slots', () => {
+    const { container } = render(<CanvasPanel {...props()} />);
+    const addCharacter = screen.getByRole('button', { name: 'Add character image block' });
+
+    fireEvent.click(addCharacter);
+    fireEvent.click(addCharacter);
+
+    const characterBlocks = Array.from(
+      container.querySelectorAll<HTMLElement>('[data-id^="character-block-"]'),
+    );
+    expect(characterBlocks).toHaveLength(2);
+    expect(characterBlocks[0].style.transform).not.toBe(characterBlocks[1].style.transform);
+  });
+
+  it('synchronizes authored canvas selection and deletion with the Sources panel', async () => {
+    const onSelectCharacterAsset = vi.fn();
+    const onSelectPoseAsset = vi.fn();
+    const onDeleteSubject = vi.fn();
+    const onDeletePose = vi.fn();
+    const { container } = render(
+      <CanvasPanel
+        {...props({
+          subjects: [{
+            id: 'subject-1',
+            label: 'Anika',
+            imageUrl: '/storage/anika.png',
+            assetType: 'character',
+            assetId: 'character-anika',
+          }],
+          pose: {
+            label: 'Arms crossed',
+            imageUrl: '/storage/pose.png',
+            assetType: 'pose',
+            assetId: 'pose-arms-crossed',
+          },
+          characterAssets: [{
+            id: 'character-mira',
+            type: 'character',
+            label: 'Mira',
+            imageUrl: '/storage/mira.png',
+          }],
+          poseAssets: [{
+            id: 'pose-seated',
+            type: 'pose',
+            label: 'Seated',
+            imageUrl: '/storage/seated.png',
+          }],
+          onSelectCharacterAsset,
+          onSelectPoseAsset,
+          onDeleteSubject,
+          onDeletePose,
+        })}
+      />,
+    );
+
+    fireEvent.click(within(container.querySelector('[data-id="character-subject-1"]') as HTMLElement)
+      .getByRole('button', { name: 'Replace image for Anika' }));
+    fireEvent.click(within(screen.getByLabelText('Select character image'))
+      .getByRole('button', { name: 'Mira' }));
+    expect(onSelectCharacterAsset).toHaveBeenCalledWith('subject-1', expect.objectContaining({
+      id: 'character-mira',
+    }));
+
+    fireEvent.click(within(container.querySelector('[data-id="pose-manual"]') as HTMLElement)
+      .getByRole('button', { name: 'Replace image for Arms crossed' }));
+    fireEvent.click(within(screen.getByLabelText('Select pose image'))
+      .getByRole('button', { name: 'Seated' }));
+    expect(onSelectPoseAsset).toHaveBeenCalledWith(expect.objectContaining({ id: 'pose-seated' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete character Anika' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete pose Arms crossed' }));
+    expect(onDeleteSubject).toHaveBeenCalledWith('subject-1');
+    expect(onDeletePose).toHaveBeenCalledTimes(1);
+  });
+
+  it('persists source-panel selections in the Studio project document', async () => {
+    const onProjectChange = vi.fn();
+    const { rerender } = render(
+      <CanvasPanel {...props({ project: project(), onProjectChange })} />,
+    );
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Reset canvas' })).toBeEnabled());
+    onProjectChange.mockClear();
+
+    rerender(
+      <CanvasPanel
+        {...props({
+          project: project(),
+          onProjectChange,
+          subjects: [{
+            id: 'subject-1',
+            label: 'Mira',
+            imageUrl: '/storage/mira.png',
+            assetType: 'character',
+            assetId: 'character-mira',
+          }],
+          pose: {
+            label: 'Seated',
+            imageUrl: '/storage/seated.png',
+            assetType: 'pose',
+            assetId: 'pose-seated',
+          },
+        })}
+      />,
+    );
+
+    await waitFor(() => expect(onProjectChange).toHaveBeenCalled());
+    expect(onProjectChange.mock.lastCall?.[0].nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'character-subject-1',
+        assetType: 'character',
+        assetId: 'character-mira',
+        imageUrl: '/storage/mira.png',
+      }),
+      expect.objectContaining({
+        id: 'pose-manual',
+        assetType: 'pose',
+        assetId: 'pose-seated',
+        imageUrl: '/storage/seated.png',
+      }),
+    ]));
   });
 
   it('inspects a selected image block and exposes source-safe actions', () => {

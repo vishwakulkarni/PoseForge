@@ -28,6 +28,7 @@ import {
 import {
   builtInRecipe,
   defaultAdvancedSettings,
+  MAX_CHARACTERS,
   type AdvancedSettings,
 } from '@/lib/studio/settings';
 import { cn, formatCompact, formatCurrency } from '@/lib/utils';
@@ -243,10 +244,53 @@ export function StudioView() {
   const createCharacter = useCreateCharacter();
   const createPoseReference = useCreatePoseReference();
   const { data: generationHistory } = useGenerations({ limit: 30, status: 'completed' });
+  const hydratedProjectSources = React.useRef<string | null>(null);
 
   const { generations, settled, completed, failed } = useGenerationsPolling(
     state.activeGenerationIds,
   );
+
+  // A Studio project owns its source choices as well as its graph geometry.
+  // Hydrate the generation reducer from the authored source nodes once per
+  // project so the left panel and canvas reopen with the same selections.
+  React.useEffect(() => {
+    const project = projectWorkspace.project;
+    if (!project || !characters || hydratedProjectSources.current === project.id) return;
+
+    const projectCharacters = project.document.nodes
+      .filter((node) =>
+        !node.custom &&
+        node.kind === 'character' &&
+        node.assetType === 'character' &&
+        Boolean(node.assetId),
+      )
+      .slice(0, MAX_CHARACTERS)
+      .flatMap((node) => {
+        const character = characters.find((item) => item.id === node.assetId);
+        if (!character) return [];
+        const savedKey = node.id.replace(/^character-/, '');
+        return savedKey && savedKey !== 'empty' ? [{
+          key: savedKey,
+          characterId: character.id,
+          name: character.name,
+          previewUrl: character.primaryPhotoUrl,
+        }] : [];
+      });
+    const projectPoseNode = project.document.nodes.find((node) =>
+      !node.custom && node.kind === 'pose' && node.assetType === 'pose' && Boolean(node.assetId),
+    );
+    if (projectPoseNode && !poses) return;
+    hydratedProjectSources.current = project.id;
+    const projectPose = projectPoseNode
+      ? poses?.find((item) => item.id === projectPoseNode.assetId)
+      : undefined;
+
+    dispatch({
+      type: 'hydrateProjectSources',
+      characters: projectCharacters,
+      pose: projectPose ? { id: projectPose.id, previewUrl: projectPose.imageUrl } : null,
+    });
+  }, [characters, poses, projectWorkspace.project]);
 
   // Derived rather than synced through an effect: null engine means "use the
   // server default", which keeps working if that default changes.
@@ -298,6 +342,8 @@ export function StudioView() {
             id: slot.key,
             label: slot.name ?? slot.file?.name ?? `Person ${index + 1}`,
             imageUrl: slot.previewUrl,
+            assetType: slot.characterId ? 'character' as const : undefined,
+            assetId: slot.characterId ?? undefined,
           }]
         : [],
     ),
@@ -313,9 +359,11 @@ export function StudioView() {
       ? {
           label: state.poseFile?.name ?? selectedPose?.title ?? 'Pose reference',
           imageUrl: state.posePreviewUrl,
+          assetType: state.poseReferenceId ? 'pose' as const : undefined,
+          assetId: state.poseReferenceId ?? undefined,
         }
       : null,
-    [hasManualPose, selectedPose?.title, state.poseFile?.name, state.posePreviewUrl],
+    [hasManualPose, selectedPose?.title, state.poseFile?.name, state.posePreviewUrl, state.poseReferenceId],
   );
   const { data: poseSuggestions, isLoading: suggestionsLoading } = usePoseSuggestions(
     canvasSubjects.length,
@@ -528,6 +576,15 @@ export function StudioView() {
     setErrors([]);
   };
 
+  const resetCanvas = React.useCallback(() => {
+    state.slots.forEach((slot) => dispatch({ type: 'clearSlot', key: slot.key }));
+    dispatch({ type: 'clearPose' });
+    dispatch({ type: 'setActiveGenerations', ids: [] });
+    setSelectedSubjectId(null);
+    setSelectedSuggestionIds([]);
+    setErrors([]);
+  }, [state.slots]);
+
   const toggleSuggestedPose = (id: string) => {
     if (generating) return;
     dispatch({ type: 'clearPose' });
@@ -721,6 +778,46 @@ export function StudioView() {
               if (id !== activeSubjectId) setSelectedSuggestionIds([]);
               setSelectedSubjectId(id);
             }}
+            onSelectCharacterAsset={(subjectId, asset) => {
+              const target = state.slots.find((slot) => slot.key === subjectId) ??
+                state.slots.find((slot) => !slot.characterId && !slot.file) ??
+                (state.slots.length >= MAX_CHARACTERS
+                  ? state.slots.find((slot) => slot.key === activeSubjectId) ?? state.slots[0]
+                  : null);
+              setSelectedSuggestionIds([]);
+              if (target) {
+                setSelectedSubjectId(target.key);
+                dispatch({
+                  type: 'setSlotCharacter',
+                  key: target.key,
+                  characterId: asset.id,
+                  name: asset.label,
+                  previewUrl: asset.imageUrl,
+                });
+              } else {
+                dispatch({
+                  type: 'addCanvasCharacter',
+                  characterId: asset.id,
+                  name: asset.label,
+                  previewUrl: asset.imageUrl,
+                });
+              }
+            }}
+            onSelectPoseAsset={(asset) => {
+              setSelectedSuggestionIds([]);
+              dispatch({ type: 'setPoseReference', id: asset.id, previewUrl: asset.imageUrl });
+            }}
+            onDeleteSubject={(subjectId) => {
+              dispatch({ type: 'clearSlot', key: subjectId });
+              if (subjectId === activeSubjectId) setSelectedSubjectId(null);
+              setSelectedSuggestionIds([]);
+              setErrors([]);
+            }}
+            onDeletePose={() => {
+              dispatch({ type: 'clearPose' });
+              setSelectedSuggestionIds([]);
+              setErrors([]);
+            }}
             onToggleSuggestion={toggleSuggestedPose}
             onSelectVariant={(index) => dispatch({ type: 'setActiveResultIndex', index })}
             onRegenerate={() => void submit(new Event('submit') as unknown as React.FormEvent)}
@@ -728,14 +825,30 @@ export function StudioView() {
             project={projectWorkspace.project}
             projectSaveState={projectWorkspace.saveState}
             onProjectChange={projectWorkspace.save}
+            onResetCanvas={resetCanvas}
             onRetryProjectSave={() => void projectWorkspace.retry()}
             projects={projectWorkspace.projects}
             projectsLoading={projectWorkspace.projectsLoading}
             projectActionState={projectWorkspace.projectActionState}
             projectActionError={projectWorkspace.projectActionError}
-            onSwitchProject={projectWorkspace.switchProject}
-            onCreateProject={projectWorkspace.createProject}
-            onDeleteProject={projectWorkspace.deleteProject}
+            onSwitchProject={async (id) => {
+              setSelectedSubjectId(null);
+              setSelectedSuggestionIds([]);
+              setErrors([]);
+              await projectWorkspace.switchProject(id);
+            }}
+            onCreateProject={async (name) => {
+              setSelectedSubjectId(null);
+              setSelectedSuggestionIds([]);
+              setErrors([]);
+              return projectWorkspace.createProject(name);
+            }}
+            onDeleteProject={async (id) => {
+              setSelectedSubjectId(null);
+              setSelectedSuggestionIds([]);
+              setErrors([]);
+              await projectWorkspace.deleteProject(id);
+            }}
             characterAssets={characterAssets}
             poseAssets={poseAssets}
             generatedAssets={generatedAssets}

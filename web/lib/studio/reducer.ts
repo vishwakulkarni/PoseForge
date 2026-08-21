@@ -44,10 +44,21 @@ export type StudioAction =
   | { type: 'removeSlot'; key: string }
   | { type: 'setSlotCharacter'; key: string; characterId: string; name: string | null; previewUrl: string | null }
   | { type: 'setSlotFile'; key: string; file: File; previewUrl: string }
+  | { type: 'addCanvasCharacter'; characterId: string; name: string | null; previewUrl: string | null }
   | { type: 'clearSlot'; key: string }
   | { type: 'setPoseFile'; file: File; previewUrl: string }
   | { type: 'setPoseReference'; id: string; previewUrl: string }
   | { type: 'clearPose' }
+  | {
+      type: 'hydrateProjectSources';
+      characters: Array<{
+        key: string;
+        characterId: string;
+        name: string | null;
+        previewUrl: string | null;
+      }>;
+      pose: { id: string; previewUrl: string } | null;
+    }
   | { type: 'setEngine'; engine: string }
   | { type: 'setPreset'; kind: 'background' | 'style'; id: string | null }
   | { type: 'setInstructions'; value: string }
@@ -61,6 +72,12 @@ let slotCounter = 0;
 function newSlot(): CharacterSlot {
   slotCounter += 1;
   return { key: `slot-${slotCounter}`, characterId: null, file: null, previewUrl: null, name: null };
+}
+
+function newUniqueSlot(slots: CharacterSlot[]): CharacterSlot {
+  let slot = newSlot();
+  while (slots.some((current) => current.key === slot.key)) slot = newSlot();
+  return slot;
 }
 
 export function initialStudioState(overrides: Partial<StudioState> = {}): StudioState {
@@ -107,7 +124,7 @@ export function studioReducer(state: StudioState, action: StudioAction): StudioS
 
     case 'addSlot': {
       if (state.slots.length >= MAX_CHARACTERS) return state;
-      const slots = [...state.slots, newSlot()];
+      const slots = [...state.slots, newUniqueSlot(state.slots)];
       return { ...state, slots, advanced: resizeSubjects(state.advanced, slots.length) };
     }
 
@@ -138,6 +155,18 @@ export function studioReducer(state: StudioState, action: StudioAction): StudioS
         name: null,
       }));
 
+    case 'addCanvasCharacter': {
+      if (state.slots.length >= MAX_CHARACTERS) return state;
+      const added = {
+        ...newUniqueSlot(state.slots),
+        characterId: action.characterId,
+        previewUrl: action.previewUrl,
+        name: action.name,
+      };
+      const slots = [...state.slots, added];
+      return { ...state, slots, advanced: resizeSubjects(state.advanced, slots.length) };
+    }
+
     case 'clearSlot':
       return withSlot(state, action.key, () => ({
         key: action.key,
@@ -167,6 +196,34 @@ export function studioReducer(state: StudioState, action: StudioAction): StudioS
 
     case 'clearPose':
       return { ...state, poseFile: null, posePreviewUrl: null, poseReferenceId: null };
+
+    case 'hydrateProjectSources': {
+      const slots = action.characters.length
+        ? action.characters.map((character) => ({
+            key: character.key,
+            characterId: character.characterId,
+            file: null,
+            previewUrl: character.previewUrl,
+            name: character.name,
+          }))
+        : [{
+            key: state.slots[0]?.key ?? newSlot().key,
+            characterId: null,
+            file: null,
+            previewUrl: null,
+            name: null,
+          }];
+      return {
+        ...state,
+        slots,
+        poseFile: null,
+        posePreviewUrl: action.pose?.previewUrl ?? null,
+        poseReferenceId: action.pose?.id ?? null,
+        activeGenerationIds: [],
+        activeResultIndex: 0,
+        advanced: resizeSubjects(state.advanced, slots.length),
+      };
+    }
 
     case 'setEngine':
       return { ...state, engine: action.engine };

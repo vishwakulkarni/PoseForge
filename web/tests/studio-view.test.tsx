@@ -94,6 +94,57 @@ describe('Studio workbench layout', () => {
     })).toBeInTheDocument();
   });
 
+  it('hydrates the Sources panel from the active Studio project', async () => {
+    withPoses();
+    server.use(http.get('/api/studio-projects/default', () => HttpResponse.json({
+      id: '33333333-3333-4333-8333-333333333333',
+      name: 'My Studio',
+      schemaVersion: 1,
+      revision: 2,
+      document: {
+        schemaVersion: 1,
+        viewport: { x: 0, y: 0, zoom: 1 },
+        nodes: [
+          {
+            id: 'character-slot-project',
+            kind: 'character',
+            position: { x: 0, y: 0 },
+            label: 'Anika',
+            imageUrl: '/storage/characters/a.png',
+            assetType: 'character',
+            assetId: '11111111-1111-4111-8111-111111111111',
+          },
+          {
+            id: 'pose-manual',
+            kind: 'pose',
+            position: { x: 380, y: 0 },
+            label: 'Arms crossed',
+            imageUrl: '/storage/pose-1.png',
+            assetType: 'pose',
+            assetId: 'pose-1',
+          },
+        ],
+        edges: [],
+        edgeState: 'explicit',
+        locked: false,
+      },
+      isDefault: true,
+      createdAt: '2026-08-17T10:00:00.000Z',
+      updatedAt: '2026-08-17T10:05:00.000Z',
+    })));
+    const user = userEvent.setup();
+    renderWithProviders(<StudioView />);
+
+    const canvas = screen.getByLabelText(/composition canvas/i);
+    expect(await within(canvas).findByText('Anika')).toBeInTheDocument();
+    expect(within(canvas).getByText('Arms crossed')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Choose source for subject 1' }));
+    await user.click(screen.getByRole('button', { name: 'Saved' }));
+    expect(within(screen.getByLabelText('Source assets')).getByRole('button', { name: 'Anika' }))
+      .toHaveClass('selected');
+    expect(screen.getByRole('button', { name: 'Arms crossed' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('keeps generate disabled until sources and a ready engine exist', async () => {
     renderWithProviders(<StudioView />);
     const generate = await screen.findByRole('button', { name: /generate transformation/i });
@@ -225,6 +276,42 @@ describe('mode switching', () => {
 });
 
 describe('subject slots', () => {
+  it('keeps canvas-picked character and pose sources synchronized with the Sources panel', async () => {
+    withPoses();
+    const user = userEvent.setup();
+    renderWithProviders(<StudioView />);
+    await screen.findByLabelText('Studio project: Saved');
+    const canvas = screen.getByLabelText(/composition canvas/i);
+    const sources = screen.getByLabelText(/source assets/i);
+
+    await user.click(within(canvas).getByRole('button', {
+      name: 'Select image for Add a character',
+    }));
+    await user.click(within(screen.getByLabelText('Select character image'))
+      .getByRole('button', { name: 'Anika' }));
+    await waitFor(() => expect(within(sources).getByText('Anika')).toBeInTheDocument());
+    expect(within(canvas).getByText('Anika')).toBeInTheDocument();
+
+    await user.click(within(canvas).getByRole('button', { name: 'Delete character Anika' }));
+    await waitFor(() => expect(within(sources).getByText('Add identity photo')).toBeInTheDocument());
+    expect(within(canvas).getByText('Add a character')).toBeInTheDocument();
+
+    await user.click(within(canvas).getByRole('button', { name: 'Add character image block' }));
+    await user.click(within(screen.getByLabelText('Select character image'))
+      .getByRole('button', { name: 'Ravi' }));
+    await waitFor(() => expect(within(sources).getByText('Ravi')).toBeInTheDocument());
+    expect(canvas.querySelectorAll('[data-id^="character-block-"]')).toHaveLength(0);
+    expect(within(canvas).getByText('Ravi')).toBeInTheDocument();
+
+    await user.click(within(canvas).getByRole('button', { name: 'Add pose image block' }));
+    await user.click(within(screen.getByLabelText('Select pose image'))
+      .getByRole('button', { name: 'Arms crossed' }));
+    await waitFor(() => expect(within(sources).getByRole('button', { name: 'Arms crossed' }))
+      .toHaveAttribute('aria-pressed', 'true'));
+    expect(canvas.querySelectorAll('[data-id^="pose-block-"]')).toHaveLength(0);
+    expect(canvas.querySelector('[data-id="pose-manual"]')).toHaveTextContent('Arms crossed');
+  });
+
   it('adds and removes subjects, updating the counter', async () => {
     const user = userEvent.setup();
     renderWithProviders(<StudioView />);
