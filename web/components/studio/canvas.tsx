@@ -247,6 +247,7 @@ const StudioNodeActionsContext = React.createContext<{
 });
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 4;
+const CANVAS_DOT_GRID_ENABLED = false;
 const FIT_OPTIONS = { padding: 0.16, minZoom: MIN_ZOOM, maxZoom: 1.15, duration: 300 };
 const DEFAULT_EDGE_OPTIONS = {
   markerEnd: {
@@ -2526,6 +2527,7 @@ function CanvasFlow(props: CanvasPanelProps) {
   return (
     <StudioNodeActionsContext.Provider value={nodeActions}>
       <ReactFlow
+      className="poseforge-dot-grid"
       nodes={nodes}
       edges={edges}
       nodeTypes={NODE_TYPES}
@@ -2628,12 +2630,15 @@ function CanvasFlow(props: CanvasPanelProps) {
         }
       }}
     >
-      <Background
-        variant={BackgroundVariant.Dots}
-        gap={12}
-        size={1}
-        color="var(--pf-canvas-dot)"
-      />
+      {CANVAS_DOT_GRID_ENABLED ? (
+        <Background
+          id="square-dot-texture"
+          variant={BackgroundVariant.Dots}
+          gap={16}
+          size={1.5}
+          color="var(--pf-canvas-dot)"
+        />
+      ) : null}
       <CanvasControls
         zoom={viewport.zoom}
         locked={locked}

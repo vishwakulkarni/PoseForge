@@ -81,6 +81,8 @@ describe('PoseForge workflow canvas', () => {
   it('renders character and pose sources wired through generate to a result node', () => {
     const { container } = render(<CanvasPanel {...props()} />);
 
+    expect(container.querySelector('.react-flow')).toHaveClass('poseforge-dot-grid');
+    expect(screen.queryByTestId('rf__background')).not.toBeInTheDocument();
     expect(container.querySelector('[data-id="character-subject-1"]')).toHaveTextContent('Anika');
     expect(container.querySelector('[data-id="character-subject-2"]')).toHaveTextContent('Ravi');
     expect(container.querySelector('[data-id="pose-manual"]')).toHaveTextContent('Arms crossed');

@@ -2317,7 +2317,7 @@
 .canvas-panel {
   /* Component tokens: light canvas follows the cool React Flow reference. */
   --pf-canvas-pane: #f8fafc;
-  --pf-canvas-dot: #91919a;
+  --pf-canvas-dot: #000000;
   --pf-canvas-edge: #635bff;
   --pf-canvas-node: #ffffff;
   --pf-canvas-node-media: #f1f3f7;
@@ -2348,7 +2348,7 @@
 .dark .canvas-panel {
   /* Dark surround remains neutral enough for judging generated photographs. */
   --pf-canvas-pane: #141018;
-  --pf-canvas-dot: #3a3442;
+  --pf-canvas-dot: #ffffff;
   --pf-canvas-edge: #9b94ff;
   --pf-canvas-node: #1c1721;
   --pf-canvas-node-media: #16121a;
@@ -2389,10 +2389,12 @@
   background: var(--pf-canvas-pane);
 }
 
-.canvas-viewport .react-flow,
-.canvas-viewport .react-flow__renderer {
+.canvas-viewport .react-flow {
   background: var(--pf-canvas-pane);
 }
+
+.canvas-viewport .react-flow__renderer { background: transparent; }
+.canvas-viewport .poseforge-dot-grid .react-flow__background { z-index: 0; }
 
 /* A percentage-height React Flow root collapses to 0px when the responsive
    flex canvas has a computed (rather than declared) height. Pinning the only
