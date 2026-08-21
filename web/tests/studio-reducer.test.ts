@@ -101,6 +101,40 @@ describe('slot management', () => {
     expect(state.posePreviewUrl).toBe('/storage/pose.png');
     expect(state.activeGenerationIds).toEqual([]);
   });
+
+  it('refreshes metadata for selected saved characters without changing uploads', () => {
+    let state = initialStudioState();
+    const firstKey = state.slots[0].key;
+    state = run(
+      state,
+      {
+        type: 'setSlotCharacter',
+        key: firstKey,
+        characterId: 'char-1',
+        name: 'Anika',
+        previewUrl: '/storage/anika.png',
+      },
+      { type: 'addSlot' },
+    );
+    state = studioReducer(state, {
+      type: 'setSlotFile',
+      key: state.slots[1].key,
+      file: file('upload.png'),
+      previewUrl: 'blob:upload',
+    });
+
+    const synced = studioReducer(state, {
+      type: 'syncSavedCharacters',
+      characters: [{ id: 'char-1', name: 'Meera', primaryPhotoUrl: '/storage/meera.png' }],
+    });
+
+    expect(synced.slots[0]).toEqual(expect.objectContaining({
+      characterId: 'char-1',
+      name: 'Meera',
+      previewUrl: '/storage/meera.png',
+    }));
+    expect(synced.slots[1]).toEqual(state.slots[1]);
+  });
 });
 
 describe('pose selection', () => {

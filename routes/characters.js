@@ -42,6 +42,29 @@ router.post("/", upload.single("characterPhoto"), asyncHandler(async (req, res) 
     throw err;
   } finally { await cleanup(req.file); }
 }));
+router.patch("/:id", asyncHandler(async (req, res) => {
+  if (!isUuid(req.params.id)) return res.status(404).json({ error: "Character not found." });
+  const name = String(req.body?.name || "").trim();
+  if (!name) return res.status(400).json({ error: "A character name is required." });
+  if (name.length > 80) return res.status(400).json({ error: "Character names must be 80 characters or fewer." });
+  try {
+    const result = await pool.query(
+      `WITH updated AS (
+         UPDATE characters SET name = $2 WHERE id = $1
+         RETURNING id, name, created_at
+       )
+       SELECT updated.*, p.file_path AS primary_photo_path
+       FROM updated
+       LEFT JOIN character_photos p ON p.character_id = updated.id AND p.is_primary = true`,
+      [req.params.id, name],
+    );
+    if (!result.rowCount) return res.status(404).json({ error: "Character not found." });
+    res.json(character(result.rows[0]));
+  } catch (err) {
+    if (err.code === "23505") return res.status(409).json({ error: "A character with that name already exists." });
+    throw err;
+  }
+}));
 router.get("/:id", asyncHandler(async (req, res) => {
   if (!isUuid(req.params.id)) return res.status(404).json({ error: "Character not found." });
   const result = await pool.query("SELECT c.id, c.name, c.created_at, p.id AS photo_id, p.file_path, p.is_primary FROM characters c LEFT JOIN character_photos p ON p.character_id = c.id WHERE c.id = $1 ORDER BY p.created_at", [req.params.id]);

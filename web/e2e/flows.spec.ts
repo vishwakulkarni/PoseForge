@@ -67,7 +67,7 @@ test.describe('studio', () => {
       'rgb(99, 91, 255)',
     );
     await expect(page.getByRole('button', { name: 'Fit all nodes' })).toBeVisible();
-    await expect(page.getByLabel('Node palette')).toBeVisible();
+    await expect(page.getByLabel('Node palette')).toHaveCount(0);
     const projectSwitcher = page.getByRole('button', { name: /switch studio project/i });
     await expect(projectSwitcher).toBeVisible();
     await projectSwitcher.click();
@@ -208,17 +208,15 @@ test.describe('studio', () => {
     await expect(page.getByRole('button', { name: 'Lock canvas' })).toBeVisible();
   });
 
-  test('matches the canvas palette to day and night themes', async ({ page }) => {
+  test('matches the canvas elements to day and night themes', async ({ page }) => {
     const canvas = page.locator('.canvas-viewport');
     const flow = page.locator('.react-flow');
     const node = page.locator('.poseforge-node-character').first();
     const controls = page.locator('.poseforge-controls');
-    const drawerCard = page.locator('.poseforge-palette-card').first();
 
     await expect(canvas).toHaveCSS('background-color', 'rgb(248, 250, 252)');
     await expect(node).toHaveCSS('background-color', 'rgb(255, 255, 255)');
     await expect(controls).toHaveCSS('background-color', 'rgb(255, 255, 255)');
-    await expect(drawerCard).toHaveCSS('background-color', 'rgb(255, 255, 255)');
     await expect(flow).toHaveClass(/light/);
 
     await page.getByRole('button', { name: 'Switch to dark theme' }).click();
@@ -227,7 +225,6 @@ test.describe('studio', () => {
     await expect(canvas).toHaveCSS('background-color', 'rgb(20, 16, 24)');
     await expect(node).toHaveCSS('background-color', 'rgb(28, 23, 33)');
     await expect(controls).toHaveCSS('background-color', 'rgb(28, 23, 33)');
-    await expect(drawerCard).toHaveCSS('background-color', 'rgb(33, 27, 38)');
     await expect(page.locator('.react-flow__arrowhead polyline').first()).toHaveCSS(
       'fill',
       'rgb(155, 148, 255)',
@@ -302,10 +299,11 @@ test.describe('studio', () => {
     const canvasBox = await canvas.boundingBox();
     expect(canvasBox).not.toBeNull();
     const targetPosition = { x: Math.round(canvasBox!.width * 0.24), y: 220 };
-    const palettePose = page.getByRole('button', { name: 'Add pose image block' });
-    await expect(palettePose).toHaveAttribute('draggable', 'true');
-    const dataTransfer = await page.evaluateHandle(() => new DataTransfer());
-    await palettePose.dispatchEvent('dragstart', { dataTransfer });
+    const dataTransfer = await page.evaluateHandle(() => {
+      const transfer = new DataTransfer();
+      transfer.setData('application/x-poseforge-node', JSON.stringify({ kind: 'pose' }));
+      return transfer;
+    });
     await pane.dispatchEvent('dragover', {
       dataTransfer,
       clientX: canvasBox!.x + targetPosition.x,
@@ -316,7 +314,6 @@ test.describe('studio', () => {
       clientX: canvasBox!.x + targetPosition.x,
       clientY: canvasBox!.y + targetPosition.y,
     });
-    await palettePose.dispatchEvent('dragend', { dataTransfer });
     await expect(page.getByLabel('Select pose image')).toBeVisible();
     await page.getByRole('button', { name: 'Close image picker' }).click();
 
@@ -338,7 +335,7 @@ test.describe('studio', () => {
       .getByRole('button', { name: 'Remove from canvas' }).click();
     await expect(droppedPose).toHaveCount(0);
 
-    await page.getByRole('button', { name: 'Add character image block' }).click();
+    await page.getByRole('button', { name: 'Select image for Add a character' }).click();
     const picker = page.getByLabel('Select character image');
     await expect(picker).toBeVisible();
     await picker.getByRole('button', { name: 'E2E portrait' }).click();

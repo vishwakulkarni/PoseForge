@@ -45,6 +45,10 @@ export type StudioAction =
   | { type: 'setSlotCharacter'; key: string; characterId: string; name: string | null; previewUrl: string | null }
   | { type: 'setSlotFile'; key: string; file: File; previewUrl: string }
   | { type: 'addCanvasCharacter'; characterId: string; name: string | null; previewUrl: string | null }
+  | {
+      type: 'syncSavedCharacters';
+      characters: Array<{ id: string; name: string; primaryPhotoUrl: string | null }>;
+    }
   | { type: 'clearSlot'; key: string }
   | { type: 'setPoseFile'; file: File; previewUrl: string }
   | { type: 'setPoseReference'; id: string; previewUrl: string }
@@ -165,6 +169,21 @@ export function studioReducer(state: StudioState, action: StudioAction): StudioS
       };
       const slots = [...state.slots, added];
       return { ...state, slots, advanced: resizeSubjects(state.advanced, slots.length) };
+    }
+
+    case 'syncSavedCharacters': {
+      const byId = new Map(action.characters.map((character) => [character.id, character]));
+      let changed = false;
+      const slots = state.slots.map((slot) => {
+        if (!slot.characterId) return slot;
+        const character = byId.get(slot.characterId);
+        if (!character || (slot.name === character.name && slot.previewUrl === character.primaryPhotoUrl)) {
+          return slot;
+        }
+        changed = true;
+        return { ...slot, name: character.name, previewUrl: character.primaryPhotoUrl };
+      });
+      return changed ? { ...state, slots } : state;
     }
 
     case 'clearSlot':

@@ -48,6 +48,13 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import type {
   Generation,
   StudioProject,
@@ -98,7 +105,6 @@ export type StudioCanvasEntryMethod = 'click' | 'keyboard' | 'drag';
 // does not transmit or persist product analytics; consumers can observe this
 // typed CustomEvent stream for local diagnostics and opt-in test harnesses.
 export type StudioCanvasEventName =
-  | 'source_drawer_started'
   | 'source_block_added'
   | 'source_picker_opened'
   | 'source_asset_selected'
@@ -126,7 +132,6 @@ export interface CanvasPanelProps {
   subjects: CanvasSubject[];
   pose: CanvasPose | null;
   poseSuggestions?: CanvasPoseSuggestion[];
-  suggestionsLoading?: boolean;
   selectedSuggestionIds?: string[];
   selectedSubjectId?: string | null;
   generations: Generation[];
@@ -205,6 +210,12 @@ interface CanvasSnapshot {
   viewport: Viewport;
 }
 
+interface GeneratedResultPreview {
+  imageUrl: string;
+  index: number;
+  poseLabel?: string;
+}
+
 interface NodeGeometry {
   width: number;
   height: number;
@@ -218,6 +229,7 @@ const NODE_TYPES = { poseforge: StudioNode };
 const StudioNodeActionsContext = React.createContext<{
   onToggleSuggestion?: (id: string) => void;
   onSelectVariant: (index: number) => void;
+  onPreviewResult: (preview: GeneratedResultPreview) => void;
   onRegenerate: () => void;
   locked: boolean;
   onOpenPicker: (id: string) => void;
@@ -232,6 +244,7 @@ const StudioNodeActionsContext = React.createContext<{
   onRemove: (id: string) => void;
 }>({
   onSelectVariant: () => {},
+  onPreviewResult: () => {},
   onRegenerate: () => {},
   locked: false,
   onOpenPicker: () => {},
@@ -419,7 +432,7 @@ function configurableNode(
     style: { ...node.style, width, height },
     data: {
       ...node.data,
-      ...(saved?.label ? { label: saved.label } : {}),
+      ...(saved?.label && (saved.labelEdited || node.data.custom) ? { label: saved.label } : {}),
       ...(saved?.labelEdited ? { labelEdited: true } : {}),
       ...(saved?.meta ? { meta: saved.meta } : {}),
       ...(saved?.imageUrl ? { imageUrl: saved.imageUrl, empty: false } : {}),
@@ -611,11 +624,21 @@ function StudioNode({ id, data, selected }: NodeProps<StudioFlowNode>) {
           <button
             type="button"
             className="nodrag poseforge-result-media"
-            aria-label={`Select result ${(data.index ?? 0) + 1}`}
+            aria-label={data.imageUrl
+              ? `Open generated result ${(data.index ?? 0) + 1} preview`
+              : `Select result ${(data.index ?? 0) + 1}`}
             aria-pressed={data.active}
+            aria-haspopup={data.imageUrl ? 'dialog' : undefined}
             onClick={(event) => {
               event.stopPropagation();
               actions.onSelectVariant(data.index ?? 0);
+              if (data.imageUrl) {
+                actions.onPreviewResult({
+                  imageUrl: data.imageUrl,
+                  index: data.index ?? 0,
+                  poseLabel: data.poseLabel,
+                });
+              }
             }}
           >
             {data.imageUrl ? (
@@ -955,6 +978,179 @@ function CanvasControls({
   );
 }
 
+function GeneratedImageLightbox({
+  preview,
+  onClose,
+}: {
+  preview: GeneratedResultPreview;
+  onClose: () => void;
+}) {
+  const [zoom, setZoom] = React.useState(1);
+  const [panning, setPanning] = React.useState(false);
+  const stageRef = React.useRef<HTMLDivElement>(null);
+  const panSession = React.useRef<{
+    pointerId: number;
+    x: number;
+    y: number;
+    scrollLeft: number;
+    scrollTop: number;
+  } | null>(null);
+  const updateZoom = React.useCallback((
+    next: number | ((current: number) => number),
+    focalPoint?: { x: number; y: number },
+  ) => {
+    const value = typeof next === 'function' ? next(zoom) : next;
+    const boundedZoom = Math.min(4, Math.max(1, Math.round(value * 100) / 100));
+    if (boundedZoom === zoom) return;
+
+    const stage = stageRef.current;
+    const focalX = focalPoint?.x ?? (stage?.clientWidth ?? 0) / 2;
+    const focalY = focalPoint?.y ?? (stage?.clientHeight ?? 0) / 2;
+    const ratio = boundedZoom / zoom;
+    const nextScrollLeft = boundedZoom === 1
+      ? 0
+      : ((stage?.scrollLeft ?? 0) + focalX) * ratio - focalX;
+    const nextScrollTop = boundedZoom === 1
+      ? 0
+      : ((stage?.scrollTop ?? 0) + focalY) * ratio - focalY;
+
+    setZoom(boundedZoom);
+    if (stage) {
+      window.requestAnimationFrame(() => {
+        if (!stage.isConnected) return;
+        stage.scrollLeft = nextScrollLeft;
+        stage.scrollTop = nextScrollTop;
+      });
+    }
+  }, [zoom]);
+
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent
+        size="xl"
+        className="poseforge-image-lightbox"
+        onKeyDown={(event) => {
+          if (event.key === '+' || event.key === '=') updateZoom((current) => current + 0.25);
+          if (event.key === '-') updateZoom((current) => current - 0.25);
+          if (event.key === '0') updateZoom(1);
+        }}
+      >
+        <DialogHeader className="poseforge-image-lightbox-head">
+          <DialogTitle>Generated result {preview.index + 1}</DialogTitle>
+          <DialogDescription>
+            {preview.poseLabel ? `Pose · ${preview.poseLabel}` : 'Inspect the generated image in detail.'}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="poseforge-image-lightbox-toolbar" aria-label="Image zoom controls">
+          <button
+            type="button"
+            aria-label="Zoom generated image out"
+            title="Zoom out"
+            disabled={zoom <= 1}
+            onClick={() => updateZoom((current) => current - 0.25)}
+          >
+            <ZoomOut size={17} />
+          </button>
+          <output aria-live="polite" aria-label="Generated image zoom level">
+            {Math.round(zoom * 100)}%
+          </output>
+          <button
+            type="button"
+            aria-label="Zoom generated image in"
+            title="Zoom in"
+            disabled={zoom >= 4}
+            onClick={() => updateZoom((current) => current + 0.25)}
+          >
+            <ZoomIn size={17} />
+          </button>
+          <button
+            type="button"
+            aria-label="Reset generated image zoom"
+            title="Reset zoom"
+            disabled={zoom === 1}
+            onClick={() => updateZoom(1)}
+          >
+            <RotateCcw size={16} />
+          </button>
+          <a href={preview.imageUrl} download>Download</a>
+        </div>
+        <div
+          ref={stageRef}
+          className={cn(
+            'poseforge-image-preview-stage',
+            zoom > 1 && 'is-pannable',
+            panning && 'is-panning',
+          )}
+          tabIndex={0}
+          aria-label="Zoomed generated image. Drag to move around."
+          onWheel={(event) => {
+            if (!event.ctrlKey && !event.metaKey) return;
+            event.preventDefault();
+            const bounds = event.currentTarget.getBoundingClientRect();
+            updateZoom(
+              (current) => current + (event.deltaY < 0 ? 0.25 : -0.25),
+              { x: event.clientX - bounds.left, y: event.clientY - bounds.top },
+            );
+          }}
+          onDoubleClick={(event) => {
+            const bounds = event.currentTarget.getBoundingClientRect();
+            updateZoom(
+              (current) => current === 1 ? 2 : 1,
+              { x: event.clientX - bounds.left, y: event.clientY - bounds.top },
+            );
+          }}
+          onPointerDown={(event) => {
+            if (zoom <= 1 || event.button !== 0) return;
+            event.preventDefault();
+            event.currentTarget.setPointerCapture?.(event.pointerId);
+            panSession.current = {
+              pointerId: event.pointerId,
+              x: event.clientX,
+              y: event.clientY,
+              scrollLeft: event.currentTarget.scrollLeft,
+              scrollTop: event.currentTarget.scrollTop,
+            };
+            setPanning(true);
+          }}
+          onPointerMove={(event) => {
+            const session = panSession.current;
+            if (!session || session.pointerId !== event.pointerId) return;
+            event.currentTarget.scrollLeft = session.scrollLeft - (event.clientX - session.x);
+            event.currentTarget.scrollTop = session.scrollTop - (event.clientY - session.y);
+          }}
+          onPointerUp={(event) => {
+            if (panSession.current?.pointerId !== event.pointerId) return;
+            event.currentTarget.releasePointerCapture?.(event.pointerId);
+            panSession.current = null;
+            setPanning(false);
+          }}
+          onPointerCancel={(event) => {
+            if (panSession.current?.pointerId !== event.pointerId) return;
+            panSession.current = null;
+            setPanning(false);
+          }}
+        >
+          <div
+            className="poseforge-image-preview-surface"
+            style={{ width: `${zoom * 100}%`, height: `${zoom * 100}%` }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- local storage mount */}
+            <img
+              src={preview.imageUrl}
+              alt={`Generated result ${preview.index + 1} enlarged preview`}
+              draggable={false}
+              decoding="async"
+            />
+          </div>
+        </div>
+        <p className="poseforge-image-lightbox-help">
+          Zoom toward the cursor · Drag to move around · Double-click for 200% · Keyboard: +, −, 0
+        </p>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ProjectSaveStatus({
   state,
   onRetry,
@@ -1174,144 +1370,6 @@ function ProjectSaveStatus({
   );
 }
 
-function DrawerPalette({
-  subjects,
-  suggestions,
-  suggestionsLoading,
-  selectedSuggestionIds,
-  onToggleSuggestion,
-  onViewportChange,
-  locked,
-  onAddNode,
-  onDrawerStart,
-  onDrawerEnd,
-}: {
-  subjects: CanvasSubject[];
-  suggestions: CanvasPoseSuggestion[];
-  suggestionsLoading: boolean;
-  selectedSuggestionIds: string[];
-  onToggleSuggestion?: (id: string) => void;
-  onViewportChange: (viewport: Viewport) => void;
-  locked: boolean;
-  onAddNode: (
-    kind: 'character' | 'pose',
-    asset: CanvasAsset | undefined,
-    entryMethod: StudioCanvasEntryMethod,
-  ) => void;
-  onDrawerStart: (kind: 'character' | 'pose') => void;
-  onDrawerEnd: () => void;
-}) {
-  const { fitView, getViewport } = useReactFlow();
-
-  return (
-    <Panel position="bottom-center" className="poseforge-palette nodrag nopan" aria-label="Node palette">
-      <div className="poseforge-palette-stack palette-character">
-        <span className="poseforge-stack-peeker peeker-one" aria-hidden />
-        <span className="poseforge-stack-peeker peeker-two" aria-hidden />
-        <button
-          type="button"
-          className="poseforge-palette-card"
-          aria-label="Add character image block"
-          draggable={!locked}
-          disabled={locked}
-          onDragStart={(event) => {
-            event.dataTransfer.setData('application/x-poseforge-node', JSON.stringify({ kind: 'character' }));
-            event.dataTransfer.effectAllowed = 'copy';
-            onDrawerStart('character');
-          }}
-          onDragEnd={onDrawerEnd}
-          onClick={(event) => onAddNode('character', undefined, event.detail === 0 ? 'keyboard' : 'click')}
-        >
-          <span className="poseforge-palette-pill"><UserRound size={13} />Character</span>
-          <strong>{subjects.length ? `${subjects.length} on canvas` : 'Add identity'}</strong>
-          <small>Choose or upload a person</small>
-        </button>
-      </div>
-
-      <div className="poseforge-palette-stack palette-pose">
-        <span className="poseforge-stack-peeker peeker-one" aria-hidden />
-        <span className="poseforge-stack-peeker peeker-two" aria-hidden />
-        <div className="poseforge-palette-card">
-          <button
-            type="button"
-            className="poseforge-palette-open"
-            aria-label="Add pose image block"
-            disabled={locked}
-            draggable={!locked}
-            onDragStart={(event) => {
-              event.dataTransfer.setData('application/x-poseforge-node', JSON.stringify({ kind: 'pose' }));
-              event.dataTransfer.effectAllowed = 'copy';
-              onDrawerStart('pose');
-            }}
-            onDragEnd={onDrawerEnd}
-            onClick={(event) => onAddNode('pose', undefined, event.detail === 0 ? 'keyboard' : 'click')}
-          >
-            <span className="poseforge-palette-pill"><PersonStanding size={13} />Pose</span>
-            <strong>{selectedSuggestionIds.length ? `${selectedSuggestionIds.length} selected` : 'Add reference'}</strong>
-            <small>{suggestionsLoading ? 'Finding matches…' : 'Drag or click a suggestion'}</small>
-          </button>
-          {suggestions.length ? (
-            <div className="poseforge-palette-items">
-              {suggestions.map((suggestion) => {
-                const selected = selectedSuggestionIds.includes(suggestion.id);
-                return (
-                  <button
-                    type="button"
-                    key={suggestion.id}
-                    className={cn('poseforge-palette-item', selected && 'is-selected')}
-                    draggable={!locked}
-                    disabled={locked}
-                    aria-pressed={selected}
-                    aria-label={`${selected ? 'Remove' : 'Add'} suggested pose ${suggestion.label}`}
-                    onDragStart={(event) => {
-                      event.dataTransfer.setData('application/x-poseforge-node', JSON.stringify({
-                        kind: 'pose',
-                        asset: {
-                          id: suggestion.id,
-                          type: 'pose',
-                          label: suggestion.label,
-                          imageUrl: suggestion.imageUrl,
-                          meta: suggestion.category ?? 'Suggested pose',
-                        },
-                      }));
-                      event.dataTransfer.effectAllowed = 'copy';
-                      onDrawerStart('pose');
-                    }}
-                    onDragEnd={onDrawerEnd}
-                    onClick={() => onToggleSuggestion?.(suggestion.id)}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element -- provider and local storage URLs */}
-                    <img src={suggestion.imageUrl} alt="" draggable={false} />
-                    <span>{suggestion.label}</span>
-                    <i aria-hidden>{selected ? '✓' : '+'}</i>
-                  </button>
-                );
-              })}
-            </div>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="poseforge-palette-stack palette-generate">
-        <span className="poseforge-stack-peeker peeker-one" aria-hidden />
-        <button
-          type="button"
-          className="poseforge-palette-card"
-          aria-label="Focus generate node"
-          onClick={() => {
-            void fitView({ ...FIT_OPTIONS, nodes: [{ id: 'generate' }], maxZoom: 1.15 })
-              .then(() => onViewportChange(getViewport()));
-          }}
-        >
-          <span className="poseforge-palette-pill"><Sparkles size={13} />Generate</span>
-          <strong>Compose output</strong>
-          <small>Model and direction live at right</small>
-        </button>
-      </div>
-    </Panel>
-  );
-}
-
 function SourcePicker({
   node,
   assets,
@@ -1522,7 +1580,6 @@ function CanvasFlow(props: CanvasPanelProps) {
     subjects,
     pose,
     poseSuggestions = EMPTY_SUGGESTIONS,
-    suggestionsLoading = false,
     selectedSuggestionIds = EMPTY_IDS,
     selectedSubjectId = null,
     generations,
@@ -1588,8 +1645,7 @@ function CanvasFlow(props: CanvasPanelProps) {
   const [pickerNodeId, setPickerNodeId] = React.useState<string | null>(null);
   const [pickerError, setPickerError] = React.useState<string | null>(null);
   const [uploadingAsset, setUploadingAsset] = React.useState(false);
-  const [draggingKind, setDraggingKind] = React.useState<'character' | 'pose' | null>(null);
-  const [dragOverCanvas, setDragOverCanvas] = React.useState(false);
+  const [previewResult, setPreviewResult] = React.useState<GeneratedResultPreview | null>(null);
   const sourceSelectionKey = React.useMemo(() => JSON.stringify({
     subjects: subjects.map((subject) => ({
       id: subject.id,
@@ -1901,11 +1957,8 @@ function CanvasFlow(props: CanvasPanelProps) {
     kind: 'character' | 'pose',
     asset?: CanvasAsset,
     clientPoint?: { x: number; y: number },
-    entryMethod: StudioCanvasEntryMethod = 'click',
+    entryMethod: StudioCanvasEntryMethod = 'drag',
   ) => {
-    if (entryMethod !== 'drag') {
-      emitStudioEvent('source_drawer_started', { kind, entryMethod });
-    }
     if (!workspaceReady || lockedRef.current) {
       emitStudioEvent('source_validation_failed', {
         kind,
@@ -2273,6 +2326,7 @@ function CanvasFlow(props: CanvasPanelProps) {
   const nodeActions = React.useMemo(() => ({
     onToggleSuggestion,
     onSelectVariant,
+    onPreviewResult: setPreviewResult,
     onRegenerate,
     locked,
     onOpenPicker: (id: string) => {
@@ -2602,17 +2656,9 @@ function CanvasFlow(props: CanvasPanelProps) {
         if (workspaceReady && !locked && event.dataTransfer.types.includes('application/x-poseforge-node')) {
           event.preventDefault();
           event.dataTransfer.dropEffect = 'copy';
-          setDragOverCanvas(true);
-        }
-      }}
-      onDragLeave={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as globalThis.Node | null)) {
-          setDragOverCanvas(false);
         }
       }}
       onDrop={(event) => {
-        setDragOverCanvas(false);
-        setDraggingKind(null);
         if (!workspaceReady || locked) return;
         const payload = event.dataTransfer.getData('application/x-poseforge-node');
         if (!payload) return;
@@ -2667,15 +2713,6 @@ function CanvasFlow(props: CanvasPanelProps) {
         onCreateProject={onCreateProject}
         onDeleteProject={onDeleteProject}
       />
-      {draggingKind ? (
-        <Panel
-          position="top-center"
-          className={cn('poseforge-drop-hint nodrag nopan', dragOverCanvas && 'is-valid')}
-          aria-live="polite"
-        >
-          {dragOverCanvas ? 'Release to add' : 'Drag onto the canvas'} {draggingKind} block
-        </Panel>
-      ) : null}
       {selectedSourceNode && !pickerNodeId ? (
         <SourceNodeInspector
           node={selectedSourceNode}
@@ -2698,25 +2735,6 @@ function CanvasFlow(props: CanvasPanelProps) {
           onRemove={() => removeNode(selectedSourceNode.id)}
         />
       ) : null}
-      <DrawerPalette
-        subjects={subjects}
-        suggestions={poseSuggestions}
-        suggestionsLoading={suggestionsLoading}
-        selectedSuggestionIds={selectedSuggestionIds}
-        onToggleSuggestion={onToggleSuggestion}
-        onViewportChange={persistViewport}
-        locked={locked || !workspaceReady}
-        onAddNode={(kind, asset, entryMethod) => addImageNode(kind, asset, undefined, entryMethod)}
-        onDrawerStart={(kind) => {
-          setDraggingKind(kind);
-          setDragOverCanvas(false);
-          emitStudioEvent('source_drawer_started', { kind, entryMethod: 'drag' });
-        }}
-        onDrawerEnd={() => {
-          setDraggingKind(null);
-          setDragOverCanvas(false);
-        }}
-      />
       {pickerNode && (pickerNode.data.kind === 'character' || pickerNode.data.kind === 'pose') ? (
         <SourcePicker
           node={pickerNode}
@@ -2734,6 +2752,12 @@ function CanvasFlow(props: CanvasPanelProps) {
         />
       ) : null}
       </ReactFlow>
+      {previewResult ? (
+        <GeneratedImageLightbox
+          preview={previewResult}
+          onClose={() => setPreviewResult(null)}
+        />
+      ) : null}
     </StudioNodeActionsContext.Provider>
   );
 }

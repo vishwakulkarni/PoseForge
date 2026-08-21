@@ -292,6 +292,13 @@ export function StudioView() {
     });
   }, [characters, poses, projectWorkspace.project]);
 
+  // Character names and primary photos are library metadata. Keep selected
+  // sources current after a rename without replacing uploads or slot layout.
+  React.useEffect(() => {
+    if (!characters) return;
+    dispatch({ type: 'syncSavedCharacters', characters });
+  }, [characters]);
+
   // Derived rather than synced through an effect: null engine means "use the
   // server default", which keeps working if that default changes.
   const engine = state.engine || engineData?.defaultEngine || '';
@@ -365,7 +372,7 @@ export function StudioView() {
       : null,
     [hasManualPose, selectedPose?.title, state.poseFile?.name, state.posePreviewUrl, state.poseReferenceId],
   );
-  const { data: poseSuggestions, isLoading: suggestionsLoading } = usePoseSuggestions(
+  const { data: poseSuggestions } = usePoseSuggestions(
     canvasSubjects.length,
     activeSubjectId,
     !hasManualPose,
@@ -767,7 +774,6 @@ export function StudioView() {
             subjects={canvasSubjects}
             pose={canvasPose}
             poseSuggestions={canvasPoseSuggestions}
-            suggestionsLoading={suggestionsLoading}
             selectedSuggestionIds={selectedSuggestedPoseIds}
             selectedSubjectId={activeSubjectId}
             generations={generations}

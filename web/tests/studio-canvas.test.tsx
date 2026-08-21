@@ -77,6 +77,30 @@ function project(overrides: Partial<StudioProject> = {}): StudioProject {
   };
 }
 
+function dropCanvasNode(
+  container: HTMLElement,
+  payload: {
+    kind: 'character' | 'pose';
+    asset?: {
+      id: string;
+      type: 'character' | 'pose' | 'generation';
+      label: string;
+      imageUrl: string;
+      meta?: string;
+    };
+  },
+  point = { clientX: 500, clientY: 400 },
+) {
+  fireEvent.drop(container.querySelector('.react-flow') as HTMLElement, {
+    ...point,
+    dataTransfer: {
+      types: ['application/x-poseforge-node'],
+      dropEffect: 'none',
+      getData: vi.fn(() => JSON.stringify(payload)),
+    },
+  });
+}
+
 describe('PoseForge workflow canvas', () => {
   it('renders character and pose sources wired through generate to a result node', () => {
     const { container } = render(<CanvasPanel {...props()} />);
@@ -159,6 +183,64 @@ describe('PoseForge workflow canvas', () => {
     expect(within(outputs[1] as HTMLElement).getByText('Generation failed')).toBeInTheDocument();
     expect(within(outputs[1] as HTMLElement).getByText('Provider unavailable')).toBeInTheDocument();
     expect((outputs[0] as HTMLElement).querySelector('a[download]')).toHaveTextContent('Download');
+  });
+
+  it('opens a generated result in a cursor-centered, pannable image popup', async () => {
+    const onSelectVariant = vi.fn();
+    render(
+      <CanvasPanel
+        {...props({
+          status: 'done',
+          plannedOutputs: 1,
+          onSelectVariant,
+          generations: [generation({
+            id: 'completed-preview',
+            status: 'completed',
+            outputUrl: '/storage/preview.png',
+          })],
+        })}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open generated result 1 preview' }));
+    expect(onSelectVariant).toHaveBeenCalledWith(0);
+
+    const dialog = screen.getByRole('dialog', { name: 'Generated result 1' });
+    expect(within(dialog).getByAltText('Generated result 1 enlarged preview'))
+      .toHaveAttribute('src', '/storage/preview.png');
+    expect(within(dialog).getByLabelText('Generated image zoom level')).toHaveTextContent('100%');
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Zoom generated image in' }));
+    expect(within(dialog).getByLabelText('Generated image zoom level')).toHaveTextContent('125%');
+    expect(dialog.querySelector('.poseforge-image-preview-surface')).toHaveStyle({
+      width: '125%',
+      height: '125%',
+    });
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Reset generated image zoom' }));
+    expect(within(dialog).getByLabelText('Generated image zoom level')).toHaveTextContent('100%');
+
+    const stage = within(dialog).getByLabelText('Zoomed generated image. Drag to move around.');
+    fireEvent.doubleClick(stage, { clientX: 120, clientY: 80 });
+    expect(within(dialog).getByLabelText('Generated image zoom level')).toHaveTextContent('200%');
+    await waitFor(() => {
+      expect(stage.scrollLeft).toBe(120);
+      expect(stage.scrollTop).toBe(80);
+    });
+
+    fireEvent.pointerDown(stage, { pointerId: 1, button: 0, clientX: 120, clientY: 80 });
+    fireEvent.pointerMove(stage, { pointerId: 1, clientX: 70, clientY: 40 });
+    fireEvent.pointerUp(stage, { pointerId: 1, clientX: 70, clientY: 40 });
+    expect(stage.scrollLeft).toBe(170);
+    expect(stage.scrollTop).toBe(120);
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Reset generated image zoom' }));
+    await waitFor(() => {
+      expect(stage.scrollLeft).toBe(0);
+      expect(stage.scrollTop).toBe(0);
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Close dialog' }));
+    expect(screen.queryByRole('dialog', { name: 'Generated result 1' })).not.toBeInTheDocument();
   });
 
   it('provides the full canvas control cluster and toggles the lock state', () => {
@@ -474,14 +556,12 @@ describe('PoseForge workflow canvas', () => {
       />,
     );
 
-    const palette = screen.getByLabelText('Node palette');
-    expect(within(palette).getByRole('button', { name: /remove suggested pose hero stance/i }))
-      .toHaveAttribute('aria-pressed', 'true');
-
-    fireEvent.click(within(palette).getByRole('button', { name: /add suggested pose chair portrait/i }));
-    expect(onToggleSuggestion).toHaveBeenCalledWith('pose-seated');
+    expect(screen.queryByLabelText('Node palette')).not.toBeInTheDocument();
+    const selectedPose = screen.getByLabelText('Remove suggested pose Hero stance');
+    fireEvent.click(selectedPose);
+    expect(onToggleSuggestion).toHaveBeenCalledWith('pose-standing');
     expect(screen.getByText('Pose · Hero stance')).toBeInTheDocument();
-    expect(screen.getAllByLabelText('Remove suggested pose Hero stance')).toHaveLength(2);
+    expect(screen.queryByText('Chair portrait')).not.toBeInTheDocument();
   });
 
   it('adds an empty image block, selects a saved source, and preserves its geometry', async () => {
@@ -502,7 +582,7 @@ describe('PoseForge workflow canvas', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add character image block' }));
+    dropCanvasNode(container, { kind: 'character' });
     expect(screen.getByLabelText('Select character image')).toBeInTheDocument();
 
     const emptyDocument = onProjectChange.mock.lastCall?.[0];
@@ -553,10 +633,8 @@ describe('PoseForge workflow canvas', () => {
 
   it('places repeated character image blocks in separate open canvas slots', () => {
     const { container } = render(<CanvasPanel {...props()} />);
-    const addCharacter = screen.getByRole('button', { name: 'Add character image block' });
-
-    fireEvent.click(addCharacter);
-    fireEvent.click(addCharacter);
+    dropCanvasNode(container, { kind: 'character' }, { clientX: 400, clientY: 300 });
+    dropCanvasNode(container, { kind: 'character' }, { clientX: 760, clientY: 300 });
 
     const characterBlocks = Array.from(
       container.querySelectorAll<HTMLElement>('[data-id^="character-block-"]'),
@@ -741,10 +819,10 @@ describe('PoseForge workflow canvas', () => {
     expect(container.querySelector('[data-id="character-block-inspected"]')).not.toBeInTheDocument();
   });
 
-  it('emits privacy-safe local funnel events for keyboard add, validation, and selection', () => {
+  it('emits privacy-safe local funnel events for drag add, validation, and selection', () => {
     const events: StudioCanvasEvent[] = [];
     const onStudioEvent = vi.fn((event: StudioCanvasEvent) => events.push(event));
-    render(
+    const { container } = render(
       <CanvasPanel
         {...props({
           project: project(),
@@ -761,7 +839,7 @@ describe('PoseForge workflow canvas', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add character image block' }), { detail: 0 });
+    dropCanvasNode(container, { kind: 'character' });
     const picker = screen.getByLabelText('Select character image');
     fireEvent.change(picker.querySelector('input[type="file"]') as HTMLInputElement, {
       target: { files: [new File(['invalid'], 'notes.txt', { type: 'text/plain' })] },
@@ -769,14 +847,13 @@ describe('PoseForge workflow canvas', () => {
     fireEvent.click(within(picker).getByRole('button', { name: 'Event portrait' }));
 
     expect(events.map((event) => event.name)).toEqual(expect.arrayContaining([
-      'source_drawer_started',
       'source_block_added',
       'source_picker_opened',
       'source_validation_failed',
       'source_asset_selected',
     ]));
-    expect(events.find((event) => event.name === 'source_drawer_started')).toMatchObject({
-      entryMethod: 'keyboard',
+    expect(events.find((event) => event.name === 'source_block_added')).toMatchObject({
+      entryMethod: 'drag',
       kind: 'character',
       projectId: project().id,
     });
@@ -827,13 +904,13 @@ describe('PoseForge workflow canvas', () => {
 
   it('keeps a canceled picker block recoverable and rejects invalid uploads', () => {
     const onProjectChange = vi.fn();
-    render(
+    const { container } = render(
       <CanvasPanel
         {...props({ project: project(), onProjectChange, onUploadAsset: vi.fn() })}
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add pose image block' }));
+    dropCanvasNode(container, { kind: 'pose' });
     const picker = screen.getByLabelText('Select pose image');
     const upload = picker.querySelector('input[type="file"]') as HTMLInputElement;
     fireEvent.change(upload, { target: { files: [new File(['not an image'], 'notes.txt', { type: 'text/plain' })] } });
@@ -1014,11 +1091,15 @@ describe('PoseForge workflow canvas', () => {
     )).toBeDisabled();
   });
 
-  it('disables image-block additions while the canvas is locked', () => {
-    render(<CanvasPanel {...props({ project: project() })} />);
+  it('rejects image-block drops while the canvas is locked', () => {
+    const onProjectChange = vi.fn();
+    const { container } = render(<CanvasPanel {...props({ project: project(), onProjectChange })} />);
     fireEvent.click(screen.getByRole('button', { name: 'Lock canvas' }));
-    expect(screen.getByRole('button', { name: 'Add character image block' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Add pose image block' })).toBeDisabled();
+    onProjectChange.mockClear();
+    dropCanvasNode(container, { kind: 'character' });
+    expect(onProjectChange).not.toHaveBeenCalled();
+    expect(container.querySelector('[data-id^="character-block-"]')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Node palette')).not.toBeInTheDocument();
   });
 
   it('projects a drawer drop through the saved pan and zoom', () => {

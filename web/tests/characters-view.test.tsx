@@ -129,6 +129,70 @@ describe('CharactersView', () => {
     expect(await screen.findByText(/already exists/i)).toBeInTheDocument();
   });
 
+  it('renames a saved character and refreshes the library', async () => {
+    const user = userEvent.setup();
+    let currentName = 'Anika';
+    let receivedName: string | null = null;
+    server.use(
+      http.get('/api/characters', () =>
+        HttpResponse.json({
+          characters: charactersFixture.map((character) =>
+            character.id === charactersFixture[0].id
+              ? { ...character, name: currentName }
+              : character,
+          ),
+        }),
+      ),
+      http.patch('/api/characters/:id', async ({ params, request }) => {
+        const body = (await request.json()) as { name: string };
+        receivedName = body.name;
+        currentName = body.name;
+        return HttpResponse.json({
+          ...charactersFixture[0],
+          id: params.id,
+          name: currentName,
+        });
+      }),
+    );
+
+    renderWithProviders(<CharactersView />);
+    await user.click(await screen.findByRole('button', { name: /rename anika/i }));
+
+    const dialog = await screen.findByRole('dialog');
+    const input = within(dialog).getByLabelText(/^name$/i);
+    expect(input).toHaveValue('Anika');
+    await user.clear(input);
+    await user.type(input, 'Meera');
+    await user.click(within(dialog).getByRole('button', { name: /save name/i }));
+
+    await waitFor(() => expect(receivedName).toBe('Meera'));
+    expect(await screen.findByText('Meera')).toBeInTheDocument();
+  });
+
+  it('keeps the rename dialog open when the new name already exists', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.patch('/api/characters/:id', () =>
+        HttpResponse.json(
+          { error: 'A character with that name already exists.' },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    renderWithProviders(<CharactersView />);
+    await user.click(await screen.findByRole('button', { name: /rename anika/i }));
+
+    const dialog = await screen.findByRole('dialog');
+    const input = within(dialog).getByLabelText(/^name$/i);
+    await user.clear(input);
+    await user.type(input, 'Ravi');
+    await user.click(within(dialog).getByRole('button', { name: /save name/i }));
+
+    expect(await within(dialog).findByText(/already exists/i)).toBeInTheDocument();
+    expect(input).toHaveValue('Ravi');
+  });
+
   it('asks for confirmation before deleting and then calls the API', async () => {
     const user = userEvent.setup();
     let deletedId: string | null = null;

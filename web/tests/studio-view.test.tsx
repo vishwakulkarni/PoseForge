@@ -51,7 +51,7 @@ function withEstimate() {
   );
 }
 
-function withPoseSuggestions() {
+function withPoseSuggestions(onRequest?: () => void) {
   const suggestions = [
     { ...POSES[0], id: 'suggestion-1', title: 'Hero stance' },
     {
@@ -63,9 +63,10 @@ function withPoseSuggestions() {
     },
   ];
   server.use(
-    http.get('/api/pose-references/suggestions', () =>
-      HttpResponse.json({ poseReferences: suggestions }),
-    ),
+    http.get('/api/pose-references/suggestions', () => {
+      onRequest?.();
+      return HttpResponse.json({ poseReferences: suggestions });
+    }),
   );
 }
 
@@ -296,14 +297,18 @@ describe('subject slots', () => {
     await waitFor(() => expect(within(sources).getByText('Add identity photo')).toBeInTheDocument());
     expect(within(canvas).getByText('Add a character')).toBeInTheDocument();
 
-    await user.click(within(canvas).getByRole('button', { name: 'Add character image block' }));
+    await user.click(within(canvas).getByRole('button', {
+      name: 'Select image for Add a character',
+    }));
     await user.click(within(screen.getByLabelText('Select character image'))
       .getByRole('button', { name: 'Ravi' }));
     await waitFor(() => expect(within(sources).getByText('Ravi')).toBeInTheDocument());
     expect(canvas.querySelectorAll('[data-id^="character-block-"]')).toHaveLength(0);
     expect(within(canvas).getByText('Ravi')).toBeInTheDocument();
 
-    await user.click(within(canvas).getByRole('button', { name: 'Add pose image block' }));
+    await user.click(within(canvas).getByRole('button', {
+      name: 'Select image for Add a pose',
+    }));
     await user.click(within(screen.getByLabelText('Select pose image'))
       .getByRole('button', { name: 'Arms crossed' }));
     await waitFor(() => expect(within(sources).getByRole('button', { name: 'Arms crossed' }))
@@ -404,51 +409,19 @@ describe('pose reference', () => {
     ).toBeInTheDocument();
   });
 
-  it('prefetches pose nodes for a canvas identity and queues only selected poses', async () => {
-    withPoseSuggestions();
-    const submittedPoseIds: string[] = [];
-    let generationCount = 0;
-    server.use(
-      http.post('/api/generations', async ({ request }) => {
-        const form = await request.formData();
-        submittedPoseIds.push(String(form.get('poseReferenceId')));
-        generationCount += 1;
-        const id = `generation-${generationCount}`;
-        return HttpResponse.json(
-          { id, generationIds: [id], batchId: null, status: 'pending' },
-          { status: 202 },
-        );
-      }),
-      http.get('/api/generations/:id', ({ params }) =>
-        HttpResponse.json({
-          id: params.id,
-          status: 'pending',
-          outputUrl: null,
-          errorMessage: null,
-          createdAt: '2026-08-10T10:00:00.000Z',
-        }),
-      ),
-    );
+  it('keeps prefetched pose suggestions out of the canvas while the palette is removed', async () => {
+    const onSuggestionRequest = vi.fn();
+    withPoseSuggestions(onSuggestionRequest);
     const user = userEvent.setup();
     renderWithProviders(<StudioView />);
 
     await user.click(await screen.findByRole('button', { name: 'Saved' }));
     await user.click(await screen.findByRole('button', { name: /Anika/ }));
+    await waitFor(() => expect(onSuggestionRequest).toHaveBeenCalled());
 
-    const hero = await screen.findByRole('button', { name: /add suggested pose hero stance/i });
-    const chair = screen.getByRole('button', { name: /add suggested pose chair portrait/i });
-    await user.click(hero);
-    await user.click(chair);
-
-    const canvas = screen.getByLabelText(/composition canvas/i);
-    expect(canvas.querySelectorAll('.poseforge-node-result')).toHaveLength(2);
-    expect(within(canvas).getByText('Pose · Hero stance')).toBeInTheDocument();
-    expect(within(canvas).getByText('Pose · Chair portrait')).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: /generate transformation/i }));
-    await waitFor(() =>
-      expect(submittedPoseIds).toEqual(['suggestion-1', 'suggestion-2']),
-    );
+    expect(screen.queryByLabelText('Node palette')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /suggested pose hero stance/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /suggested pose chair portrait/i })).not.toBeInTheDocument();
   });
 });
 

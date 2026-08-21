@@ -108,6 +108,11 @@ export const api = {
         method: 'POST',
         body: form,
       }),
+    update: (id: string, input: { name: string }) =>
+      request<CharacterSummary>(`/api/characters/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(input),
+      }),
     addPhoto: (id: string, form: FormData) =>
       request<{ id: string; url: string; isPrimary: boolean }>(`/api/characters/${id}/photos`, {
         method: 'POST',

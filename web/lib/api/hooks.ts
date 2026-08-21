@@ -60,6 +60,20 @@ export function useCreateCharacter() {
   });
 }
 
+export function useUpdateCharacter() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      api.characters.update(id, { name }),
+    onSuccess: (character) => {
+      client.invalidateQueries({ queryKey: queryKeys.characters });
+      client.invalidateQueries({ queryKey: queryKeys.character(character.id) });
+      client.invalidateQueries({ queryKey: ['generations'] });
+      client.invalidateQueries({ queryKey: ['metrics'] });
+    },
+  });
+}
+
 export function useDeleteCharacter() {
   const client = useQueryClient();
   return useMutation({

@@ -2,8 +2,14 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Trash2, UserPlus, Users } from 'lucide-react';
-import { useCharacters, useCreateCharacter, useDeleteCharacter } from '@/lib/api/hooks';
+import { Pencil, Trash2, UserPlus, Users } from 'lucide-react';
+import {
+  useCharacters,
+  useCreateCharacter,
+  useDeleteCharacter,
+  useUpdateCharacter,
+} from '@/lib/api/hooks';
+import type { CharacterSummary } from '@/lib/api/types';
 import { relativeTime } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Field, Input } from '@/components/ui/field';
@@ -125,11 +131,96 @@ function AddCharacterDialog({
   );
 }
 
+function RenameCharacterForm({
+  character,
+  onDone,
+}: {
+  character: CharacterSummary;
+  onDone: () => void;
+}) {
+  const [name, setName] = React.useState(character.name);
+  const [formError, setFormError] = React.useState<string | null>(null);
+  const update = useUpdateCharacter();
+  const toast = useToast();
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setFormError(null);
+    const trimmed = name.trim();
+    if (!trimmed) return setFormError('Give this character a name.');
+    if (trimmed.length > 80) return setFormError('Character names must be 80 characters or fewer.');
+
+    try {
+      await update.mutateAsync({ id: character.id, name: trimmed });
+      toast.success('Character renamed', `${character.name} is now ${trimmed}.`);
+      onDone();
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Could not rename that character.');
+    }
+  };
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>Rename character</DialogTitle>
+        <DialogDescription>
+          The new name will appear anywhere this saved character is used.
+        </DialogDescription>
+      </DialogHeader>
+
+      <form onSubmit={submit} noValidate>
+        <Field label="Name" htmlFor="rename-character-name" error={formError ?? undefined}>
+          <Input
+            id="rename-character-name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            maxLength={80}
+            autoFocus
+          />
+        </Field>
+
+        <DialogFooter>
+          <Button type="button" variant="ghost" onClick={onDone}>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            loading={update.isPending}
+            disabled={!name.trim() || name.trim() === character.name}
+          >
+            Save name
+          </Button>
+        </DialogFooter>
+      </form>
+    </>
+  );
+}
+
+function RenameCharacterDialog({
+  character,
+  onOpenChange,
+}: {
+  character: CharacterSummary | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Dialog open={Boolean(character)} onOpenChange={onOpenChange}>
+      <DialogContent size="sm">
+        {character ? (
+          <RenameCharacterForm character={character} onDone={() => onOpenChange(false)} />
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function CharactersView() {
   const { data: characters, isLoading, error, refetch } = useCharacters();
   const remove = useDeleteCharacter();
   const toast = useToast();
   const [addOpen, setAddOpen] = React.useState(false);
+  const [pendingRename, setPendingRename] = React.useState<CharacterSummary | null>(null);
   const [pendingDelete, setPendingDelete] = React.useState<{ id: string; name: string } | null>(null);
 
   const confirmDelete = async () => {
@@ -222,9 +313,20 @@ export function CharactersView() {
                     Added {relativeTime(character.createdAt)}
                   </p>
                 </div>
-                <Button asChild size="sm" variant="ghost">
-                  <Link href={`/studio?characterId=${character.id}`}>Use</Link>
-                </Button>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    aria-label={`Rename ${character.name}`}
+                    onClick={() => setPendingRename(character)}
+                  >
+                    <Pencil />
+                    Edit
+                  </Button>
+                  <Button asChild size="sm" variant="ghost">
+                    <Link href={`/studio?characterId=${character.id}`}>Use</Link>
+                  </Button>
+                </div>
               </div>
             </li>
           ))}
@@ -232,6 +334,11 @@ export function CharactersView() {
       )}
 
       <AddCharacterDialog open={addOpen} onOpenChange={setAddOpen} />
+
+      <RenameCharacterDialog
+        character={pendingRename}
+        onOpenChange={(open) => !open && setPendingRename(null)}
+      />
 
       <ConfirmDialog
         open={Boolean(pendingDelete)}
