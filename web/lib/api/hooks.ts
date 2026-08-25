@@ -9,6 +9,7 @@ import {
 } from '@tanstack/react-query';
 import { api, ApiError } from './client';
 import type {
+  EngineKey,
   Generation,
   GenerationStatus,
   MetricsScope,
@@ -41,7 +42,13 @@ export const queryKeys = {
 /* ------------------------------------------------------------- Characters */
 
 export function useCharacters() {
-  return useQuery({ queryKey: queryKeys.characters, queryFn: api.characters.list });
+  return useQuery({
+    queryKey: queryKeys.characters,
+    queryFn: api.characters.list,
+    refetchInterval: (query) => query.state.data?.some((character) =>
+      character.angleProfile?.status === 'pending' || character.angleProfile?.status === 'running'
+    ) ? 2_500 : false,
+  });
 }
 
 export function useCharacter(id: string | null) {
@@ -71,6 +78,15 @@ export function useUpdateCharacter() {
       client.invalidateQueries({ queryKey: ['generations'] });
       client.invalidateQueries({ queryKey: ['metrics'] });
     },
+  });
+}
+
+export function useGenerateCharacterAngles() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, engine }: { id: string; engine: EngineKey }) =>
+      api.characters.generateAngles(id, engine),
+    onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.characters }),
   });
 }
 

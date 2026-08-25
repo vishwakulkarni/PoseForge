@@ -30,6 +30,12 @@ export const Textarea = React.forwardRef<
   );
 });
 
+export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement>>(
+  function Select({ className, ...props }, ref) {
+    return <select ref={ref} className={cn(CONTROL_CLASS, className)} {...props} />;
+  },
+);
+
 export const Label = React.forwardRef<
   React.ComponentRef<typeof LabelPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof LabelPrimitive.Root>

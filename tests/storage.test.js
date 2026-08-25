@@ -45,6 +45,17 @@ test("getGenerationCharacterPath is unique per position", () => {
   assert.equal(two, "generations/gen-1/character-2.jpg");
 });
 
+test("character angle profile paths stay scoped to their character and set", () => {
+  assert.equal(
+    storage.getCharacterProfileViewPath("char-1", "set-1", 45),
+    "characters/char-1/profiles/set-1/angle-45.png",
+  );
+  assert.equal(
+    storage.getCharacterProfileSheetPath("char-1", "set-1"),
+    "characters/char-1/profiles/set-1/sheet.png",
+  );
+});
+
 test("absolutePath resolves a relative path inside STORAGE_ROOT", () => {
   const resolved = storage.absolutePath("characters/char-1/photo-1.png");
   assert.ok(resolved.startsWith(storage.STORAGE_ROOT));

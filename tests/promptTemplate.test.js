@@ -67,3 +67,11 @@ test("buildMergePrompt omits optional fragments entirely when not provided", () 
   const prompt = buildMergePrompt({});
   assert.doesNotMatch(prompt, /Additional instructions from the user/);
 });
+
+test("buildMergePrompt treats a five-angle sheet as one identity instead of five people", () => {
+  const prompt = buildMergePrompt({ characterCount: 1, characterReferenceKinds: ["angle-sheet"] });
+  assert.match(prompt, /five-angle identity sheet/i);
+  assert.match(prompt, /same person/i);
+  assert.match(prompt, /do not reproduce the sheet layout/i);
+  assert.match(prompt, /Image 2 is the POSE reference/);
+});

@@ -218,6 +218,32 @@ export function Inspector({
 
       <div className="inspector-scroll">
         {advanced ? (
+          <section className="recipe-bar batch-output-bar">
+            <div className="section-label-row">
+              <span>Images to generate</span>
+              <span>One batch</span>
+            </div>
+            <StudioSelect
+              id="variantCount"
+              aria-label="Images to generate"
+              value={String(settings.output.variantCount)}
+              onChange={(event) =>
+                patch((c) => ({
+                  ...c,
+                  output: { ...c.output, variantCount: Number(event.target.value) },
+                }))
+              }
+            >
+              {[1, 2, 3, 4, 5, 6].map((count) => (
+                <option key={count} value={count}>
+                  {count} image{count === 1 ? '' : 's'}
+                </option>
+              ))}
+            </StudioSelect>
+          </section>
+        ) : null}
+
+        {advanced ? (
           <section className="recipe-bar">
             <div className="section-label-row">
               <span>Recipe</span>
@@ -595,36 +621,15 @@ export function Inspector({
                 </div>
               </div>
 
-              <div className="two-fields">
-                <SelectField
-                  id="quality"
-                  label="Quality"
-                  value={settings.output.quality}
-                  options={QUALITY}
-                  onChange={(value) =>
-                    patch((c) => ({ ...c, output: { ...c.output, quality: value } }))
-                  }
-                />
-                <div>
-                  <StudioLabel htmlFor="variantCount">Bulk outputs</StudioLabel>
-                  <StudioSelect
-                    id="variantCount"
-                    value={String(settings.output.variantCount)}
-                    onChange={(event) =>
-                      patch((c) => ({
-                        ...c,
-                        output: { ...c.output, variantCount: Number(event.target.value) },
-                      }))
-                    }
-                  >
-                    {[1, 2, 3, 4, 5, 6].map((count) => (
-                      <option key={count} value={count}>
-                        {count} image{count === 1 ? '' : 's'}
-                      </option>
-                    ))}
-                  </StudioSelect>
-                </div>
-              </div>
+              <SelectField
+                id="quality"
+                label="Quality"
+                value={settings.output.quality}
+                options={QUALITY}
+                onChange={(value) =>
+                  patch((c) => ({ ...c, output: { ...c.output, quality: value } }))
+                }
+              />
 
               <RangeField
                 id="variationStrength"

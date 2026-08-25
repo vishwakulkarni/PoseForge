@@ -19,11 +19,24 @@ export type EngineKey =
   | (string & {});
 
 /** GET /api/characters */
+export interface CharacterAngleProfile {
+  id: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  completedAngles: number;
+  totalAngles: number;
+  engine: EngineKey;
+  model: string;
+  sheetUrl: string | null;
+  errorMessage: string | null;
+  createdAt?: string;
+}
+
 export interface CharacterSummary {
   id: string;
   name: string;
   createdAt: string;
   primaryPhotoUrl: string | null;
+  angleProfile?: CharacterAngleProfile | null;
 }
 
 /** GET /api/characters/:id */
@@ -32,6 +45,7 @@ export interface CharacterDetail {
   name: string;
   createdAt: string;
   photos: Array<{ id: string; url: string; isPrimary: boolean }>;
+  angleProfile?: CharacterAngleProfile | null;
 }
 
 /** GET /api/presets */
@@ -49,6 +63,11 @@ export interface EngineInfo {
   ready: boolean;
   reason?: string | null;
   models?: Array<{ id: string; label: string }>;
+  selectedModel?: string | null;
+  capabilities?: {
+    angleProfiles?: boolean;
+    [key: string]: unknown;
+  };
 }
 
 export interface EnginesResponse {

@@ -1,5 +1,6 @@
 import type {
   CharacterDetail,
+  CharacterAngleProfile,
   CharacterSummary,
   EnginesResponse,
   Generation,
@@ -104,7 +105,7 @@ export const api = {
       request<{ characters: CharacterSummary[] }>('/api/characters').then((r) => r.characters),
     get: (id: string) => request<CharacterDetail>(`/api/characters/${id}`),
     create: (form: FormData) =>
-      request<{ id: string; name: string; primaryPhotoUrl: string }>('/api/characters', {
+      request<CharacterSummary & { primaryPhotoUrl: string }>('/api/characters', {
         method: 'POST',
         body: form,
       }),
@@ -117,6 +118,11 @@ export const api = {
       request<{ id: string; url: string; isPrimary: boolean }>(`/api/characters/${id}/photos`, {
         method: 'POST',
         body: form,
+      }),
+    generateAngles: (id: string, engine: EngineKey) =>
+      request<CharacterAngleProfile>(`/api/characters/${id}/angle-profile`, {
+        method: 'POST',
+        body: JSON.stringify({ engine }),
       }),
     remove: (id: string) => request<void>(`/api/characters/${id}`, { method: 'DELETE' }),
   },

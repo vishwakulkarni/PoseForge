@@ -10,6 +10,7 @@ const logger = require("../lib/logger");
 // ignored the pose reference in real PoseForge generations.
 const MODEL_ID = "fal-ai/nano-banana-pro/edit";
 const SYSTEM_PROMPT = "Perform identity-preserving pose transfer. Earlier images are identity donors only; the final image is the target canvas and supplies pose and composition only. Never copy the final image's person's identity into the output, and never keep an identity donor's original pose or background.";
+const PROFILE_SYSTEM_PROMPT = "Create a new camera-angle view from the single source image. Change only the viewpoint requested by the user prompt. Treat every visible detail in the source as locked: identity, face, expression, eyeglasses, clothing, hairstyle, accessories, body pose, crop, lighting, colors, and background. Never remove, add, replace, restyle, beautify, or simplify those details. Only the source head direction or camera direction may differ when required by the requested angle.";
 
 async function configuredKey() {
   if (process.env.FAL_KEY) return process.env.FAL_KEY;
@@ -43,11 +44,68 @@ function falErrorMessage(error) {
   return error?.message || "Unknown provider error";
 }
 
+async function generateEdit({ referencePaths, prompt, systemPrompt, outputPath, outputSettings = {}, apiKey }) {
+  const key = apiKey || await configuredKey();
+  if (!key) throw new Error("No fal.ai API key configured.");
+  if (!referencePaths.length) throw new Error("At least one fal.ai image reference is required.");
+  if (referencePaths.length > 10) throw new Error("fal.ai supports at most ten reference images for this workflow.");
+  const input = {
+    prompt,
+    system_prompt: systemPrompt,
+    // @fal-ai/client uploads Blob values to fal storage and replaces them
+    // with hosted URLs before queue submission, avoiding huge base64 JSON.
+    image_urls: await Promise.all(referencePaths.map(toImageBlob)),
+    num_images: 1,
+    aspect_ratio: aspectRatio(outputSettings.aspectRatio),
+    output_format: "png",
+    resolution: outputSettings.quality === "high" ? "2K" : "1K",
+    limit_generations: true,
+  };
+  if (outputSettings.seed != null) input.seed = Number(outputSettings.seed);
+
+  fal.config({ credentials: key });
+  let providerRequestId = null;
+  let result;
+  try {
+    result = await fal.subscribe(MODEL_ID, {
+      input,
+      logs: true,
+      abortSignal: AbortSignal.timeout(Number(process.env.FAL_TIMEOUT_MS || 600000)),
+      onEnqueue(requestId) {
+        providerRequestId = requestId;
+        logger.info("fal.ai generation queued", { providerRequestId: requestId, model: MODEL_ID });
+      },
+      onQueueUpdate(update) {
+        if (update.status !== "IN_PROGRESS") return;
+        for (const log of update.logs || []) logger.info("fal.ai generation progress", { providerRequestId, message: log.message });
+      },
+    });
+  } catch (error) {
+    const requestNote = providerRequestId ? ` (request ${providerRequestId})` : "";
+    throw new Error(`fal.ai ${MODEL_ID} failed${requestNote}: ${falErrorMessage(error)}`);
+  }
+  providerRequestId = result.requestId || providerRequestId;
+  logger.info("fal.ai generation returned", { providerRequestId, model: MODEL_ID });
+  const imageUrl = result.data?.images?.[0]?.url || result.data?.image?.url;
+  if (!imageUrl) throw new Error(`fal.ai returned no image URL${providerRequestId ? ` (request ${providerRequestId})` : ""}.`);
+  const image = await fetch(imageUrl);
+  if (!image.ok) throw new Error(`Could not download fal.ai output (${image.status})${providerRequestId ? ` for request ${providerRequestId}` : ""}.`);
+  await sharp(Buffer.from(await image.arrayBuffer())).rotate().png().toFile(outputPath);
+  return { usage: {
+    source: "provider-estimate",
+    rateDate: RATE_DATE,
+    model: MODEL_ID,
+    providerRequestId,
+    estimatedCostUsd: null,
+    pricingNote: "fal.ai Nano Banana Pro Edit returned no billable usage metadata; check fal.ai billing for the current price.",
+  } };
+}
+
 const engine = {
   key: "fal",
   label: "fal.ai",
   models: [{ id: MODEL_ID, label: "Nano Banana Pro Edit", tier: "pose-editing", note: "Multi-reference image editing for identity-preserving pose transfer." }],
-  capabilities: { multiImage: true, maxReferenceImages: 10, aspectRatio: true, quality: false, variants: false, local: false },
+  capabilities: { multiImage: true, maxReferenceImages: 10, angleProfiles: true, aspectRatio: true, quality: false, variants: false, local: false },
   async getConfiguredModel() { return MODEL_ID; },
   async isReady() {
     return (await configuredKey())
@@ -55,61 +113,26 @@ const engine = {
       : { ready: false, reason: "No fal.ai API key configured" };
   },
   async generate({ characterPhotoPaths, posePhotoPath, prompt, outputPath, outputSettings = {}, apiKey }) {
-    const key = apiKey || await configuredKey();
-    if (!key) throw new Error("No fal.ai API key configured.");
     const characterPaths = Array.isArray(characterPhotoPaths) ? characterPhotoPaths : [characterPhotoPaths];
     const referencePaths = [...characterPaths, posePhotoPath];
-    if (referencePaths.length > 10) throw new Error("fal.ai supports at most ten reference images for this workflow.");
-    const input = {
+    return generateEdit({
+      referencePaths,
       prompt: poseTransferPrompt(prompt, characterPaths.length),
-      system_prompt: SYSTEM_PROMPT,
-      // @fal-ai/client uploads Blob values to fal storage and replaces them
-      // with hosted URLs before queue submission, avoiding huge base64 JSON.
-      image_urls: await Promise.all(referencePaths.map(toImageBlob)),
-      num_images: 1,
-      aspect_ratio: aspectRatio(outputSettings.aspectRatio),
-      output_format: "png",
-      resolution: outputSettings.quality === "high" ? "2K" : "1K",
-      limit_generations: true,
-    };
-    if (outputSettings.seed != null) input.seed = Number(outputSettings.seed);
-
-    fal.config({ credentials: key });
-    let providerRequestId = null;
-    let result;
-    try {
-      result = await fal.subscribe(MODEL_ID, {
-        input,
-        logs: true,
-        abortSignal: AbortSignal.timeout(Number(process.env.FAL_TIMEOUT_MS || 600000)),
-        onEnqueue(requestId) {
-          providerRequestId = requestId;
-          logger.info("fal.ai generation queued", { providerRequestId: requestId, model: MODEL_ID });
-        },
-        onQueueUpdate(update) {
-          if (update.status !== "IN_PROGRESS") return;
-          for (const log of update.logs || []) logger.info("fal.ai generation progress", { providerRequestId, message: log.message });
-        },
-      });
-    } catch (error) {
-      const requestNote = providerRequestId ? ` (request ${providerRequestId})` : "";
-      throw new Error(`fal.ai ${MODEL_ID} failed${requestNote}: ${falErrorMessage(error)}`);
-    }
-    providerRequestId = result.requestId || providerRequestId;
-    logger.info("fal.ai generation returned", { providerRequestId, model: MODEL_ID });
-    const imageUrl = result.data?.images?.[0]?.url || result.data?.image?.url;
-    if (!imageUrl) throw new Error(`fal.ai returned no image URL${providerRequestId ? ` (request ${providerRequestId})` : ""}.`);
-    const image = await fetch(imageUrl);
-    if (!image.ok) throw new Error(`Could not download fal.ai output (${image.status})${providerRequestId ? ` for request ${providerRequestId}` : ""}.`);
-    await sharp(Buffer.from(await image.arrayBuffer())).rotate().png().toFile(outputPath);
-    return { usage: {
-      source: "provider-estimate",
-      rateDate: RATE_DATE,
-      model: MODEL_ID,
-      providerRequestId,
-      estimatedCostUsd: null,
-      pricingNote: "fal.ai Nano Banana Pro Edit returned no billable usage metadata; check fal.ai billing for the current price.",
-    } };
+      systemPrompt: SYSTEM_PROMPT,
+      outputPath,
+      outputSettings,
+      apiKey,
+    });
+  },
+  async generateProfileView({ sourcePath, prompt, outputPath, outputSettings = {}, apiKey }) {
+    return generateEdit({
+      referencePaths: [sourcePath],
+      prompt,
+      systemPrompt: PROFILE_SYSTEM_PROMPT,
+      outputPath,
+      outputSettings,
+      apiKey,
+    });
   },
 };
 

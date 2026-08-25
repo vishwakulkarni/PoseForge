@@ -36,6 +36,8 @@ test("database schema and seed data", async (t) => {
       "generations",
       "pose_references",
       "generation_characters",
+      "character_profile_sets",
+      "character_profile_views",
       "studio_recipes",
       "studio_projects",
       "studio_composition_revisions",

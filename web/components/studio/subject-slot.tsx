@@ -52,6 +52,10 @@ export function SubjectSlot({
   const subtitle = slot.name ?? (slot.file ? slot.file.name : 'Add identity photo');
   const pickerId = `slot-${position}-picker`;
 
+  React.useEffect(() => {
+    if (slot.characterId) setPickerOpen(false);
+  }, [slot.characterId]);
+
   const saveIdentity = async () => {
     const trimmed = identityName.trim();
     if (!trimmed || !slot.file) return;

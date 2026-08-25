@@ -159,8 +159,36 @@ export const handlers = [
   http.get('/api/engines', () =>
     HttpResponse.json({
       engines: [
-        { key: 'codex', label: 'Codex CLI', ready: true, models: [] },
-        { key: 'gemini', label: 'Gemini', ready: false, reason: 'No API key', models: [] },
+        {
+          key: 'codex',
+          label: 'Codex CLI',
+          ready: true,
+          models: [],
+          capabilities: { angleProfiles: true },
+        },
+        {
+          key: 'openai',
+          label: 'OpenAI API',
+          ready: true,
+          models: [{ id: 'gpt-image-2', label: 'GPT Image 2' }],
+          capabilities: { angleProfiles: true },
+        },
+        {
+          key: 'gemini',
+          label: 'Google Gemini',
+          ready: false,
+          reason: 'No API key',
+          models: [],
+          capabilities: { angleProfiles: true },
+        },
+        {
+          key: 'antigravity',
+          label: 'Google Antigravity CLI',
+          ready: false,
+          reason: 'CLI is not installed',
+          models: [],
+          capabilities: { angleProfiles: true },
+        },
       ],
       defaultEngine: 'codex',
     }),

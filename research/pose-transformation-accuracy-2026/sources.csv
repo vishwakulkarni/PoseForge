@@ -1,0 +1,15 @@
+id,title,type,url,accessed,credibility,recency,bias,file
+1,OpenAI high input fidelity,primary vendor,https://developers.openai.com/cookbook/examples/generate_images_with_high_input_fidelity#face-preservation,2026-08-20,high,medium,medium,sources/o01_openai_high_input_fidelity.md
+2,OpenAI image model summary,primary vendor,https://developers.openai.com/cookbook/examples/multimodal/image-gen-models-prompting-guide#model-summary,2026-08-20,high,high,medium,sources/o02_openai_model_summary.md
+3,OpenAI image eval guidance,primary vendor,https://developers.openai.com/cookbook/examples/multimodal/image_evals#virtual-try-on,2026-08-20,high,high,medium,sources/o03_openai_image_evals.md
+4,OpenAI person-scene prompting,primary vendor,https://developers.openai.com/cookbook/examples/multimodal/image-gen-1.5-prompting_guide#58-insert-the-person-into-a-scene,2026-08-20,high,high,medium,sources/o04_openai_person_scene_prompt.md
+5,ControlNet,academic implementation,https://github.com/lllyasviel/ControlNet,2026-08-20,high,medium,medium,sources/a01_controlnet.md
+6,DWPose,academic implementation,https://github.com/IDEA-Research/DWPose,2026-08-20,high,medium,medium,sources/a02_dwpose.md
+7,DensePose,academic implementation,https://github.com/facebookresearch/detectron2/tree/main/projects/DensePose,2026-08-20,high,high,low,sources/a03_densepose.md
+8,IP-Adapter FaceID,official model card,https://huggingface.co/h94/IP-Adapter-FaceID,2026-08-20,high,medium,medium,sources/a04_ip_adapter_faceid.md
+9,InstantID,academic implementation,https://github.com/InstantID/InstantID,2026-08-20,high,high,medium,sources/a05_instantid.md
+10,PhotoMaker,academic implementation,https://github.com/TencentARC/PhotoMaker,2026-08-20,high,high,medium,sources/a06_photomaker.md
+11,PuLID,academic implementation,https://github.com/ToTheBeginning/PuLID,2026-08-20,high,high,medium,sources/a07_pulid.md
+12,Champ 3D guidance,academic implementation,https://github.com/fudan-generative-vision/champ,2026-08-20,high,high,medium,sources/a08_champ_mimicmotion.md
+13,MimicMotion confidence pose,academic implementation,https://github.com/Tencent/MimicMotion,2026-08-20,high,high,medium,sources/a09_mimicmotion.md
+

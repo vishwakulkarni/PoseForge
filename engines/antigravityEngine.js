@@ -119,11 +119,78 @@ async function materializePng(envelope, outputPath, nativeOutputPath) {
   return null;
 }
 
+function runAntigravityImageGeneration({ workspace, outputPath, nativeOutput, selectedModel, fullPrompt }) {
+  return new Promise((resolve, reject) => {
+    const args = [
+      "-p", fullPrompt,
+      "--output-format", "json",
+      "--model", selectedModel,
+      "--effort", selectedModel.endsWith("-high") ? "high" : "medium",
+      "--print-timeout", `${Math.ceil(TIMEOUT_MS / 1000)}s`,
+      "--sandbox",
+      // Headless mode cannot ask for read_file/image-tool approval. The
+      // process is already confined to a generation directory containing
+      // disposable normalized copies of the selected references.
+      "--dangerously-skip-permissions",
+      "--disable-slash-commands",
+    ];
+    let child;
+    try {
+      child = spawn(AGY_BIN, args, { cwd: workspace, stdio: ["ignore", "pipe", "pipe"] });
+    } catch (error) {
+      return reject(new Error(`Failed to start Antigravity CLI: ${error.message}`));
+    }
+    let stdout = "";
+    let stderr = "";
+    let settled = false;
+    const startedAt = Date.now();
+    logger.info("starting Antigravity CLI", { workspace, outputPath, model: selectedModel, timeoutMs: TIMEOUT_MS });
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      child.kill("SIGKILL");
+      reject(new Error(`Antigravity CLI timed out after ${Math.round(TIMEOUT_MS / 1000)} seconds. ${stderr.slice(-1500)}`));
+    }, TIMEOUT_MS + 15000);
+    child.stdout.on("data", (data) => { stdout += data; });
+    child.stderr.on("data", (data) => { stderr += data; });
+    child.on("error", (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(new Error(`Failed to run Antigravity CLI: ${error.message}`));
+    });
+    child.on("close", async (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      let envelope = null;
+      try { envelope = JSON.parse(stdout.trim()); } catch (_) { /* output file remains the primary contract */ }
+      if (code !== 0 || envelope?.status === "ERROR") {
+        const detail = envelope?.error || stderr || envelope?.response || stdout;
+        return reject(new Error(`Antigravity CLI failed${code == null ? "" : ` with code ${code}`}. ${String(detail).slice(-2000)}`));
+      }
+      let recoveredArtifact;
+      try {
+        recoveredArtifact = await materializePng(envelope, outputPath, nativeOutput);
+      } catch (error) {
+        return reject(new Error(`Antigravity CLI produced an unreadable image artifact. ${error.message}`));
+      }
+      if (!recoveredArtifact || !(await imageMetadata(outputPath)) || (await sharp(outputPath).metadata()).format !== "png") {
+        return reject(new Error(`Antigravity CLI completed but did not produce a valid image for ${outputPath}. ${String(envelope?.response || stderr || stdout).slice(-1200)}`));
+      }
+      if (recoveredArtifact !== outputPath) logger.info("materialized Antigravity image artifact", { sourcePath: recoveredArtifact, outputPath, conversationId: envelope?.conversation_id });
+      await fs.promises.rm(nativeOutput, { force: true }).catch(() => {});
+      logger.info("Antigravity CLI completed", { outputPath, model: selectedModel, durationMs: Date.now() - startedAt });
+      resolve({ usage: usageFromEnvelope(envelope, selectedModel) });
+    });
+  });
+}
+
 const engine = {
   key: "antigravity",
   label: "Google Antigravity CLI",
   models,
-  capabilities: { multiImage: true, aspectRatio: "prompt", quality: "prompt", variants: true, local: false, localCli: true, nativeImageTool: true },
+  capabilities: { multiImage: true, angleProfiles: true, aspectRatio: "prompt", quality: "prompt", variants: true, local: false, localCli: true, nativeImageTool: true },
   getConfiguredModel: configuredModel,
   async isReady() {
     const result = spawnSync(AGY_BIN, ["--help"], { stdio: "ignore", timeout: 3000 });
@@ -137,7 +204,7 @@ const engine = {
       .map((filePath) => workspaceFile(workspace, filePath));
     const pose = workspaceFile(workspace, posePhotoPath);
     const output = workspaceFile(workspace, outputPath);
-    const nativeOutput = path.join(path.resolve(workspace), "agy-native-output.jpg");
+    const nativeOutput = path.join(path.resolve(workspace), `agy-native-${crypto.randomUUID()}.jpg`);
     const selectedModel = validModel(model || await configuredModel());
     const references = characters.map((file, index) => `Identity image ${index + 1}: ${file}`).join("\n");
     const fullPrompt = `${prompt}
@@ -159,70 +226,38 @@ OUTPUT CONTRACT:
 - Do not synthesize the output with a text-writing tool. A binary-safe copy of the real native artifact is allowed.
 - Do not claim success unless every output check passes. Report both the native artifact URL and the exact native output path, then exit.`;
 
-    return new Promise((resolve, reject) => {
-      const args = [
-        "-p", fullPrompt,
-        "--output-format", "json",
-        "--model", selectedModel,
-        "--effort", selectedModel.endsWith("-high") ? "high" : "medium",
-        "--print-timeout", `${Math.ceil(TIMEOUT_MS / 1000)}s`,
-        "--sandbox",
-        // Headless mode cannot ask for read_file/image-tool approval. The
-        // process is already confined to a generation directory containing
-        // disposable normalized copies of the selected references.
-        "--dangerously-skip-permissions",
-        "--disable-slash-commands",
-      ];
-      let child;
-      try {
-        child = spawn(AGY_BIN, args, { cwd: workspace, stdio: ["ignore", "pipe", "pipe"] });
-      } catch (error) {
-        return reject(new Error(`Failed to start Antigravity CLI: ${error.message}`));
-      }
-      let stdout = "";
-      let stderr = "";
-      let settled = false;
-      const startedAt = Date.now();
-      logger.info("starting Antigravity CLI", { workspace, outputPath, model: selectedModel, timeoutMs: TIMEOUT_MS });
-      const timer = setTimeout(() => {
-        if (settled) return;
-        settled = true;
-        child.kill("SIGKILL");
-        reject(new Error(`Antigravity CLI timed out after ${Math.round(TIMEOUT_MS / 1000)} seconds. ${stderr.slice(-1500)}`));
-      }, TIMEOUT_MS + 15000);
-      child.stdout.on("data", (data) => { stdout += data; });
-      child.stderr.on("data", (data) => { stderr += data; });
-      child.on("error", (error) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        reject(new Error(`Failed to run Antigravity CLI: ${error.message}`));
-      });
-      child.on("close", async (code) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        let envelope = null;
-        try { envelope = JSON.parse(stdout.trim()); } catch (_) { /* output file remains the primary contract */ }
-        if (code !== 0 || envelope?.status === "ERROR") {
-          const detail = envelope?.error || stderr || envelope?.response || stdout;
-          return reject(new Error(`Antigravity CLI failed${code == null ? "" : ` with code ${code}`}. ${String(detail).slice(-2000)}`));
-        }
-        let recoveredArtifact;
-        try {
-          recoveredArtifact = await materializePng(envelope, outputPath, nativeOutput);
-        } catch (error) {
-          return reject(new Error(`Antigravity CLI produced an unreadable image artifact. ${error.message}`));
-        }
-        if (!recoveredArtifact || !(await imageMetadata(outputPath)) || (await sharp(outputPath).metadata()).format !== "png") {
-          return reject(new Error(`Antigravity CLI completed but did not produce a valid image for ${output}. ${String(envelope?.response || stderr || stdout).slice(-1200)}`));
-        }
-        if (recoveredArtifact !== outputPath) logger.info("materialized Antigravity image artifact", { sourcePath: recoveredArtifact, outputPath, conversationId: envelope?.conversation_id });
-        await fs.promises.rm(nativeOutput, { force: true }).catch(() => {});
-        logger.info("Antigravity CLI completed", { outputPath, model: selectedModel, durationMs: Date.now() - startedAt });
-        resolve({ usage: usageFromEnvelope(envelope, selectedModel) });
-      });
-    });
+    return runAntigravityImageGeneration({ workspace, outputPath, nativeOutput, selectedModel, fullPrompt });
+  },
+  async generateProfileView({ sourcePath, prompt, outputPath, outputSettings = {}, model }) {
+    const workspace = path.dirname(outputPath);
+    const identity = path.join(path.resolve(workspace), `agy-profile-identity-${crypto.randomUUID()}.png`);
+    await fs.promises.copyFile(sourcePath, identity);
+    const output = workspaceFile(workspace, outputPath);
+    const nativeOutput = path.join(path.resolve(workspace), `agy-native-profile-${crypto.randomUUID()}.jpg`);
+    const selectedModel = validModel(model || await configuredModel());
+    const fullPrompt = `${prompt}
+
+The only identity reference is this file in the current trusted workspace:
+Identity image 1: ${identity}
+
+Use Antigravity's native image-generation capability now. Inspect the source image and create one photorealistic view. Change only the camera viewpoint to the requested angle; preserve every other visible source detail exactly, including eyeglasses, clothing, hairstyle, accessories, expression, body pose, crop, lighting, colors, and background. Target aspect ratio: ${outputSettings.aspectRatio || "4:5"}. Quality direction: ${outputSettings.quality || "medium"}.
+
+OUTPUT CONTRACT:
+- Generate the real image with Antigravity's native image-generation tool.
+- Save the native generated image to exactly this absolute path: ${nativeOutput}
+- If the native tool first creates an artifact in the Antigravity brain directory, perform a binary-safe filesystem copy of that real artifact to ${nativeOutput}.
+- ${nativeOutput} must contain actual decodable image bytes, not text, base64, a placeholder, a fabricated header, Markdown, or a link.
+- Before reporting success, verify ${nativeOutput} exists, is larger than 100 KB, decodes as an image, and has width and height greater than 500 pixels.
+- PoseForge will validate and convert the native artifact to PNG at: ${output}
+- Do not overwrite the identity reference or create unrelated artifacts.
+- Do not synthesize the output with a text-writing tool.
+- Do not claim success unless every output check passes, then exit.`;
+
+    try {
+      return await runAntigravityImageGeneration({ workspace, outputPath, nativeOutput, selectedModel, fullPrompt });
+    } finally {
+      await fs.promises.rm(identity, { force: true }).catch(() => {});
+    }
   },
 };
 

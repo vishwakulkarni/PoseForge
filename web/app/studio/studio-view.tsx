@@ -64,6 +64,22 @@ const LEFT_PANEL_MAX = 460;
 const RIGHT_PANEL_MIN = 300;
 const RIGHT_PANEL_MAX = 520;
 
+function characterNameForUpload(file: File, characters: CharacterSummary[] = []) {
+  const fileStem = file.name.replace(/\.[^.]+$/, '').replace(/\s+/g, ' ').trim();
+  const base = (fileStem || 'Uploaded character').slice(0, 80);
+  const existing = new Set(characters.map((character) => character.name.toLocaleLowerCase()));
+  if (!existing.has(base.toLocaleLowerCase())) return base;
+
+  let counter = 2;
+  while (counter < 10_000) {
+    const suffix = ` ${counter}`;
+    const candidate = `${base.slice(0, 80 - suffix.length)}${suffix}`;
+    if (!existing.has(candidate.toLocaleLowerCase())) return candidate;
+    counter += 1;
+  }
+  return `Character ${Date.now().toString(36)}`;
+}
+
 function clampPanelWidth(width: number, side: 'left' | 'right') {
   const min = side === 'left' ? LEFT_PANEL_MIN : RIGHT_PANEL_MIN;
   const max = side === 'left' ? LEFT_PANEL_MAX : RIGHT_PANEL_MAX;
@@ -519,8 +535,22 @@ export function StudioView() {
       setSelectedSubjectId(key);
       setSelectedSuggestionIds([]);
       dispatch({ type: 'setSlotFile', key, file, previewUrl });
+
+      const name = characterNameForUpload(file, characters);
+      const form = new FormData();
+      form.append('name', name);
+      form.append('characterPhoto', file);
+      const saved = await createCharacter.mutateAsync(form);
+      dispatch({
+        type: 'setSlotCharacter',
+        key,
+        characterId: saved.id,
+        name: saved.name,
+        previewUrl: saved.primaryPhotoUrl,
+      });
+      toast.success('Character saved', `${saved.name} is ready to reuse. Five-angle generation is off by default.`);
     } catch (cause) {
-      toast.error('Could not preview that photo', cause instanceof Error ? cause.message : undefined);
+      toast.error('Could not save that character', cause instanceof Error ? cause.message : undefined);
     }
   };
 

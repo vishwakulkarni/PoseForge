@@ -104,6 +104,55 @@ describe('CharactersView', () => {
     expect(received.photo?.size).toBeGreaterThan(0);
   });
 
+  it('asks one optional question before starting five-angle generation', async () => {
+    const user = userEvent.setup();
+    let generatedRequest: { id: string; engine: string } | null = null;
+    vi.spyOn(api.characters, 'create').mockResolvedValue({
+      id: '33333333-3333-4333-8333-333333333333',
+      name: 'Meera',
+      createdAt: '2026-08-21T10:00:00.000Z',
+      primaryPhotoUrl: '/storage/characters/meera.png',
+      angleProfile: null,
+    });
+    vi.spyOn(api.characters, 'generateAngles').mockImplementation(async (id, engine) => {
+      generatedRequest = { id, engine };
+      return {
+        id: '44444444-4444-4444-8444-444444444444',
+        status: 'pending',
+        completedAngles: 0,
+        totalAngles: 5,
+        engine: 'openai',
+        model: 'gpt-image-2',
+        sheetUrl: null,
+        errorMessage: null,
+      };
+    });
+
+    renderWithProviders(<CharactersView />);
+    await user.click(await screen.findByRole('button', { name: /add character/i }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText(/name/i), 'Meera');
+    await user.upload(
+      within(dialog).getByLabelText(/character reference photo/i),
+      new File(['bytes'], 'meera.png', { type: 'image/png' }),
+    );
+    await user.click(within(dialog).getByRole('button', { name: /save character/i }));
+
+    expect(await within(dialog).findByText(/automatically generate all five character angles/i)).toBeInTheDocument();
+    expect(generatedRequest).toBeNull();
+    expect(within(dialog).queryByText(/male|female/i)).not.toBeInTheDocument();
+
+    const engine = within(dialog).getByLabelText(/generation engine/i);
+    expect(engine).toHaveValue('codex');
+    await user.selectOptions(engine, 'openai');
+
+    await user.click(within(dialog).getByRole('button', { name: /generate all angles/i }));
+    await waitFor(() => expect(generatedRequest).toEqual({
+      id: '33333333-3333-4333-8333-333333333333',
+      engine: 'openai',
+    }));
+  });
+
   it('surfaces a duplicate-name conflict from the server', async () => {
     const user = userEvent.setup();
     server.use(

@@ -252,6 +252,19 @@ describe('mode switching', () => {
     expect(screen.getByText('Multi-pose collage')).toBeInTheDocument();
   });
 
+  it('puts the batch output selector first in Advanced mode', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<StudioView />);
+    await user.click(await screen.findByRole('button', { name: /advanced/i }));
+
+    const outputCount = screen.getByLabelText('Images to generate');
+    const recipe = screen.getByText('Recipe');
+
+    expect(outputCount.compareDocumentPosition(recipe) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    await user.selectOptions(outputCount, '4');
+    expect(outputCount).toHaveValue('4');
+  });
+
   it('applies a built-in recipe across the advanced controls', async () => {
     const user = userEvent.setup();
     renderWithProviders(<StudioView />);
@@ -277,6 +290,38 @@ describe('mode switching', () => {
 });
 
 describe('subject slots', () => {
+  it('automatically saves a left-panel upload as a character without generating angles', async () => {
+    const user = userEvent.setup();
+    let characterRequests = 0;
+    let angleRequests = 0;
+    server.use(
+      http.post('/api/characters', () => {
+        characterRequests += 1;
+        return HttpResponse.json({
+          id: '44444444-4444-4444-8444-444444444444',
+          name: 'Maya Profile',
+          createdAt: '2026-08-21T08:00:00.000Z',
+          primaryPhotoUrl: '/storage/characters/maya-profile.png',
+          angleProfile: null,
+        }, { status: 201 });
+      }),
+      http.post('/api/characters/:id/angle-profile', () => {
+        angleRequests += 1;
+        return HttpResponse.json({}, { status: 202 });
+      }),
+    );
+
+    renderWithProviders(<StudioView />);
+    await screen.findByRole('heading', { name: 'Direction' });
+    const file = new File(['identity'], 'Maya Profile.png', { type: 'image/png' });
+
+    await user.upload(screen.getByLabelText('Identity photo for subject 1'), file);
+
+    await waitFor(() => expect(characterRequests).toBe(1));
+    expect(await within(screen.getByLabelText(/source assets/i)).findByText('Maya Profile')).toBeInTheDocument();
+    expect(angleRequests).toBe(0);
+  });
+
   it('keeps canvas-picked character and pose sources synchronized with the Sources panel', async () => {
     withPoses();
     const user = userEvent.setup();
