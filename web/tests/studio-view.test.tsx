@@ -12,7 +12,25 @@ vi.mock('next/navigation', () => ({
 }));
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
-afterEach(() => server.resetHandlers());
+let restoreClipboard: (() => void) | null = null;
+
+function mockClipboardRead(read: () => Promise<ClipboardItems>) {
+  const descriptor = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { read: vi.fn(read) },
+  });
+  restoreClipboard = () => {
+    if (descriptor) Object.defineProperty(navigator, 'clipboard', descriptor);
+    else Reflect.deleteProperty(navigator, 'clipboard');
+  };
+}
+
+afterEach(() => {
+  server.resetHandlers();
+  restoreClipboard?.();
+  restoreClipboard = null;
+});
 afterAll(() => server.close());
 
 const POSES = [
@@ -322,6 +340,42 @@ describe('subject slots', () => {
     expect(angleRequests).toBe(0);
   });
 
+  it('pastes a clipboard image into a subject and saves it without generating angles', async () => {
+    const user = userEvent.setup();
+    let characterRequests = 0;
+    let angleRequests = 0;
+    mockClipboardRead(async () => [{
+      types: ['image/png'],
+      getType: vi.fn().mockResolvedValue(new Blob(['clipboard-image'], { type: 'image/png' })),
+    } as unknown as ClipboardItem]);
+    server.use(
+      http.post('/api/characters', () => {
+        characterRequests += 1;
+        return HttpResponse.json({
+          id: '55555555-5555-4555-8555-555555555555',
+          name: 'Pasted character',
+          createdAt: '2026-08-24T08:00:00.000Z',
+          primaryPhotoUrl: '/storage/characters/pasted-character.png',
+          angleProfile: null,
+        }, { status: 201 });
+      }),
+      http.post('/api/characters/:id/angle-profile', () => {
+        angleRequests += 1;
+        return HttpResponse.json({}, { status: 202 });
+      }),
+    );
+
+    renderWithProviders(<StudioView />);
+    const subjectSlot = (await screen.findByText('Subject 1')).closest('.character-slot');
+    expect(subjectSlot).not.toBeNull();
+    await user.click(within(subjectSlot as HTMLElement).getByRole('button', { name: 'Paste image' }));
+
+    await waitFor(() => expect(characterRequests).toBe(1));
+    expect(await within(screen.getByLabelText(/source assets/i)).findByText('Pasted character'))
+      .toBeInTheDocument();
+    expect(angleRequests).toBe(0);
+  });
+
   it('keeps canvas-picked character and pose sources synchronized with the Sources panel', async () => {
     withPoses();
     const user = userEvent.setup();
@@ -423,6 +477,36 @@ describe('subject slots', () => {
 });
 
 describe('pose reference', () => {
+  it('pastes a clipboard image into the pose reference', async () => {
+    const user = userEvent.setup();
+    mockClipboardRead(async () => [{
+      types: ['image/webp'],
+      getType: vi.fn().mockResolvedValue(new Blob(['pose'], { type: 'image/webp' })),
+    } as unknown as ClipboardItem]);
+    renderWithProviders(<StudioView />);
+
+    const poseSection = (await screen.findByText('Pose reference')).closest('.asset-section');
+    expect(poseSection).not.toBeNull();
+    await user.click(within(poseSection as HTMLElement).getByRole('button', { name: 'Paste image' }));
+
+    expect(await screen.findByAltText('Selected pose reference'))
+      .toHaveAttribute('src', expect.stringMatching(/^blob:/));
+  });
+
+  it('shows a clear error when the clipboard has no image', async () => {
+    const user = userEvent.setup();
+    mockClipboardRead(async () => [{
+      types: ['text/plain'],
+      getType: vi.fn(),
+    } as unknown as ClipboardItem]);
+    renderWithProviders(<StudioView />);
+
+    const poseSection = (await screen.findByText('Pose reference')).closest('.asset-section');
+    await user.click(within(poseSection as HTMLElement).getByRole('button', { name: 'Paste image' }));
+
+    expect(await screen.findByText('Clipboard does not contain an image.')).toBeInTheDocument();
+  });
+
   it('selects a pose from the thumbnail strip and adds it to the graph', async () => {
     withPoses();
     const user = userEvent.setup();

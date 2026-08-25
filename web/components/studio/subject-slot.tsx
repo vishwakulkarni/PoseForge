@@ -25,7 +25,8 @@ export interface SubjectSlotProps {
   characters: CharacterSummary[];
   removable: boolean;
   onSelectCharacter: (character: CharacterSummary) => void;
-  onSelectFile: (file: File) => void;
+  onSelectFile: (file: File) => Promise<boolean>;
+  onPasteImage: () => Promise<boolean>;
   onRemove: () => void;
   /** Persists the current upload as a reusable saved character. */
   onSaveIdentity: (name: string) => Promise<void>;
@@ -38,6 +39,7 @@ export function SubjectSlot({
   removable,
   onSelectCharacter,
   onSelectFile,
+  onPasteImage,
   onRemove,
   onSaveIdentity,
 }: SubjectSlotProps) {
@@ -48,13 +50,10 @@ export function SubjectSlot({
   const [mode, setMode] = React.useState<'upload' | 'saved'>('upload');
   const [identityName, setIdentityName] = React.useState('');
   const [saving, setSaving] = React.useState(false);
+  const [pasting, setPasting] = React.useState(false);
 
   const subtitle = slot.name ?? (slot.file ? slot.file.name : 'Add identity photo');
   const pickerId = `slot-${position}-picker`;
-
-  React.useEffect(() => {
-    if (slot.characterId) setPickerOpen(false);
-  }, [slot.characterId]);
 
   const saveIdentity = async () => {
     const trimmed = identityName.trim();
@@ -65,6 +64,15 @@ export function SubjectSlot({
       setIdentityName('');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const pasteImage = async () => {
+    setPasting(true);
+    try {
+      if (await onPasteImage()) setPickerOpen(false);
+    } finally {
+      setPasting(false);
     }
   };
 
@@ -84,7 +92,11 @@ export function SubjectSlot({
             aria-label={`Identity photo for subject ${position}`}
             onChange={(event) => {
               const file = event.target.files?.[0];
-              if (file) onSelectFile(file);
+              if (file) {
+                void onSelectFile(file).then((selected) => {
+                  if (selected) setPickerOpen(false);
+                });
+              }
               event.target.value = '';
             }}
           />
@@ -142,34 +154,44 @@ export function SubjectSlot({
           </div>
 
           {mode === 'upload' ? (
-            <div className="quick-save">
-              <input
-                type="text"
-                placeholder="Save identity as..."
-                maxLength={80}
-                value={identityName}
-                aria-label={`Save subject ${position} as a named character`}
-                onChange={(event) => setIdentityName(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    event.preventDefault();
-                    void saveIdentity();
-                  }
-                }}
-              />
+            <>
               <button
                 type="button"
-                disabled={!slot.file || !identityName.trim() || saving}
-                onClick={() => void saveIdentity()}
-                title={
-                  slot.file
-                    ? 'Save this upload as a reusable character'
-                    : 'Upload a photo first'
-                }
+                className="paste-image-btn"
+                disabled={pasting}
+                onClick={() => void pasteImage()}
               >
-                {saving ? '…' : 'Save'}
+                {pasting ? 'Pasting…' : 'Paste image'}
               </button>
-            </div>
+              <div className="quick-save">
+                <input
+                  type="text"
+                  placeholder="Save identity as..."
+                  maxLength={80}
+                  value={identityName}
+                  aria-label={`Save subject ${position} as a named character`}
+                  onChange={(event) => setIdentityName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      void saveIdentity();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={!slot.file || !identityName.trim() || saving}
+                  onClick={() => void saveIdentity()}
+                  title={
+                    slot.file
+                      ? 'Save this upload as a reusable character'
+                      : 'Upload a photo first'
+                  }
+                >
+                  {saving ? '…' : 'Save'}
+                </button>
+              </div>
+            </>
           ) : characters.length ? (
             <div className="saved-strip">
               {characters.map((character) => (

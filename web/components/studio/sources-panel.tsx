@@ -45,9 +45,11 @@ export interface SourcesPanelProps {
   onAddSlot: () => void;
   onRemoveSlot: (key: string) => void;
   onSelectCharacter: (key: string, character: CharacterSummary) => void;
-  onSelectSlotFile: (key: string, file: File) => void;
+  onSelectSlotFile: (key: string, file: File) => Promise<boolean>;
+  onPasteSlotImage: (key: string) => Promise<boolean>;
   onSaveIdentity: (key: string, name: string) => Promise<void>;
   onSelectPoseFile: (file: File) => void;
+  onPastePoseImage: () => Promise<void>;
   onSelectPoseReference: (pose: PoseReference) => void;
   onClearPose: () => void;
 }
@@ -66,13 +68,16 @@ export function SourcesPanel({
   onRemoveSlot,
   onSelectCharacter,
   onSelectSlotFile,
+  onPasteSlotImage,
   onSaveIdentity,
   onSelectPoseFile,
+  onPastePoseImage,
   onSelectPoseReference,
   onClearPose,
 }: SourcesPanelProps) {
   const dragDepth = React.useRef(0);
   const [dragActive, setDragActive] = React.useState(false);
+  const [posePasting, setPosePasting] = React.useState(false);
   const collage = settings.poseCollage;
   const showCollage = mode === 'advanced' && collage.enabled && poseIsUpload;
 
@@ -105,6 +110,7 @@ export function SourcesPanel({
               removable={slots.length > 1}
               onSelectCharacter={(character) => onSelectCharacter(slot.key, character)}
               onSelectFile={(file) => onSelectSlotFile(slot.key, file)}
+              onPasteImage={() => onPasteSlotImage(slot.key)}
               onRemove={() => onRemoveSlot(slot.key)}
               onSaveIdentity={(name) => onSaveIdentity(slot.key, name)}
             />
@@ -212,6 +218,18 @@ export function SourcesPanel({
             </div>
           )}
         </div>
+
+        <button
+          type="button"
+          className="paste-image-btn pose-paste-btn"
+          disabled={posePasting}
+          onClick={() => {
+            setPosePasting(true);
+            void onPastePoseImage().finally(() => setPosePasting(false));
+          }}
+        >
+          {posePasting ? 'Pasting…' : 'Paste image'}
+        </button>
 
         {mode === 'advanced' ? (
           <div className="pose-collage-controls">

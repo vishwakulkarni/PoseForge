@@ -52,6 +52,7 @@ import {
 import { Inspector } from '@/components/studio/inspector';
 import { GenerationDock } from '@/components/studio/dock';
 import { useStudioProjectWorkspace } from '@/lib/studio/project-workspace';
+import { readClipboardImageFile } from '@/lib/clipboard-image';
 
 const TIPS = [
   'Use a clear, front-facing identity photo for the strongest match.',
@@ -549,8 +550,10 @@ export function StudioView() {
         previewUrl: saved.primaryPhotoUrl,
       });
       toast.success('Character saved', `${saved.name} is ready to reuse. Five-angle generation is off by default.`);
+      return true;
     } catch (cause) {
       toast.error('Could not save that character', cause instanceof Error ? cause.message : undefined);
+      return false;
     }
   };
 
@@ -561,6 +564,25 @@ export function StudioView() {
       dispatch({ type: 'setPoseFile', file, previewUrl });
     } catch (cause) {
       toast.error('Could not preview that pose', cause instanceof Error ? cause.message : undefined);
+    }
+  };
+
+  const pasteSlotImage = async (key: string) => {
+    try {
+      const file = await readClipboardImageFile('Pasted character');
+      return await selectSlotFile(key, file);
+    } catch (cause) {
+      toast.error('Could not paste image', cause instanceof Error ? cause.message : undefined);
+      return false;
+    }
+  };
+
+  const pastePoseImage = async () => {
+    try {
+      const file = await readClipboardImageFile('Pasted pose');
+      await selectPoseFile(file);
+    } catch (cause) {
+      toast.error('Could not paste image', cause instanceof Error ? cause.message : undefined);
     }
   };
 
@@ -780,9 +802,11 @@ export function StudioView() {
                 });
               }
             }
-            onSelectSlotFile={(key, file) => void selectSlotFile(key, file)}
+            onSelectSlotFile={selectSlotFile}
+            onPasteSlotImage={pasteSlotImage}
             onSaveIdentity={saveIdentity}
             onSelectPoseFile={(file) => void selectPoseFile(file)}
+            onPastePoseImage={pastePoseImage}
             onSelectPoseReference={(pose: PoseReference) => {
               setSelectedSuggestionIds([]);
               dispatch({ type: 'setPoseReference', id: pose.id, previewUrl: pose.imageUrl });

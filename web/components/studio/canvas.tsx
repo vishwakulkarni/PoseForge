@@ -29,6 +29,7 @@ import {
 import {
   Check,
   ChevronDown,
+  ClipboardPaste,
   Image as ImageIcon,
   LockKeyhole,
   Maximize2,
@@ -47,6 +48,7 @@ import {
   ZoomOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { readClipboardImageFile } from '@/lib/clipboard-image';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   Dialog,
@@ -554,6 +556,7 @@ function StudioNode({ id, data, selected }: NodeProps<StudioFlowNode>) {
             type="button"
             className="nodrag poseforge-node-media"
             aria-label={data.imageUrl ? `Replace image for ${data.label}` : `Select image for ${data.label}`}
+            title="Choose an image or paste one from the clipboard"
             onClick={(event) => {
               event.stopPropagation();
               if (!actions.locked) actions.onOpenPicker(id);
@@ -567,6 +570,14 @@ function StudioNode({ id, data, selected }: NodeProps<StudioFlowNode>) {
                 <Icon size={34} strokeWidth={1.25} />
               </span>
             )}
+            <span
+              className="poseforge-node-paste-hint"
+              role="img"
+              aria-label={`Paste image available for ${data.label}`}
+            >
+              <ClipboardPaste size={13} strokeWidth={1.9} aria-hidden />
+              <span>Paste</span>
+            </span>
           </button>
           <div className="poseforge-node-label">
             <span>{data.meta}</span>
@@ -1379,6 +1390,7 @@ function SourcePicker({
   canUpload,
   onSelect,
   onUpload,
+  onPaste,
   onClose,
 }: {
   node: StudioFlowNode;
@@ -1389,6 +1401,7 @@ function SourcePicker({
   canUpload: boolean;
   onSelect: (asset: CanvasAsset) => void;
   onUpload: (file: File) => void;
+  onPaste: () => void;
   onClose: () => void;
 }) {
   const typeLabel = node.data.kind === 'character' ? 'character' : 'pose';
@@ -1427,6 +1440,14 @@ function SourcePicker({
           }}
         />
       </label>
+      <button
+        type="button"
+        className="poseforge-source-paste"
+        disabled={!canUpload || uploading}
+        onClick={onPaste}
+      >
+        {uploading ? 'Adding image…' : 'Paste image from clipboard'}
+      </button>
       {error ? <p className="poseforge-source-error" role="alert">{error}</p> : null}
       <div className="poseforge-source-picker-scroll">
         <section>
@@ -2183,6 +2204,23 @@ function CanvasFlow(props: CanvasPanelProps) {
     }
   }, [emitStudioEvent, onUploadAsset, pickerNodeId, selectAsset]);
 
+  const pasteAsset = React.useCallback(async () => {
+    if (!pickerNodeId) return;
+    const node = nodesRef.current.find((item) => item.id === pickerNodeId);
+    if (!node || (node.data.kind !== 'character' && node.data.kind !== 'pose')) return;
+    try {
+      const prefix = node.data.kind === 'character' ? 'Pasted character' : 'Pasted pose';
+      const file = await readClipboardImageFile(prefix);
+      await uploadAsset(file);
+    } catch (cause) {
+      setPickerError(cause instanceof Error ? cause.message : 'The clipboard image could not be read.');
+      emitStudioEvent('source_validation_failed', {
+        kind: node.data.kind,
+        reason: 'clipboard_read_failed',
+      });
+    }
+  }, [emitStudioEvent, pickerNodeId, uploadAsset]);
+
   const resizeStart = React.useCallback(() => {
     resizeSnapshot.current = canvasSnapshot(
       nodesRef.current,
@@ -2745,6 +2783,7 @@ function CanvasFlow(props: CanvasPanelProps) {
           canUpload={Boolean(onUploadAsset)}
           onSelect={(asset) => selectAsset(pickerNode.id, asset)}
           onUpload={(file) => void uploadAsset(file)}
+          onPaste={() => void pasteAsset()}
           onClose={() => {
             setPickerNodeId(null);
             setPickerError(null);

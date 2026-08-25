@@ -120,6 +120,20 @@ describe('PoseForge workflow canvas', () => {
     expect(screen.getByText('Result will appear here')).toBeInTheDocument();
   });
 
+  it('advertises clipboard paste directly on character and pose nodes', async () => {
+    const user = userEvent.setup();
+    render(<CanvasPanel {...props()} />);
+
+    const characterHint = screen.getByLabelText('Paste image available for Anika');
+    expect(characterHint).toHaveTextContent('Paste');
+    expect(screen.getByLabelText('Paste image available for Arms crossed')).toBeInTheDocument();
+
+    await user.click(characterHint);
+    const picker = screen.getByLabelText('Select character image');
+    expect(within(picker).getByRole('button', { name: 'Paste image from clipboard' }))
+      .toBeInTheDocument();
+  });
+
   it('summarizes the complete Forge configuration at compact node sizes', () => {
     const { container } = render(
       <CanvasPanel
@@ -921,6 +935,46 @@ describe('PoseForge workflow canvas', () => {
     expect(onProjectChange.mock.lastCall?.[0].nodes).toEqual(expect.arrayContaining([
       expect.objectContaining({ kind: 'pose', custom: true, label: 'Untitled pose' }),
     ]));
+  });
+
+  it('pastes a clipboard image into the selected canvas source block', async () => {
+    const clipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        read: vi.fn().mockResolvedValue([{
+          types: ['image/png'],
+          getType: vi.fn().mockResolvedValue(new Blob(['portrait'], { type: 'image/png' })),
+        }]),
+      },
+    });
+    const onUploadAsset = vi.fn().mockResolvedValue({
+      id: 'pasted-character',
+      type: 'character',
+      label: 'Pasted character',
+      imageUrl: '/storage/pasted-character.png',
+    });
+
+    try {
+      const { container } = render(
+        <CanvasPanel {...props({ project: project(), onProjectChange: vi.fn(), onUploadAsset })} />,
+      );
+      dropCanvasNode(container, { kind: 'character' });
+
+      const picker = screen.getByLabelText('Select character image');
+      fireEvent.click(within(picker).getByRole('button', { name: 'Paste image from clipboard' }));
+
+      await waitFor(() => expect(onUploadAsset).toHaveBeenCalledTimes(1));
+      expect(onUploadAsset.mock.calls[0][0]).toBe('character');
+      expect(onUploadAsset.mock.calls[0][1]).toEqual(expect.objectContaining({
+        name: 'Pasted character.png',
+        type: 'image/png',
+      }));
+      expect(screen.queryByLabelText('Select character image')).not.toBeInTheDocument();
+    } finally {
+      if (clipboardDescriptor) Object.defineProperty(navigator, 'clipboard', clipboardDescriptor);
+      else Reflect.deleteProperty(navigator, 'clipboard');
+    }
   });
 
   it('persists configurable block actions and restores them with undo', async () => {

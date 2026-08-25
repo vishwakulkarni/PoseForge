@@ -335,6 +335,34 @@
   background: var(--pf-accent-soft);
 }
 
+.paste-image-btn {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px dashed var(--pf-border-strong);
+  border-radius: 9px;
+  background: var(--pf-surface);
+  color: var(--pf-text-secondary);
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 750;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.paste-image-btn:hover:not(:disabled) {
+  border-color: var(--pf-accent);
+  background: var(--pf-accent-soft);
+  color: var(--pf-accent);
+}
+
+.paste-image-btn:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.pose-paste-btn {
+  margin-top: 8px;
+}
+
 .saved-strip {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2485,6 +2513,7 @@
 }
 
 .poseforge-node-media {
+  position: relative;
   width: 100%;
   min-height: 0;
   flex: 1;
@@ -2494,6 +2523,32 @@
   border-radius: 11px 11px 0 0;
   background: var(--pf-canvas-node-media);
   cursor: pointer;
+}
+
+.poseforge-node-paste-hint {
+  position: absolute;
+  right: 9px;
+  bottom: 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 7px;
+  border: 1px solid color-mix(in srgb, var(--pf-accent) 42%, var(--pf-canvas-border));
+  border-radius: 7px;
+  color: var(--pf-accent);
+  background: color-mix(in srgb, var(--pf-canvas-node) 90%, transparent);
+  box-shadow: 0 3px 12px rgb(0 0 0 / 0.18);
+  pointer-events: none;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  backdrop-filter: blur(5px);
+}
+
+.poseforge-node-media:hover .poseforge-node-paste-hint,
+.poseforge-node-media:focus-visible .poseforge-node-paste-hint {
+  border-color: var(--pf-accent);
+  background: var(--pf-accent-soft);
 }
 
 .poseforge-node-media img,
@@ -3339,6 +3394,30 @@
   clip: rect(0 0 0 0);
   clip-path: inset(50%);
   white-space: nowrap;
+}
+
+.poseforge-source-paste {
+  min-height: 38px;
+  margin: 8px 14px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--pf-canvas-border);
+  border-radius: 9px;
+  color: var(--pf-canvas-text-secondary);
+  background: var(--pf-canvas-node-elevated);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.poseforge-source-paste:hover:not(:disabled) {
+  border-color: var(--pf-accent);
+  color: var(--pf-accent);
+  background: var(--pf-accent-soft);
+}
+
+.poseforge-source-paste:disabled {
+  cursor: wait;
+  opacity: 0.55;
 }
 
 .poseforge-source-error {
