@@ -21,9 +21,9 @@
   "technical": [
     {"item": "Syntax, API, database, web, E2E, and production build checks pass", "status": "done", "weight": 3},
     {"item": "One-command macOS maintainer setup passes", "status": "done", "weight": 2},
-    {"item": "Fresh-clone setup passes on clean macOS and Linux", "status": "not_started", "weight": 3},
+    {"item": "Fresh-clone setup passes on clean macOS and Linux", "status": "done", "weight": 3},
     {"item": "Tag-driven release verification and publishing configured", "status": "done", "weight": 3},
-    {"item": "main branch protection restored with strict Node 20/22 checks", "status": "not_started", "weight": 3},
+    {"item": "main branch protection restored with strict Node 20/22 checks", "status": "done", "weight": 3},
     {"item": "Secret scanning, push protection, and dependency security enabled", "status": "done", "weight": 2},
     {"item": "Release rollback procedure documented and rehearsed", "status": "partial", "weight": 2}
   ]

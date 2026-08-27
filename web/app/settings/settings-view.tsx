@@ -18,6 +18,50 @@ import {
 import { ErrorState, Skeleton } from '@/components/ui/feedback';
 import { useToast } from '@/components/ui/toast';
 
+const ENGINE_SETUP_LINKS: Record<string, { label: string; href: string }> = {
+  codex: { label: 'Install Codex CLI', href: 'https://github.com/openai/codex' },
+  antigravity: { label: 'Install Antigravity CLI', href: 'https://antigravity.google/docs/cli/install/' },
+};
+
+const ENGINE_SETUP_STEPS: Record<string, string[]> = {
+  codex: [
+    'Install the Codex CLI, then run `codex login` and complete the sign-in flow.',
+    'Open a new terminal (or run `source ~/.zshrc` / `source ~/.bashrc`) so the CLI is on PATH.',
+    'Restart the PoseForge server (`npm run dev` or `npm start`).',
+  ],
+  antigravity: [
+    'Install the Antigravity CLI, then run `agy install` to add it to your shell PATH.',
+    'Run `agy` once to complete interactive sign-in.',
+    'Open a new terminal (or run `source ~/.zshrc` / `source ~/.bashrc`) so the CLI is on PATH.',
+    'Restart the PoseForge server (`npm run dev` or `npm start`).',
+  ],
+};
+
+function EngineSetupHelp({ engineKey }: { engineKey: string }) {
+  const steps = ENGINE_SETUP_STEPS[engineKey];
+  const link = ENGINE_SETUP_LINKS[engineKey];
+  if (!steps) return null;
+  return (
+    <div className="mt-1.5 border-t border-[var(--pf-border)] pt-1.5">
+      <ol className="list-decimal space-y-0.5 pl-3.5 text-[10px] leading-relaxed text-[var(--pf-text-tertiary)]">
+        {steps.map((step) => (
+          <li key={step}>{step}</li>
+        ))}
+      </ol>
+      {link ? (
+        <a
+          href={link.href}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-1 inline-block text-[10px] font-medium text-[var(--pf-accent)] underline underline-offset-2"
+        >
+          {link.label}
+        </a>
+      ) : null}
+    </div>
+  );
+}
+
 function CredentialState({ credential }: { credential: Credential }) {
   if (credential.source === 'environment') {
     return (
@@ -160,11 +204,12 @@ export function SettingsView() {
               ) : (
                 <XCircle className="mt-0.5 size-4 shrink-0 text-[var(--pf-text-tertiary)]" />
               )}
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-[12px] font-bold">{engine.label}</p>
                 <p className="mt-0.5 text-[10px] leading-relaxed text-[var(--pf-text-tertiary)]">
                   {engine.ready ? 'Ready' : (engine.reason ?? 'Not configured')}
                 </p>
+                {!engine.ready ? <EngineSetupHelp engineKey={engine.key} /> : null}
               </div>
             </li>
           ))}
