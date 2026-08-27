@@ -17,5 +17,9 @@ export default defineConfig({
     include: ['tests/**/*.test.{ts,tsx}'],
     css: false,
     restoreMocks: true,
+    // CI runners are slower/more contended than local machines; several
+    // tests chain multiple waitFor calls whose combined time can exceed the
+    // default 5000ms on a loaded runner even though each step is fast.
+    testTimeout: 20000,
   },
 });
