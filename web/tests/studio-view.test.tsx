@@ -574,7 +574,7 @@ describe('the dock', () => {
 
     const select = await screen.findByLabelText(/generation engine/i);
     // The select renders a "Loading…" placeholder until /api/engines resolves.
-    await waitFor(() => expect(within(select).getByRole('option', { name: 'Gemini' })).toBeTruthy());
+    await waitFor(() => expect(within(select).getByRole('option', { name: 'Google Gemini' })).toBeTruthy());
 
     await user.selectOptions(select, 'gemini');
 

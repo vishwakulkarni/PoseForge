@@ -1,6 +1,11 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, vi } from 'vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
+
+// CI runners are more resource-constrained than local machines, so the
+// default 1000ms waitFor timeout is too tight for some async fixtures here
+// and causes flaky failures that don't reproduce locally.
+configure({ asyncUtilTimeout: 5000 });
 
 afterEach(() => cleanup());
 

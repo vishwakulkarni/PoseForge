@@ -2,6 +2,7 @@ import type {
   CharacterDetail,
   CharacterAngleProfile,
   CharacterSummary,
+  EngineKey,
   EnginesResponse,
   Generation,
   GenerationAccepted,
