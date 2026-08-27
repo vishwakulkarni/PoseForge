@@ -8,7 +8,7 @@
 [![macOS maintainer tested](https://img.shields.io/badge/macOS-maintainer%20tested-000000?logo=apple&logoColor=white)](docs/COMPATIBILITY.md)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-[Open the landing page and documentation](https://vishwakulkarni.github.io/PoseForge/) · The full Studio runs locally because generation, storage, and PostgreSQL are intentionally not hosted on GitHub Pages.
+[Open the landing page and documentation](https://vishwakulkarni.github.io/PoseForge/) · The full Studio runs locally because generation, storage, and its embedded database are intentionally not hosted on GitHub Pages.
 
 ## Turn the AI subscription you already pay for into a private, local-first photo studio
 
@@ -38,7 +38,7 @@ same multi-image prompt in chat for every photograph.
   Your Markdown viewer does not support embedded video. Use the walkthrough link above.
 </video>
 
-> **Local-first, not automatically offline.** Your workspace, PostgreSQL
+> **Local-first, not automatically offline.** Your workspace, embedded PGlite
 > database, character library, pose library, and generated files stay on your
 > machine. ComfyUI can keep inference fully local. Codex CLI, Google
 > Antigravity, and hosted API engines send only the references, prompt, and
@@ -47,7 +47,7 @@ same multi-image prompt in chat for every photograph.
 
 ## Quickstart
 
-Prerequisites: Node.js 20.9+ and Docker Desktop or Docker Engine with Compose.
+Prerequisite: Node.js 20.9+. PGlite is embedded, so Docker and a separate database server are not required.
 
 ```bash
 git clone https://github.com/vishwakulkarni/PoseForge.git
@@ -57,8 +57,8 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000). The setup command creates
-`.env` when needed, installs locked dependencies, starts Docker PostgreSQL,
-runs migrations, and verifies the 16 bundled offline poses. It preserves an
+`.env` when needed, installs locked dependencies, creates the embedded PGlite
+database, runs migrations, and verifies the 16 bundled offline poses. It preserves an
 existing `.env` and is safe to rerun after pulling updates.
 
 No image engine is required to explore the interface. To generate images,
@@ -97,7 +97,7 @@ on the local machine.
 Consumer subscriptions and API billing are often separate products. Signed-in
 CLI behavior, quotas, and retention remain subject to the provider account and
 terms. Database-backed API keys and ComfyUI workflow JSON are stored in plain
-text in local PostgreSQL; prefer environment variables where supported and
+text in the local database; prefer environment variables where supported and
 read [SECURITY.md](SECURITY.md) before use on a shared machine.
 
 PoseForge currently supports **seven** interchangeable engines. Adding another
@@ -183,7 +183,7 @@ the request lifecycle, data model, and adapter contract.
 flowchart LR
   Browser[Browser] --> Next[Next.js UI]
   Browser --> API[Express API]
-  API --> DB[(PostgreSQL metadata)]
+  API --> DB[(PGlite / PostgreSQL metadata)]
   API --> Storage[(Local image storage)]
   API --> Queue[Generation queue]
   Queue --> Engines[Engine adapters]
@@ -201,7 +201,7 @@ flowchart LR
 
 | Command | Purpose |
 |---|---|
-| `npm run setup` | Install dependencies, start Docker PostgreSQL, migrate, and verify bundled poses |
+| `npm run setup` | Install dependencies, initialize PGlite, migrate, and verify bundled poses |
 | `npm run dev` | Start the complete application with Next.js development mode |
 | `npm run build:web` | Create the production web build |
 | `npm run test:all` | Run API and web unit/component tests |
@@ -225,11 +225,29 @@ flowchart LR
 
 ## Configuration
 
-The default `.env.example` connects to Docker PostgreSQL. Optional environment
-variables include `CODEX_BIN`, `CODEX_TIMEOUT_MS`, `ANTIGRAVITY_BIN`,
+The default `.env.example` uses embedded PGlite under `storage/pglite`. Set
+`DATABASE_MODE=postgres` and `DATABASE_URL` to use an existing PostgreSQL
+server instead. Other optional environment variables include `CODEX_BIN`,
+`CODEX_TIMEOUT_MS`, `ANTIGRAVITY_BIN`,
 `ANTIGRAVITY_MODEL`, `ANTIGRAVITY_TIMEOUT_MS`, `GEMINI_API_KEY`,
 `GEMINI_IMAGE_MODEL`, `FAL_KEY`, `COMFYUI_URL`, `COMFYUI_MODEL`,
 `COMFYUI_WORKFLOW_PATH`, and `COMFYUI_TIMEOUT_MS`.
+
+PGlite is a single-process embedded database. Do not run multiple PoseForge
+server processes against the same `PGLITE_DATA_DIR`; use PostgreSQL for
+multi-process or remotely hosted deployments.
+
+### Import an existing PostgreSQL database
+
+Keep the source `DATABASE_URL` in `.env`, stop PoseForge, and run:
+
+```bash
+npm run db:import-postgres -- --yes
+```
+
+The command builds and validates a fresh PGlite copy before replacing the
+configured `PGLITE_DATA_DIR`. It preserves the previous embedded database as a
+timestamped `pglite.backup-*` directory. Restart PoseForge after the import.
 
 ComfyUI is restricted to loopback addresses unless
 `COMFYUI_ALLOW_REMOTE=true` is deliberately configured. OpenAI, Gemini,

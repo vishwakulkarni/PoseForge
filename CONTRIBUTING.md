@@ -25,7 +25,7 @@ npm run dev
 ```
 
 The setup command preserves an existing `.env`, installs locked API and web
-dependencies, starts Docker PostgreSQL, applies migrations, and verifies the
+dependencies, initializes embedded PGlite, applies migrations, and verifies the
 bundled starter poses. Re-run it after pulling dependency or migration changes.
 
 Open http://localhost:3000. Pages, `/api`, and `/storage` are served by the
@@ -48,9 +48,8 @@ npm run test:e2e    # Playwright starts the complete app
 | End-to-end | Playwright | `web/e2e/*.spec.ts` |
 
 The API tests use Node's built-in runner — no extra framework dependency.
-Route-level tests that need a database skip themselves gracefully when
-`DATABASE_URL` isn't reachable, so `npm test` works without Postgres
-running, just with reduced coverage.
+Database tests use an isolated PGlite database by default. CI also runs them
+against PostgreSQL to keep the optional server mode compatible.
 
 Playwright starts the complete development server itself. The CI workflow and
 the default local command cover both desktop and mobile viewports.

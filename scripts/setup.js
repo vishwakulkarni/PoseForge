@@ -62,36 +62,11 @@ function installDependencies() {
   run("npm", ["--prefix", "web", "ci"], { label: "Installing web dependencies" });
 }
 
-function startPostgres() {
-  run("docker", ["compose", "up", "-d", "postgres"], { label: "Starting PostgreSQL in Docker" });
-}
-
-function waitForPostgres({ attempts = 30, delayMs = 2000 } = {}) {
-  process.stdout.write("[setup] Waiting for PostgreSQL");
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    const result = spawnSync("docker", ["compose", "exec", "-T", "postgres", "pg_isready", "-U", "postgres", "-d", "poseforge"], {
-      cwd: ROOT,
-      stdio: "ignore",
-    });
-    if (result.status === 0) {
-      process.stdout.write(" ready.\n");
-      return;
-    }
-    process.stdout.write(".");
-    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delayMs);
-  }
-  process.stdout.write("\n");
-  throw new Error("PostgreSQL did not become ready within 60 seconds. Run `docker compose logs postgres`, fix the reported problem, then retry `npm run setup`.");
-}
-
 function main() {
   console.log("PoseForge setup\n===============");
   ensureNodeVersion();
   ensureEnvironmentFile();
-  run("docker", ["compose", "version"], { capture: true, label: "Checking Docker Compose" });
   installDependencies();
-  startPostgres();
-  waitForPostgres();
   run("npm", ["run", "migrate"], { label: "Applying database migrations and seed data" });
   run("node", ["scripts/verify-setup.js"], { label: "Verifying database and bundled poses" });
   console.log("\n[setup] PoseForge is ready. Start it with `npm run dev`, then open http://localhost:3000.");
@@ -107,4 +82,3 @@ if (require.main === module) {
 }
 
 module.exports = { MINIMUM_NODE, parseVersion, versionAtLeast };
-

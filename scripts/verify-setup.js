@@ -17,15 +17,15 @@ async function verify() {
     "SELECT file_path FROM pose_references WHERE file_path LIKE 'pose-library/seed/%' ORDER BY file_path"
   );
   if (result.rowCount < 16) {
-    throw new Error(`Expected at least 16 bundled poses in PostgreSQL, found ${result.rowCount}. Run npm run migrate and retry.`);
+    throw new Error(`Expected at least 16 bundled poses in the database, found ${result.rowCount}. Run npm run migrate and retry.`);
   }
   const missing = result.rows
     .map((row) => path.join(ROOT, "storage", row.file_path))
     .filter((filePath) => !fs.existsSync(filePath));
   if (missing.length) {
-    throw new Error(`PostgreSQL references ${missing.length} missing bundled pose file(s). Restore storage/pose-library/seed from Git.`);
+    throw new Error(`The database references ${missing.length} missing bundled pose file(s). Restore storage/pose-library/seed from Git.`);
   }
-  console.log(`[setup] Verified PostgreSQL and ${result.rowCount} bundled offline poses.`);
+  console.log(`[setup] Verified the database and ${result.rowCount} bundled offline poses.`);
 }
 
 verify()
@@ -34,4 +34,3 @@ verify()
     process.exitCode = 1;
   })
   .finally(() => pool.end().catch(() => {}));
-

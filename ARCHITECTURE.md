@@ -25,9 +25,9 @@ the API and UI testable in isolation.
 |---|---|---|
 | Runtime | Node.js 20.9+ | No framework lock-in, easy to run anywhere |
 | API framework | Express | Small surface area, well understood |
-| Database | PostgreSQL | Real relational data (characters, presets, generation history) with simple foreign-key relationships |
+| Database | Embedded PGlite by default; PostgreSQL optional | PostgreSQL semantics without requiring a local database server |
 | Migrations | Plain `.sql` files, custom runner | No ORM needed at this schema size — see `db/migrate.js` |
-| File storage | Local filesystem under `storage/` | Postgres stores paths and metadata only, never image bytes |
+| File storage | Local filesystem under `storage/` | The database stores paths and metadata only, never image bytes |
 | UI framework | Next.js 16 (App Router) + React 19 | Server components for static shells, client components for the workbench |
 | Styling | Tailwind CSS 4 with CSS-first `@theme` | One token source shared by utilities and hand-written component CSS |
 | Components | Radix primitives + CVA variants | Accessible behaviour by default; variants stay declarative and typed |
@@ -50,7 +50,7 @@ flowchart LR
     API --- Server
     Static --- Server
 
-    API --> DB[(PostgreSQL)]
+    API --> DB[(PGlite / PostgreSQL)]
     API --> Files[(Local storage)]
     API --> Queue[In-memory generation queue]
     Queue --> Registry[Engine registry]
@@ -71,8 +71,9 @@ flowchart LR
 
 The browser sees one origin. Express routes are mounted before the Next.js
 catch-all handler, so `/api/*` and `/storage/*` stay in the backend while page
-and asset requests fall through to Next.js. PostgreSQL holds relational state
-and file paths; image bytes remain under `storage/`. The provider boundary is
+and asset requests fall through to Next.js. PGlite holds relational state and
+file paths by default; users can select an existing PostgreSQL server through
+`.env`. Image bytes remain under `storage/`. The provider boundary is
 selected per generation: loopback ComfyUI can remain entirely local, while
 signed-in CLIs and hosted APIs transmit the selected inputs to their provider.
 
@@ -81,7 +82,7 @@ signed-in CLIs and hosted APIs transmit the selected inputs to their provider.
 ```
 server.js                 Single server entry point: Express routes + Next handler
 db/
-  pool.js                 Shared pg.Pool built from DATABASE_URL
+  pool.js                 PGlite/PostgreSQL adapter selected from .env
   migrate.js               Runs pending .sql files in db/migrations, tracked in schema_migrations
   migrations/               001_init.sql (schema), 002/003_*_seed.sql (starter presets),
                              004_pose_references.sql (pose library schema),
@@ -275,7 +276,7 @@ sequenceDiagram
   participant UI as Studio UI
   participant API as Express generations route
   participant Store as Local storage and pose library
-  participant DB as PostgreSQL
+    participant DB as PGlite / PostgreSQL
   participant Queue as Generation queue
   participant Engine as Selected engine adapter
   participant Runtime as ComfyUI, CLI, or hosted API

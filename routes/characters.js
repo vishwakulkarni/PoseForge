@@ -75,14 +75,13 @@ router.post("/", upload.single("characterPhoto"), asyncHandler(async (req, res) 
     const filePath = storage.getCharacterPhotoPath(characterId, photoId, ".png");
     const abs = storage.absolutePath(filePath);
     await normalizeToPng(req.file.path, abs, { originalName: req.file.originalname, mimeType: req.file.mimetype });
-    const client = await pool.connect();
     let row;
     try {
-      await client.query("BEGIN");
-      row = (await client.query("INSERT INTO characters (id, name) VALUES ($1, $2) RETURNING *", [characterId, name])).rows[0];
-      await client.query("INSERT INTO character_photos (id, character_id, file_path) VALUES ($1, $2, $3)", [photoId, characterId, filePath]);
-      await client.query("COMMIT");
-    } catch (err) { await client.query("ROLLBACK"); await storage.removeRelative(filePath); throw err; } finally { client.release(); }
+      await pool.transaction(async (transaction) => {
+        row = (await transaction.query("INSERT INTO characters (id, name) VALUES ($1, $2) RETURNING *", [characterId, name])).rows[0];
+        await transaction.query("INSERT INTO character_photos (id, character_id, file_path) VALUES ($1, $2, $3)", [photoId, characterId, filePath]);
+      });
+    } catch (err) { await storage.removeRelative(filePath); throw err; }
     res.status(201).json({ id: row.id, name: row.name, createdAt: row.created_at, primaryPhotoUrl: storage.publicUrl(filePath), angleProfile: null });
   } catch (err) {
     if (err.code === "23505") return res.status(409).json({ error: "A character with that name already exists." });
@@ -117,26 +116,18 @@ router.post("/:id/angle-profile", asyncHandler(async (req, res) => {
   await validateSource(sourcePath);
 
   const profileSetId = crypto.randomUUID();
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    await client.query(
+  await pool.transaction(async (transaction) => {
+    await transaction.query(
       "INSERT INTO character_profile_sets (id, character_id, engine, model) VALUES ($1, $2, $3, $4)",
       [profileSetId, req.params.id, engineKey, model],
     );
     for (const angle of ANGLES) {
-      await client.query(
+      await transaction.query(
         "INSERT INTO character_profile_views (id, profile_set_id, angle, prompt) VALUES ($1, $2, $3, $4)",
         [crypto.randomUUID(), profileSetId, angle, anglePrompt(angle)],
       );
     }
-    await client.query("COMMIT");
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
+  });
 
   enqueue(`character-profile:${profileSetId}`, () => runProfileGeneration({
     characterId: req.params.id,
@@ -197,17 +188,15 @@ router.post("/:id/photos", upload.single("photo"), asyncHandler(async (req, res)
     const filePath = storage.getCharacterPhotoPath(req.params.id, id, ".png");
     const abs = storage.absolutePath(filePath);
     await normalizeToPng(req.file.path, abs, { originalName: req.file.originalname, mimeType: req.file.mimetype });
-    const client = await pool.connect();
     try {
-      await client.query("BEGIN");
-      if (makePrimary) await client.query("UPDATE character_photos SET is_primary = false WHERE character_id = $1", [req.params.id]);
-      await client.query("INSERT INTO character_photos (id, character_id, file_path, is_primary) VALUES ($1, $2, $3, $4)", [id, req.params.id, filePath, makePrimary]);
-      await client.query("COMMIT");
+      await pool.transaction(async (transaction) => {
+        if (makePrimary) await transaction.query("UPDATE character_photos SET is_primary = false WHERE character_id = $1", [req.params.id]);
+        await transaction.query("INSERT INTO character_photos (id, character_id, file_path, is_primary) VALUES ($1, $2, $3, $4)", [id, req.params.id, filePath, makePrimary]);
+      });
     } catch (error) {
-      await client.query("ROLLBACK");
       await storage.removeRelative(filePath);
       throw error;
-    } finally { client.release(); }
+    }
     res.status(201).json({ id, url: storage.publicUrl(filePath), isPrimary: makePrimary });
   } finally { await cleanup(req.file); }
 }));

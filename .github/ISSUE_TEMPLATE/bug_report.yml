@@ -56,7 +56,7 @@ body:
     id: environment
     attributes:
       label: Environment
-      placeholder: OS/architecture, Node.js version, Docker version, browser, engine/model, and ComfyUI version if relevant
+      placeholder: OS/architecture, Node.js version, database mode, browser, engine/model, and ComfyUI version if relevant
     validations:
       required: false
 

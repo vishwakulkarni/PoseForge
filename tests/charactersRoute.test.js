@@ -141,7 +141,7 @@ test("character angle generation is queued only after the explicit profile reque
     return { rows: [], rowCount: 0 };
   };
   const stubs = [
-    stub("db/pool.js", { pool: { query, connect: async () => client } }),
+    stub("db/pool.js", { pool: { query, transaction: async (callback) => callback(client) } }),
     stub("lib/storage.js", {
       absolutePath: (filePath) => `/tmp/${filePath}`,
       publicUrl: (filePath) => `/storage/${filePath}`,

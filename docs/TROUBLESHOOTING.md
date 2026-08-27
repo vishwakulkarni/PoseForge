@@ -8,34 +8,32 @@ npm run dev
 ```
 
 The setup command is safe to rerun. It preserves an existing `.env`, installs
-locked dependencies, starts Docker PostgreSQL, applies migrations, and checks
-the bundled pose collection.
+locked dependencies, initializes embedded PGlite, applies migrations, and
+checks the bundled pose collection.
 
-## Setup cannot find Docker
+## The embedded database does not open
 
-Install Docker Desktop or Docker Engine with the Compose plugin, start the
-Docker daemon, and confirm:
+Confirm the project directory is writable and `PGLITE_DATA_DIR` points to a
+writable location. The default is `storage/pglite`. Only one PoseForge server
+process can open a PGlite data directory at a time; stop duplicate processes
+and retry.
+
+## An optional PostgreSQL server does not connect
+
+Set both `DATABASE_MODE=postgres` and a valid `DATABASE_URL`. Confirm the server
+is running and accepts connections from PoseForge. Remove those overrides to
+return to the embedded PGlite default.
+
+## Existing PostgreSQL data is missing after switching to PGlite
+
+Stop PoseForge, keep the old PostgreSQL `DATABASE_URL` in `.env`, and run:
 
 ```bash
-docker compose version
-docker info
+npm run db:import-postgres -- --yes
 ```
 
-Then rerun `npm run setup`.
-
-## PostgreSQL does not become ready
-
-Inspect the container and its logs:
-
-```bash
-docker compose ps
-docker compose logs postgres
-```
-
-Port `5432` may already be occupied by another PostgreSQL installation. Stop
-the conflicting service or configure that database through `DATABASE_URL`.
-Do not delete the Docker volume unless you intentionally want to erase local
-PoseForge database data.
+The importer validates every application table before cutover and retains the
+previous PGlite directory as a timestamped backup. Restart PoseForge afterward.
 
 ## The app reports a missing table or migration
 
@@ -58,7 +56,7 @@ npm run migrate
 node scripts/verify-setup.js
 ```
 
-The verification command checks both PostgreSQL records and their local files.
+The verification command checks both database records and their local files.
 
 ## An engine is unavailable
 
@@ -105,4 +103,3 @@ and [PRIVACY.md](../PRIVACY.md).
 
 See [SUPPORT.md](../SUPPORT.md) for the correct channel and diagnostic
 information to include.
-

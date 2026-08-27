@@ -10,11 +10,11 @@ that are expected to work but still need community verification.
 
 | Platform | Status | Notes |
 |---|---|---|
-| Ubuntu Linux, Node.js 20 and 22 | CI tested | API, PostgreSQL migrations, web build, unit tests, and Playwright run in GitHub Actions. |
-| macOS on Apple Silicon | Maintainer tested | Primary development environment; Docker Desktop is required for the default database setup. |
-| macOS on Intel | Expected | Node.js and Docker support it; community verification is requested. |
-| Windows 11 with Docker Desktop | Experimental | Run from PowerShell or WSL2; clean-install verification is still needed. |
-| Other Linux distributions | Expected | Requires Node.js 20.9+ and Docker Compose v2. |
+| Ubuntu Linux, Node.js 20 and 22 | CI tested | PGlite and PostgreSQL migrations, web build, unit tests, and Playwright run in GitHub Actions. |
+| macOS on Apple Silicon | Maintainer tested | Primary development environment; embedded PGlite requires no separate database service. |
+| macOS on Intel | Expected | Supported by Node.js and PGlite; community verification is requested. |
+| Windows 11 | Experimental | Run from PowerShell or WSL2; clean-install verification is still needed. |
+| Other Linux distributions | Expected | Requires Node.js 20.9+. |
 
 The PoseForge application itself does not require a GPU. The selected image
 engine determines compute and memory requirements.
@@ -45,4 +45,3 @@ requirements substantially.
 
 For a compatibility report, include the information requested in
 [SUPPORT.md](/docs/support). Do not include private photos or credentials.
-

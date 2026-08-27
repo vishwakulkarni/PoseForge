@@ -15,6 +15,8 @@ const { createRequire } = require("module");
 const storage = require("./lib/storage");
 const logger = require("./lib/logger");
 const { prefetchProviderLimits } = require("./lib/providerLimits");
+const { pool, databaseConfig } = require("./db/pool");
+const { runMigrations } = require("./db/migrate");
 
 const WEB_DIR = path.join(__dirname, "web");
 const requireFromWeb = createRequire(path.join(WEB_DIR, "package.json"));
@@ -77,6 +79,8 @@ async function start() {
   const hostname = process.env.HOST || "127.0.0.1";
   const dev = DEV_MODE || process.env.NODE_ENV === "development";
 
+  await runMigrations();
+
   // Next and Fumadocs resolve project-relative generated imports from cwd.
   // Express, storage, and database paths use __dirname, so the complete app
   // can safely run with the web project as its working directory.
@@ -104,7 +108,8 @@ async function start() {
   logger.info("server started", {
     url: `http://${hostname}:${port}`,
     environment: dev ? "development" : "production",
-    databaseConfigured: Boolean(process.env.DATABASE_URL),
+    databaseMode: databaseConfig.mode,
+    databaseLocation: databaseConfig.pgliteDataDir,
     codexBinary: process.env.CODEX_BIN || "codex",
     codexTimeoutMs: Number(process.env.CODEX_TIMEOUT_MS || 300000),
   });
@@ -116,6 +121,7 @@ async function start() {
     logger.info("server stopping", { signal });
     await nextApp.close();
     await new Promise((resolve) => server.close(resolve));
+    await pool.end();
   };
 
   process.once("SIGINT", () => void shutdown("SIGINT"));

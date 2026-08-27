@@ -28,11 +28,11 @@ cannot control provider-side handling after a request leaves your machine.
 - Uploaded character and pose images, generated outputs, and print assets are
   stored unencrypted under `storage/`.
 - Metadata, settings, generation history, and saved credentials are stored in
-  the local PostgreSQL database.
+  embedded PGlite by default, or in the configured PostgreSQL server.
 - Database-backed API keys and ComfyUI workflows are stored in plain text.
 - `.env` credentials are also plain text and are excluded from Git.
-- Docker PostgreSQL data persists in the `poseforge_pgdata` volume until the
-  user explicitly removes that volume.
+- Embedded database data persists under `storage/pglite` until the user removes
+  it. External PostgreSQL data follows that server's retention policy.
 
 Anyone with access to your operating-system account, project directory,
 database, backups, or an exposed PoseForge port may be able to access this
@@ -42,7 +42,7 @@ data. PoseForge has no application-level authentication or authorization.
 
 PoseForge does not include product analytics, advertising trackers, crash
 reporting, or background telemetry. The Metrics page reads local generation
-records from PostgreSQL. Provider engines and installed CLIs may collect their
+records from the database. Provider engines and installed CLIs may collect their
 own operational or account data under their respective policies.
 
 ## Logs
@@ -58,10 +58,9 @@ diagnostic metadata. Review and redact logs before sharing them publicly.
   guardian for minors.
 - Use ComfyUI on loopback for workflows that must remain fully local.
 - Keep PoseForge bound to a trusted machine and network.
-- Protect `.env`, the PostgreSQL volume, `storage/`, backups, and exported logs.
+- Protect `.env`, `storage/`, external database credentials, backups, and exported logs.
 - Delete local images and database records according to your own retention
   needs, and separately follow provider procedures for provider-held data.
 
 See [SECURITY.md](/docs/security) for the threat model and private vulnerability
 reporting process.
-

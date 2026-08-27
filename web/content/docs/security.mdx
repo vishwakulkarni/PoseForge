@@ -13,7 +13,7 @@ shared/multi-user service. Specifically:
   the port PoseForge listens on can use every feature, including reading
   your saved characters, generation history, and uploaded photos.
 - OpenAI, Google Gemini, Replicate, and fal.ai API keys configured through
-  Settings are stored **in plain text** in the local PostgreSQL database.
+  Settings are stored **in plain text** in the local PGlite or PostgreSQL database.
   Saved ComfyUI workflow JSON is also plain text. There is no encryption at
   rest.
 - Uploaded and generated images are stored unencrypted on the local

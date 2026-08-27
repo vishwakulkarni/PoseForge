@@ -1,16 +1,27 @@
 /**
- * Smoke tests against a real database. These validate that migrations
- * actually produce a usable schema — but a contributor without Postgres
- * running locally shouldn't have `npm test` fail outright, so every test
- * here skips itself gracefully if the database isn't reachable.
- *
- * CI runs these against a real Postgres service container (see
- * .github/workflows/ci.yml) after running `npm run migrate`, so they do
- * get exercised for real on every PR.
+ * Smoke tests against an isolated PGlite database by default. Setting
+ * DATABASE_MODE=postgres runs the same assertions against PostgreSQL.
  */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+
+require("dotenv").config({ quiet: true });
+const usePglite = String(process.env.DATABASE_MODE || "pglite").toLowerCase() !== "postgres";
+const temporaryDataDir = usePglite ? fs.mkdtempSync(path.join(os.tmpdir(), "poseforge-pglite-test-")) : null;
+if (usePglite) {
+  process.env.DATABASE_MODE = "pglite";
+  process.env.PGLITE_DATA_DIR = temporaryDataDir;
+}
+
 const { pool } = require("../db/pool");
+const { runMigrations } = require("../db/migrate");
+
+test.before(async () => {
+  await runMigrations();
+});
 
 async function databaseReachable() {
   try {
@@ -23,7 +34,7 @@ async function databaseReachable() {
 
 test("database schema and seed data", async (t) => {
   if (!(await databaseReachable())) {
-    t.skip("No reachable Postgres database (DATABASE_URL) — skipping DB smoke tests.");
+    t.skip("The configured database is not reachable — skipping DB smoke tests.");
     return;
   }
 
@@ -157,8 +168,22 @@ test("database schema and seed data", async (t) => {
     `, [["studio_run_id", "composition_node_id", "composition_revision_id", "parent_generation_id"]]);
     assert.equal(generationColumns.rowCount, 4);
   });
+
+  await t.test("database adapter rolls back transactions", async () => {
+    const key = "transaction_rollback_smoke_test";
+    await assert.rejects(
+      pool.transaction(async (transaction) => {
+        await transaction.query("INSERT INTO settings (key, value) VALUES ($1, $2)", [key, "temporary"]);
+        throw new Error("force rollback");
+      }),
+      /force rollback/
+    );
+    const result = await pool.query("SELECT value FROM settings WHERE key = $1", [key]);
+    assert.equal(result.rowCount, 0);
+  });
 });
 
 test.after(async () => {
   await pool.end().catch(() => {});
+  if (temporaryDataDir) fs.rmSync(temporaryDataDir, { recursive: true, force: true });
 });

@@ -1,6 +1,6 @@
 # Metrics reference
 
-The Metrics page summarizes the `generations` stored in the local PostgreSQL
+The Metrics page summarizes the `generations` stored in the local
 database. It does not query provider billing systems.
 
 ## Scopes
@@ -66,4 +66,3 @@ scope and export date.
 
 Exports can contain operational metadata such as engine names, models, errors,
 and costs. Review a file before sharing it outside your machine.
-

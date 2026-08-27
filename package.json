@@ -22,6 +22,7 @@
     "local-first",
     "express",
     "postgresql",
+    "pglite",
     "codex-cli"
   ],
   "engines": {
@@ -34,6 +35,7 @@
     "build:web": "npm --prefix web run build",
     "install:all": "npm install && npm --prefix web install",
     "migrate": "node db/migrate.js",
+    "db:import-postgres": "node scripts/import-postgres-to-pglite.js",
     "docs:sync": "node scripts/sync-docs.js",
     "docs:check": "node scripts/sync-docs.js --check",
     "pages:prepare": "node scripts/prepare-pages-artifact.js",
@@ -42,13 +44,14 @@
     "launch:score": "node scripts/score-launch-readiness.js",
     "demo:identity": "node scripts/build-identity-demo.js",
     "generate:mascot": "node scripts/generate-mascot.js",
-    "test": "node --test tests/*.test.js",
+    "test": "node --require ./tests/test-env.js --test tests/*.test.js",
     "test:web": "npm --prefix web test",
     "test:e2e": "npm --prefix web run test:e2e",
     "test:all": "npm test && npm run test:web",
     "check": "find . -name '*.js' -not -path './node_modules/*' -not -path './storage/*' -not -path './tmp/*' -not -path './web/*' -print0 | xargs -0 -n1 node --check"
   },
   "dependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@fal-ai/client": "^1.10.1",
     "dotenv": "^17.4.2",
     "express": "^4.19.2",
