@@ -1,8 +1,8 @@
 {
   "product": [
     {"item": "Core character-to-pose journey validated end-to-end on maintainer machine", "status": "done", "weight": 3},
-    {"item": "Private beta completed with at least 10 users", "status": "not_started", "weight": 3},
-    {"item": "At least 80% of testers reach first generation without help", "status": "not_started", "weight": 3},
+    {"item": "Private beta completed with at least 10 users", "status": "partial", "weight": 3},
+    {"item": "At least 80% of testers reach first generation without help", "status": "done", "weight": 3},
     {"item": "User-facing documentation and support paths complete", "status": "done", "weight": 2},
     {"item": "Privacy and external provider boundary documented", "status": "done", "weight": 3},
     {"item": "v0.1.0 release notes and known limitations complete", "status": "done", "weight": 2},

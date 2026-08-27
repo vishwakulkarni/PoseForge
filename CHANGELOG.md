@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] — 2026-08-26
+
+### Added
+
+- Fluid Studio canvas: a persistent, multi-project workspace with
+  configurable image blocks, protected project deletion, clipboard image
+  pasting into sources, and reusable per-character angle profiles.
+- Settings guidance for Codex CLI and Google Antigravity CLI: readiness
+  reasons now include concrete setup steps (`codex login`, `agy install`)
+  and install links, plus a reminder to reopen the terminal so an updated
+  `PATH` takes effect.
+
+### Changed
+
+- **Breaking:** PGlite is now the default embedded database; PostgreSQL via
+  Docker Compose is no longer required for local development. A
+  `npm run db:import-postgres` script is provided to migrate data from an
+  existing PostgreSQL instance.
+- Reworked Pages publishing to only build and ship the landing page and
+  documentation, and repaired broken documentation links.
+
+### Fixed
+
+- Stabilized Studio canvas source workflows and the canvas dot grid.
+
+### Security
+
+- Patched a high-severity Dependabot advisory in the transitive `nanoid`
+  dependency (indefinite loop on a zero-size custom generator) via an npm
+  override to `nanoid@^3.3.18`.
+
 ## [0.1.0] — 2026-08-08
 
 ### Added
@@ -84,4 +115,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   script that produces the full-quality version via Codex CLI).
 - Docker Compose file for a local PostgreSQL instance.
 
+[1.0.0]: https://github.com/vishwakulkarni/PoseForge/releases/tag/v1.0.0
 [0.1.0]: https://github.com/vishwakulkarni/PoseForge/releases/tag/v0.1.0

@@ -1,6 +1,6 @@
 {
   "name": "poseforge",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Local-first AI photo studio: give it a character and a pose reference, get the character back in that pose. Built for family photoshoots and Instagram-ready posts.",
   "private": true,
   "main": "server.js",
