@@ -30,7 +30,6 @@ import {
   ArrowLeft,
   Check,
   ChevronDown,
-  ClipboardPaste,
   Image as ImageIcon,
   LockKeyhole,
   Maximize2,
@@ -38,6 +37,11 @@ import {
   MessageSquareText,
   PersonStanding,
   Plus,
+  Frame,
+  StickyNote,
+  MousePointer2,
+  Hand,
+  LayoutGrid,
   Redo2,
   RotateCcw,
   Sparkles,
@@ -51,6 +55,14 @@ import {
   ZoomOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ImageInputNodeBody } from './nodes/ImageInputNodeBody';
+import { GenerateNodeBody } from './nodes/GenerateNodeBody';
+import { PromptNodeBody } from './nodes/PromptNodeBody';
+import { AssistantNodeBody } from './nodes/AssistantNodeBody';
+import { NoteNodeBody } from './nodes/NoteNodeBody';
+import { GroupNodeBody } from './nodes/GroupNodeBody';
+import { ResultNodeBody } from './nodes/ResultNodeBody';
+import type { StudioNodeBodyProps } from './nodes/types';
 import { readClipboardImageFile } from '@/lib/clipboard-image';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
@@ -185,9 +197,9 @@ export interface CanvasPanelProps {
   engines?: EngineInfo[];
 }
 
-type StudioNodeKind = 'character' | 'pose' | 'generate' | 'result' | 'prompt' | 'assistant';
+type StudioNodeKind = 'character' | 'pose' | 'generate' | 'result' | 'prompt' | 'assistant' | 'group' | 'note';
 
-interface StudioNodeData extends Record<string, unknown> {
+export interface StudioNodeData extends Record<string, unknown> {
   kind: StudioNodeKind;
   label: string;
   meta: string;
@@ -220,6 +232,8 @@ interface StudioNodeData extends Record<string, unknown> {
   instruction?: string;
   /** `assistant` nodes: the refined prompt text returned by the last `assist` call. */
   outputText?: string;
+  /** `note` nodes: an optional accent color name. */
+  color?: string;
   generationId?: string;
   /** `generate` nodes: this node's own prompt text, used when no `prompt`/`assistant` node feeds it. */
   prompt?: string;
@@ -238,7 +252,7 @@ interface CanvasSnapshot {
   viewport: Viewport;
 }
 
-interface GeneratedResultPreview {
+export interface GeneratedResultPreview {
   imageUrl: string;
   index: number;
   poseLabel?: string;
@@ -254,7 +268,7 @@ interface NodeGeometry {
 }
 
 const NODE_TYPES = { poseforge: StudioNode };
-const StudioNodeActionsContext = React.createContext<{
+export interface StudioNodeActions {
   onToggleSuggestion?: (id: string) => void;
   onSelectVariant: (index: number) => void;
   onPreviewResult: (preview: GeneratedResultPreview) => void;
@@ -275,7 +289,9 @@ const StudioNodeActionsContext = React.createContext<{
   onRunNode: (id: string) => void;
   onAssist: (id: string) => void;
   runningNodeIds: ReadonlySet<string>;
-}>({
+}
+
+const StudioNodeActionsContext = React.createContext<StudioNodeActions>({
   onSelectVariant: () => {},
   onPreviewResult: () => {},
   onRegenerate: () => {},
@@ -298,7 +314,7 @@ const StudioNodeActionsContext = React.createContext<{
 });
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 4;
-const CANVAS_DOT_GRID_ENABLED = false;
+const CANVAS_DOT_GRID_ENABLED = true;
 const FIT_OPTIONS = { padding: 0.16, minZoom: MIN_ZOOM, maxZoom: 1.15, duration: 300 };
 const DEFAULT_EDGE_OPTIONS = {
   markerEnd: {
@@ -331,6 +347,8 @@ const NODE_GEOMETRY: Record<StudioNodeKind, NodeGeometry> = {
   result: { width: 480, height: 538, minWidth: 320, minHeight: 360, maxWidth: 800, maxHeight: 900 },
   prompt: { width: 300, height: 160, minWidth: 220, minHeight: 120, maxWidth: 520, maxHeight: 420 },
   assistant: { width: 320, height: 260, minWidth: 260, minHeight: 200, maxWidth: 520, maxHeight: 520 },
+  group: { width: 560, height: 400, minWidth: 240, minHeight: 160, maxWidth: 4000, maxHeight: 4000 },
+  note: { width: 240, height: 200, minWidth: 160, minHeight: 120, maxWidth: 480, maxHeight: 480 },
 };
 
 const TYPE_COPY: Record<StudioNodeKind, { label: string; icon: React.ComponentType<{ size?: number; strokeWidth?: number }> }> = {
@@ -340,6 +358,8 @@ const TYPE_COPY: Record<StudioNodeKind, { label: string; icon: React.ComponentTy
   result: { label: 'Result', icon: ImageIcon },
   prompt: { label: 'Prompt', icon: MessageSquareText },
   assistant: { label: 'Prompt assistant', icon: Wand2 },
+  group: { label: 'Group', icon: Frame },
+  note: { label: 'Note', icon: StickyNote },
 };
 
 function nodePositions(nodes: StudioFlowNode[]): PositionMap {
@@ -415,6 +435,7 @@ function projectDocument(
       ...(node.data.outputText ? { outputText: node.data.outputText } : {}),
       ...(node.data.prompt ? { prompt: node.data.prompt } : {}),
       ...(node.data.nodeEngine ? { engine: node.data.nodeEngine } : {}),
+      ...(node.data.color ? { color: node.data.color } : {}),
     })),
     edges: edges.map((edge) => ({
       id: edge.id,
@@ -495,6 +516,7 @@ function configurableNode(
       ...(saved?.outputText !== undefined ? { outputText: saved.outputText } : {}),
       ...(saved?.prompt !== undefined ? { prompt: saved.prompt } : {}),
       ...(saved?.engine ? { nodeEngine: saved.engine } : {}),
+      ...(saved?.color ? { color: saved.color } : {}),
       collapsed: saved?.collapsed ?? node.data.collapsed ?? false,
       imageFit: saved?.imageFit ?? node.data.imageFit ?? 'fill',
       lastExpandedWidth: saved?.lastExpandedWidth ?? width,
@@ -510,14 +532,18 @@ function savedCustomNode(saved: StudioProjectNode): StudioFlowNode {
     position: { ...saved.position },
     data: {
       kind: saved.kind,
-      label: saved.label ?? `Untitled ${saved.kind}`,
-      meta: saved.meta ?? (saved.assetType ? `${saved.assetType} source` : 'Select an image'),
+      label: saved.label ?? (saved.kind === 'group' ? 'Group' : saved.kind === 'note' ? 'Note' : `Untitled ${saved.kind}`),
+      meta: saved.meta ?? (saved.kind === 'group' || saved.kind === 'note'
+        ? ''
+        : saved.assetType ? `${saved.assetType} source` : 'Select an image'),
       imageUrl: saved.imageUrl ?? null,
-      empty: !saved.imageUrl,
+      empty: (saved.kind === 'character' || saved.kind === 'pose') && !saved.imageUrl,
       custom: true,
       assetType: saved.assetType,
       assetId: saved.assetId,
       imageFit: saved.imageFit ?? 'fill',
+      text: saved.text,
+      color: saved.color ?? (saved.kind === 'note' ? 'amber' : undefined),
       collapsed: saved.collapsed ?? false,
       lastExpandedWidth: saved.lastExpandedWidth,
       lastExpandedHeight: saved.lastExpandedHeight,
@@ -548,6 +574,31 @@ function StudioHandle({ type, id, position }: { type: 'source' | 'target'; id?: 
   return <Handle type={type} id={id} position={position} className="poseforge-handle" />;
 }
 
+/** Dispatches to the per-kind node body component matching `data.kind`.
+ * The shared shell (resizer, handles, tab, block menu) lives in StudioNode
+ * below; each file under `./nodes` owns only its kind's inner content —
+ * keeps one component per node type for maintainable canvas rendering. */
+function NodeBody(props: StudioNodeBodyProps) {
+  switch (props.data.kind) {
+    case 'character':
+    case 'pose':
+      return <ImageInputNodeBody {...props} />;
+    case 'generate':
+      return <GenerateNodeBody {...props} />;
+    case 'prompt':
+      return <PromptNodeBody {...props} />;
+    case 'assistant':
+      return <AssistantNodeBody {...props} />;
+    case 'note':
+      return <NoteNodeBody {...props} />;
+    case 'group':
+      return <GroupNodeBody {...props} />;
+    case 'result':
+    default:
+      return <ResultNodeBody {...props} />;
+  }
+}
+
 function StudioNode({ id, data, selected }: NodeProps<StudioFlowNode>) {
   const actions = React.useContext(StudioNodeActionsContext);
   const [menuOpen, setMenuOpen] = React.useState(false);
@@ -573,6 +624,7 @@ function StudioNode({ id, data, selected }: NodeProps<StudioFlowNode>) {
       )}
       data-aspect={data.aspectRatio}
       data-image-fit={data.imageFit ?? 'fill'}
+      data-color={data.color}
     >
       <NodeResizer
         isVisible={Boolean(selected && !actions.locked && !data.collapsed)}
@@ -609,192 +661,8 @@ function StudioNode({ id, data, selected }: NodeProps<StudioFlowNode>) {
           <strong>{data.label}</strong>
           <small>{data.empty ? 'Image required' : data.meta}</small>
         </div>
-      ) : data.kind === 'character' || data.kind === 'pose' ? (
-        <>
-          <button
-            type="button"
-            className="nodrag poseforge-node-media"
-            aria-label={data.imageUrl ? `Replace image for ${data.label}` : `Select image for ${data.label}`}
-            title="Choose an image or paste one from the clipboard"
-            onClick={(event) => {
-              event.stopPropagation();
-              if (!actions.locked) actions.onOpenPicker(id);
-            }}
-          >
-            {data.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element -- blob, local storage, and provider URLs
-              <img src={data.imageUrl} alt="" draggable={false} decoding="async" />
-            ) : (
-              <span className="poseforge-node-placeholder" aria-hidden>
-                <Icon size={34} strokeWidth={1.25} />
-              </span>
-            )}
-            <span
-              className="poseforge-node-paste-hint"
-              role="img"
-              aria-label={`Paste image available for ${data.label}`}
-            >
-              <ClipboardPaste size={13} strokeWidth={1.9} aria-hidden />
-              <span>Paste</span>
-            </span>
-          </button>
-          <div className="poseforge-node-label">
-            <span>{data.meta}</span>
-            <strong>{data.label}</strong>
-            {data.suggestionId && actions.onToggleSuggestion ? (
-              <button
-                type="button"
-                className="nodrag poseforge-node-remove"
-                aria-label={`Remove suggested pose ${data.label}`}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  actions.onToggleSuggestion?.(data.suggestionId!);
-                }}
-              >
-                <X size={14} />
-              </button>
-            ) : data.imageUrl ? (
-              <button
-                type="button"
-                className="nodrag poseforge-node-remove"
-                aria-label={`Delete ${data.kind} ${data.label}`}
-                title={`Delete ${data.kind}`}
-                disabled={actions.locked}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  actions.onRemove(id);
-                }}
-              >
-                <Trash2 size={14} />
-              </button>
-            ) : null}
-          </div>
-        </>
-      ) : data.kind === 'generate' ? (
-        <div className="poseforge-generate-body">
-          <span className="poseforge-node-icon"><Sparkles size={20} strokeWidth={1.7} /></span>
-          <span className="poseforge-generate-copy">
-            <strong>{data.label}</strong>
-            <span
-              className="poseforge-forge-summary"
-              aria-label={`${data.studioMode ?? 'normal'} mode, ${data.engineLabel ?? 'selected engine'}, ${data.outputCount ?? 1} outputs, ${data.aspectRatio ?? '1:1'}, ${data.inputCount ?? 0} inputs`}
-            >
-              <i>{data.studioMode === 'advanced' ? 'Advanced' : 'Normal'}</i>
-              <i>{data.engineLabel ?? 'Selected engine'}</i>
-              <i>{data.outputCount ?? 1} output{data.outputCount === 1 ? '' : 's'}</i>
-              <i>{data.aspectRatio ?? '1:1'}</i>
-              <i>{data.inputCount ?? 0} input{data.inputCount === 1 ? '' : 's'}</i>
-            </span>
-            <small>{data.validation ?? data.meta}</small>
-          </span>
-          <span className={cn('poseforge-ready-dot', data.status, data.pipelineStatus)} aria-hidden />
-          {data.custom && actions.onRunNode ? (
-            <button
-              type="button"
-              className="nodrag poseforge-node-run"
-              disabled={actions.locked || isRunningNode}
-              onClick={(event) => {
-                event.stopPropagation();
-                actions.onRunNode(id);
-              }}
-            >
-              {isRunningNode ? 'Running…' : 'Run'}
-            </button>
-          ) : null}
-        </div>
-      ) : data.kind === 'prompt' ? (
-        <div className="poseforge-prompt-body">
-          <textarea
-            className="nodrag"
-            placeholder="Describe the scene, framing, or mood…"
-            maxLength={2000}
-            value={data.text ?? ''}
-            disabled={actions.locked}
-            onChange={(event) => actions.onEditText(id, event.target.value)}
-          />
-        </div>
-      ) : data.kind === 'assistant' ? (
-        <div className="poseforge-assistant-body">
-          <textarea
-            className="nodrag"
-            placeholder="Tell the assistant what to improve about the prompt…"
-            maxLength={2000}
-            value={data.instruction ?? ''}
-            disabled={actions.locked}
-            onChange={(event) => actions.onEditInstruction(id, event.target.value)}
-          />
-          <button
-            type="button"
-            className="nodrag poseforge-node-run"
-            disabled={actions.locked || isRunningNode || !data.instruction?.trim() || !data.nodeEngine}
-            onClick={(event) => {
-              event.stopPropagation();
-              actions.onAssist(id);
-            }}
-          >
-            {isRunningNode ? 'Improving…' : 'Improve with AI'}
-          </button>
-          {data.outputText ? (
-            <p className="poseforge-assistant-output" title={data.outputText}>{data.outputText}</p>
-          ) : null}
-        </div>
       ) : (
-        <>
-          <button
-            type="button"
-            className="nodrag poseforge-result-media"
-            aria-label={data.imageUrl
-              ? `Open generated result ${(data.index ?? 0) + 1} preview`
-              : `Select result ${(data.index ?? 0) + 1}`}
-            aria-pressed={data.active}
-            aria-haspopup={data.imageUrl ? 'dialog' : undefined}
-            onClick={(event) => {
-              event.stopPropagation();
-              actions.onSelectVariant(data.index ?? 0);
-              if (data.imageUrl) {
-                actions.onPreviewResult({
-                  imageUrl: data.imageUrl,
-                  index: data.index ?? 0,
-                  poseLabel: data.poseLabel,
-                });
-              }
-            }}
-          >
-            {data.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element -- local storage mount
-              <img src={data.imageUrl} alt={`Generated result ${(data.index ?? 0) + 1}`} draggable={false} decoding="async" />
-            ) : running ? (
-              <span className="poseforge-result-state" aria-live="polite">
-                <i className="poseforge-spinner" aria-hidden />
-                <strong>{data.status === 'pending' ? 'Queued' : 'Forging result'}</strong>
-                <small>Preserving identity and pose</small>
-              </span>
-            ) : failed ? (
-              <span className="poseforge-result-state" aria-live="polite">
-                <i className="poseforge-failure-mark" aria-hidden>!</i>
-                <strong>Generation failed</strong>
-                <small>{data.errorMessage ?? 'Review the engine and try again.'}</small>
-              </span>
-            ) : (
-              <span className="poseforge-result-state">
-                <ImageIcon size={30} strokeWidth={1.25} />
-                <strong>Result will appear here</strong>
-                <small>Complete the inputs, then generate</small>
-              </span>
-            )}
-          </button>
-          <div className="poseforge-node-label poseforge-result-label">
-            <span>{data.poseLabel ? `Pose · ${data.poseLabel}` : data.meta}</span>
-            <strong>{data.label}</strong>
-          </div>
-          {data.active && data.imageUrl ? (
-            <div className="nodrag poseforge-result-actions">
-              <a href={data.imageUrl} download>Download</a>
-              <Link href="/history">History</Link>
-              <button type="button" onClick={actions.onRegenerate}>Regenerate</button>
-            </div>
-          ) : null}
-        </>
+        <NodeBody id={id} data={data} actions={actions} running={running} failed={failed} isRunningNode={isRunningNode} Icon={Icon} />
       )}
 
       {selected ? (
@@ -866,9 +734,9 @@ function StudioNode({ id, data, selected }: NodeProps<StudioFlowNode>) {
         </div>
       ) : null}
 
-      {data.kind !== 'result' ? <StudioHandle type="source" position={Position.Bottom} /> : (
-        <StudioHandle type="source" position={Position.Bottom} />
-      )}
+      {data.kind !== 'result' && data.kind !== 'group' && data.kind !== 'note'
+        ? <StudioHandle type="source" position={Position.Bottom} />
+        : null}
     </article>
   );
 }
@@ -1042,6 +910,10 @@ function CanvasControls({
   onRunPipeline,
   runningPipeline,
   onAddGraphNode,
+  tool,
+  onToolChange,
+  onArrange,
+  canArrange,
 }: {
   zoom: number;
   locked: boolean;
@@ -1055,7 +927,11 @@ function CanvasControls({
   onReset: () => void;
   onRunPipeline?: () => void;
   runningPipeline?: boolean;
-  onAddGraphNode?: (kind: 'generate' | 'prompt' | 'assistant') => void;
+  onAddGraphNode?: (kind: 'generate' | 'prompt' | 'assistant' | 'group' | 'note') => void;
+  tool: 'select' | 'hand';
+  onToolChange: (tool: 'select' | 'hand') => void;
+  onArrange: () => void;
+  canArrange: boolean;
 }) {
   const [resetOpen, setResetOpen] = React.useState(false);
   const { zoomIn, zoomOut, zoomTo, fitView, getViewport } = useReactFlow();
@@ -1067,6 +943,29 @@ function CanvasControls({
   return (
     <>
       <Panel position="bottom-left" className="poseforge-controls nodrag nopan" aria-label="Canvas controls">
+        <button
+          type="button"
+          aria-label="Select tool"
+          title="Select (drag to box-select)"
+          aria-pressed={tool === 'select'}
+          className={cn(tool === 'select' && 'is-active')}
+          disabled={disabled}
+          onClick={() => onToolChange('select')}
+        >
+          <MousePointer2 size={15} />
+        </button>
+        <button
+          type="button"
+          aria-label="Hand tool"
+          title="Hand (drag to pan)"
+          aria-pressed={tool === 'hand'}
+          className={cn(tool === 'hand' && 'is-active')}
+          disabled={disabled}
+          onClick={() => onToolChange('hand')}
+        >
+          <Hand size={15} />
+        </button>
+        <span className="poseforge-controls-divider" aria-hidden />
         <button type="button" aria-label="Zoom in" title="Zoom in" disabled={disabled} onClick={() => void runViewportCommand(zoomIn())}><ZoomIn size={15} /></button>
         <button type="button" aria-label="Zoom out" title="Zoom out" disabled={disabled} onClick={() => void runViewportCommand(zoomOut())}><ZoomOut size={15} /></button>
         <button
@@ -1081,6 +980,7 @@ function CanvasControls({
         </button>
         <button type="button" aria-label="Fit all nodes" title="Fit all nodes" disabled={disabled} onClick={() => void runViewportCommand(fitView(FIT_OPTIONS))}><Maximize2 size={15} /></button>
         <button type="button" aria-label="Reset canvas" title="Reset canvas" disabled={disabled} onClick={() => setResetOpen(true)}><RotateCcw size={15} /></button>
+        <span className="poseforge-controls-divider" aria-hidden />
         <button type="button" aria-label={locked ? 'Unlock canvas' : 'Lock canvas'} title={locked ? 'Unlock canvas' : 'Lock canvas'} disabled={disabled} onClick={onToggleLock}>
           {locked ? <LockKeyhole size={15} /> : <UnlockKeyhole size={15} />}
         </button>
@@ -1088,11 +988,23 @@ function CanvasControls({
         <button type="button" aria-label="Redo canvas move" title="Redo" disabled={disabled || !canRedo} onClick={onRedo}><Redo2 size={15} /></button>
         {onAddGraphNode ? (
           <>
+            <span className="poseforge-controls-divider" aria-hidden />
             <button type="button" aria-label="Add generate node" title="Add a chainable generate node" disabled={disabled} onClick={() => onAddGraphNode('generate')}><Sparkles size={15} /></button>
             <button type="button" aria-label="Add prompt node" title="Add a prompt node" disabled={disabled} onClick={() => onAddGraphNode('prompt')}><MessageSquareText size={15} /></button>
             <button type="button" aria-label="Add prompt assistant node" title="Add a prompt assistant node" disabled={disabled} onClick={() => onAddGraphNode('assistant')}><Wand2 size={15} /></button>
+            <button type="button" aria-label="Add group frame" title="Add a group frame" disabled={disabled} onClick={() => onAddGraphNode('group')}><Frame size={15} /></button>
+            <button type="button" aria-label="Add sticky note" title="Add a sticky note" disabled={disabled} onClick={() => onAddGraphNode('note')}><StickyNote size={15} /></button>
           </>
         ) : null}
+        <button
+          type="button"
+          aria-label="Arrange selected nodes"
+          title="Arrange selected nodes into a grid"
+          disabled={disabled || !canArrange}
+          onClick={onArrange}
+        >
+          <LayoutGrid size={15} />
+        </button>
         {onRunPipeline ? (
           <button
             type="button"
@@ -1808,6 +1720,7 @@ function CanvasFlow(props: CanvasPanelProps) {
   const [pickerError, setPickerError] = React.useState<string | null>(null);
   const [uploadingAsset, setUploadingAsset] = React.useState(false);
   const [previewResult, setPreviewResult] = React.useState<GeneratedResultPreview | null>(null);
+  const [tool, setTool] = React.useState<'select' | 'hand'>('select');
   const sourceSelectionKey = React.useMemo(() => JSON.stringify({
     subjects: subjects.map((subject) => ({
       id: subject.id,
@@ -2223,7 +2136,7 @@ function CanvasFlow(props: CanvasPanelProps) {
     }
   }, [commitMutation, emitStudioEvent, onSelectCharacterAsset, onSelectPoseAsset, screenToFlowPosition, workspaceReady]);
 
-  const addGraphNode = React.useCallback((kind: 'generate' | 'prompt' | 'assistant') => {
+  const addGraphNode = React.useCallback((kind: 'generate' | 'prompt' | 'assistant' | 'group' | 'note') => {
     if (!workspaceReady || lockedRef.current) return;
     const id = `${kind}-block-${crypto.randomUUID()}`;
     const geometry = NODE_GEOMETRY[kind];
@@ -2242,11 +2155,17 @@ function CanvasFlow(props: CanvasPanelProps) {
       type: 'poseforge',
       position,
       selected: true,
+      ...(kind === 'group' ? { zIndex: -1 } : {}),
       data: {
         kind,
-        label: `Untitled ${TYPE_COPY[kind].label.toLowerCase()}`,
-        meta: kind === 'generate' ? 'Chained generate node' : kind === 'prompt' ? 'Prompt text' : 'Prompt assistant',
+        label: kind === 'group' ? 'Group' : kind === 'note' ? 'Note' : `Untitled ${TYPE_COPY[kind].label.toLowerCase()}`,
+        meta: kind === 'generate' ? 'Chained generate node'
+          : kind === 'prompt' ? 'Prompt text'
+          : kind === 'note' ? ''
+          : kind === 'group' ? ''
+          : 'Prompt assistant',
         custom: true,
+        ...(kind === 'note' ? { color: 'amber' } : {}),
         ...(kind === 'generate' ? { studioMode: 'normal' as const, inputCount: 0, outputCount: 1 } : {}),
       },
     });
@@ -2256,6 +2175,64 @@ function CanvasFlow(props: CanvasPanelProps) {
     ];
     commitMutation(nextNodes);
   }, [commitMutation, screenToFlowPosition, workspaceReady]);
+
+  // Packs the currently-selected nodes into a compact aligned grid, centered
+  // on their current bounding box (the center never moves). Mirrors
+ // Grid-packing behavior for arranging selected nodes.
+  const arrangeSelectedNodes = React.useCallback(() => {
+    if (!workspaceReady || lockedRef.current) return;
+    const selected = nodesRef.current.filter((node) => node.selected);
+    if (selected.length < 2) return;
+    const gap = 32;
+
+    const sorted = [...selected].sort((a, b) =>
+      a.position.x !== b.position.x ? a.position.x - b.position.x : a.position.y - b.position.y,
+    );
+    const cols = sorted.length <= 4 ? sorted.length : Math.ceil(Math.sqrt(sorted.length));
+    const rows: StudioFlowNode[][] = [];
+    for (let i = 0; i < sorted.length; i += cols) rows.push(sorted.slice(i, i + cols));
+
+    const colWidths: number[] = Array(cols).fill(0);
+    for (const row of rows) {
+      row.forEach((node, columnIndex) => {
+        colWidths[columnIndex] = Math.max(colWidths[columnIndex], nodeSize(node).width);
+      });
+    }
+    const rowHeights = rows.map((row) => Math.max(...row.map((node) => nodeSize(node).height)));
+
+    const totalWidth = colWidths.reduce((sum, width) => sum + width, 0) + gap * (cols - 1);
+    const totalHeight = rowHeights.reduce((sum, height) => sum + height, 0) + gap * (rows.length - 1);
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const node of sorted) {
+      const size = nodeSize(node);
+      minX = Math.min(minX, node.position.x);
+      minY = Math.min(minY, node.position.y);
+      maxX = Math.max(maxX, node.position.x + size.width);
+      maxY = Math.max(maxY, node.position.y + size.height);
+    }
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+    const startX = centerX - totalWidth / 2;
+    const startY = centerY - totalHeight / 2;
+
+    const targets = new Map<string, { x: number; y: number }>();
+    let y = startY;
+    rows.forEach((row, rowIndex) => {
+      let x = startX;
+      row.forEach((node, columnIndex) => {
+        targets.set(node.id, { x, y });
+        x += colWidths[columnIndex] + gap;
+      });
+      y += rowHeights[rowIndex] + gap;
+    });
+
+    const nextNodes = nodesRef.current.map((node) => {
+      const target = targets.get(node.id);
+      return target ? { ...node, position: target } : node;
+    });
+    commitMutation(nextNodes);
+  }, [commitMutation, workspaceReady]);
 
   const updateNode = React.useCallback((
     id: string,
@@ -2857,6 +2834,17 @@ function CanvasFlow(props: CanvasPanelProps) {
       setPickerError(null);
       return;
     }
+    if (
+      (event.key === 'a' || event.key === 'A') &&
+      event.shiftKey && !event.altKey && !event.metaKey && !event.ctrlKey &&
+      !lockedRef.current
+    ) {
+      const target = event.target as HTMLElement;
+      if (target.closest('input, textarea, select, [contenteditable="true"]')) return;
+      event.preventDefault();
+      arrangeSelectedNodes();
+      return;
+    }
     if (lockedRef.current || event.altKey || event.metaKey || event.ctrlKey) return;
     const directions: Record<string, { x: number; y: number }> = {
       ArrowLeft: { x: -1, y: 0 },
@@ -2892,7 +2880,7 @@ function CanvasFlow(props: CanvasPanelProps) {
     setRedoStack([]);
     commitNodes(nextNodes);
     emitProject(nextNodes, edgesRef.current, viewportRef.current, lockedRef.current);
-  }, [commitNodes, emitProject, pickerNodeId]);
+  }, [arrangeSelectedNodes, commitNodes, emitProject, pickerNodeId]);
 
   const pickerNode = pickerNodeId
     ? nodes.find((node) => node.id === pickerNodeId) ?? null
@@ -2911,7 +2899,7 @@ function CanvasFlow(props: CanvasPanelProps) {
   return (
     <StudioNodeActionsContext.Provider value={nodeActions}>
       <ReactFlow
-      className="poseforge-dot-grid"
+      className={cn('poseforge-dot-grid', tool === 'hand' && 'poseforge-tool-hand')}
       nodes={nodes}
       edges={edges}
       nodeTypes={NODE_TYPES}
@@ -2922,7 +2910,8 @@ function CanvasFlow(props: CanvasPanelProps) {
       nodesDraggable={workspaceReady && !locked}
       nodesConnectable={workspaceReady && !locked}
       elementsSelectable
-      panOnDrag={workspaceReady}
+      panOnDrag={workspaceReady && (tool === 'hand' ? true : [1, 2])}
+      selectionOnDrag={workspaceReady && tool === 'select'}
       zoomOnScroll={workspaceReady}
       zoomOnPinch={workspaceReady}
       zoomOnDoubleClick={false}
@@ -3016,6 +3005,10 @@ function CanvasFlow(props: CanvasPanelProps) {
         />
       ) : null}
       <CanvasControls
+        tool={tool}
+        onToolChange={setTool}
+        onArrange={arrangeSelectedNodes}
+        canArrange={nodes.filter((node) => node.selected).length >= 2}
         zoom={viewport.zoom}
         locked={locked}
         disabled={!workspaceReady}

@@ -170,7 +170,7 @@ export interface Recipe {
 }
 
 /** GET/PUT /api/studio-projects */
-export type StudioProjectNodeKind = 'character' | 'pose' | 'generate' | 'result' | 'prompt' | 'assistant';
+export type StudioProjectNodeKind = 'character' | 'pose' | 'generate' | 'result' | 'prompt' | 'assistant' | 'group' | 'note';
 export type StudioProjectNodeAssetType = 'character' | 'pose' | 'generation' | 'upload';
 export type StudioProjectNodeImageFit = 'fit' | 'fill';
 export type StudioProjectNodeStatus = 'idle' | 'queued' | 'running' | 'done' | 'error';
@@ -198,6 +198,10 @@ export interface StudioProjectNode {
   instruction?: string;
   /** `assistant` nodes: the refined prompt text returned by the last `assist` call. */
   outputText?: string;
+  /** `note` nodes: the sticky-note body text. */
+  /** (reuses `text` above, shared with `prompt` nodes.) */
+  /** `note` nodes: an optional accent color name (e.g. "amber", "violet"). */
+  color?: string;
   collapsed?: boolean;
   lastExpandedWidth?: number;
   lastExpandedHeight?: number;
