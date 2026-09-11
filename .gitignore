@@ -16,6 +16,7 @@ storage/pose-library/*
 library/
 data/
 tmp/
+backups/
 
 # Editor / OS
 .DS_Store

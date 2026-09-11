@@ -16,7 +16,16 @@ checks the bundled pose collection.
 Confirm the project directory is writable and `PGLITE_DATA_DIR` points to a
 writable location. The default is `storage/pglite`. Only one PoseForge server
 process can open a PGlite data directory at a time; stop duplicate processes
-and retry.
+and retry. A stale `storage/pglite/postmaster.pid` left over from an unclean
+shutdown can also block startup; it is safe to remove once you've confirmed
+no PoseForge server process is actually running.
+
+If the error is `Aborted(). Build with -sASSERTIONS for more info.` instead
+of a lock error, the embedded database's WAL is corrupted (usually from the
+process being killed mid-write). See
+[PGLITE_RECOVERY.md](PGLITE_RECOVERY.md) for the recovery runbook. PoseForge
+also takes an automatic daily backup to `backups/pglite/` (on every startup
+and once per day thereafter) to cap the worst-case data loss.
 
 ## An optional PostgreSQL server does not connect
 

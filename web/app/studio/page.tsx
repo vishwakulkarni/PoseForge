@@ -1,37 +1,23 @@
-import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import { SiteNav } from '@/components/layout/site-nav';
+import { PageShell } from '@/components/layout/page-shell';
 import { ErrorBoundary } from '@/components/ui/feedback';
-import { StudioView } from './studio-view';
-import './studio.css';
+import { StudioProjectsView } from './studio-projects-view';
 
 export const metadata: Metadata = {
   title: 'Studio',
-  description: 'Put a saved face into any pose, with Normal and Advanced direction controls.',
+  description: 'Open a Studio project, or start a new one.',
 };
-
-function StudioSkeleton() {
-  return (
-    <div className="studio-shell">
-      <div className="studio-workbench" aria-hidden />
-    </div>
-  );
-}
 
 export default function StudioPage() {
   return (
-    // The workbench is a full-bleed application surface, not a document page:
-    // it owns the whole viewport below the nav and has no header block.
-    <div className="studio-page">
-      <SiteNav />
-      <main id="main">
-        <ErrorBoundary>
-          {/* useSearchParams requires a Suspense boundary during prerender. */}
-          <Suspense fallback={<StudioSkeleton />}>
-            <StudioView />
-          </Suspense>
-        </ErrorBoundary>
-      </main>
-    </div>
+    <PageShell
+      eyebrow="Studio"
+      title="Your projects"
+      description="Open a project to work on its canvas, or start a new one."
+    >
+      <ErrorBoundary>
+        <StudioProjectsView />
+      </ErrorBoundary>
+    </PageShell>
   );
 }

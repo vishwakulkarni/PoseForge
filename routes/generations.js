@@ -5,16 +5,15 @@ const path = require("path");
 const crypto = require("crypto");
 const { pool } = require("../db/pool");
 const storage = require("../lib/storage");
-const { buildMergePrompt } = require("../lib/promptTemplate");
 const { normalizeToPng } = require("../lib/imageNormalizer");
-const { enqueue } = require("../lib/generationQueue");
 const { registry } = require("../engines");
 const { asyncHandler, isUuid, cleanup } = require("./helpers");
 const logger = require("../lib/logger");
 const poseLibrary = require("../lib/poseLibrary");
-const { sanitizeAdvancedSettings, buildAdvancedPromptFragment, outputSettings } = require("../lib/studioSettings");
-const { estimateGenerationUsage, mergeActualUsage, batchEstimate } = require("../lib/usageEstimator");
+const { sanitizeAdvancedSettings } = require("../lib/studioSettings");
+const { batchEstimate } = require("../lib/usageEstimator");
 const { splitPoseCollage } = require("../lib/poseCollage");
+const { createGeneration } = require("../lib/generationRunner");
 
 const router = express.Router();
 const tempDir = path.join(__dirname, "..", "tmp", "uploads-v2"); fs.mkdirSync(tempDir, { recursive: true });
@@ -76,8 +75,6 @@ async function load(id) {
   const charactersMap = await loadCharactersMap([id]);
   return { row, characters: charactersMap[id] || [] };
 }
-
-async function getSetting(key) { const result = await pool.query("SELECT value FROM settings WHERE key = $1", [key]); return result.rows[0]?.value || ""; }
 
 router.post("/", upload, asyncHandler(async (req, res) => {
   const pose = req.files?.posePhoto?.[0];
@@ -211,82 +208,25 @@ router.post("/", upload, asyncHandler(async (req, res) => {
 
     for (let variantIndex = 0; variantIndex < variantCount; variantIndex++) {
       const poseSource = collageEnabled ? poseSources[variantIndex] : poseSources[0];
-      const id = crypto.randomUUID();
-      const posePath = storage.getGenerationPosePath(id, ".png");
-      const outputPath = storage.getGenerationOutputPath(id);
-      const generationDir = path.dirname(storage.absolutePath(posePath));
-      await fs.promises.mkdir(generationDir, { recursive: true });
-      await normalizeToPng(poseSource.sourcePath, storage.absolutePath(posePath));
-
-      const characterPaths = [];
-      for (const src of characterSources) {
-        const relPath = storage.getGenerationCharacterPath(id, src.position, ".png");
-        await normalizeToPng(src.sourcePath, storage.absolutePath(relPath));
-        let identityAbsolutePath = storage.absolutePath(relPath);
-        if (src.referenceKind === "angle-sheet") {
-          const identityRelPath = storage.getGenerationCharacterReferencePath(id, src.position, ".png");
-          identityAbsolutePath = storage.absolutePath(identityRelPath);
-          await normalizeToPng(src.identitySourcePath, identityAbsolutePath);
-        }
-        characterPaths.push({
-          position: src.position,
-          characterId: src.characterId,
-          relPath,
-          absolutePath: storage.absolutePath(relPath),
-          identityAbsolutePath,
-          referenceKind: src.referenceKind,
-        });
-      }
-
-      const variantDirection = collageEnabled
-        ? `Use pose cell ${variantIndex + 1} of ${variantCount} as the sole pose and composition reference for this output.`
-        : variantCount > 1
-          ? `This is variation ${variantIndex + 1} of ${variantCount}; create a distinct interpretation while preserving all requested identities and constraints.`
-        : "";
-      const advancedPromptFragment = studioMode === "advanced"
-        ? [buildAdvancedPromptFragment(advancedSettings), variantDirection].filter(Boolean).join(" ")
-        : variantDirection;
-      const prompt = buildMergePrompt({
-        characterCount: characterPaths.length,
-        characterReferenceKinds: characterPaths.map((item) => item.referenceKind),
-        backgroundPresetFragment: background?.prompt_fragment,
-        stylePresetFragment: style?.prompt_fragment,
-        advancedPromptFragment,
-        customInstructions: customInstructions || undefined,
-      });
-      const usageEstimate = estimateGenerationUsage({ engine: engineKey, model: engineModel, prompt, imageCount: characterPaths.length + 1, quality: advancedSettings.output.quality, aspectRatio: advancedSettings.output.aspectRatio });
-      const generationSettings = { ...advancedSettings, engineModel, characterReferenceKinds: characterPaths.map((item) => item.referenceKind), poseCollage: { ...advancedSettings.poseCollage, activeIndex: collageEnabled ? variantIndex : null } };
-      await pool.query(
-        "INSERT INTO generations (id, pose_photo_path, pose_reference_id, engine, background_preset_id, style_preset_id, prompt, studio_mode, advanced_settings, batch_id, usage_metrics) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11::jsonb)",
-        [id, posePath, poseSource.referenceId, engineKey, backgroundId, styleId, prompt, studioMode, JSON.stringify(generationSettings), batchId, JSON.stringify(usageEstimate)]
-      );
-      for (const cp of characterPaths) {
-        await pool.query("INSERT INTO generation_characters (generation_id, position, character_id, file_path) VALUES ($1,$2,$3,$4)", [id, cp.position, cp.characterId, cp.relPath]);
-      }
-
-      enqueue(id, async () => {
-        try {
-          await pool.query("UPDATE generations SET status = 'running', started_at = now() WHERE id = $1", [id]);
-          logger.info("engine execution started", { requestId: req.requestId, generationId: id, engine: engineKey, characterCount: characterPaths.length });
-          const engineResult = await engine.generate({
-            characterPhotoPaths: characterPaths.map((cp) => cp.identityAbsolutePath),
-            posePhotoPath: storage.absolutePath(posePath),
-            prompt,
-            outputPath: storage.absolutePath(outputPath),
-            outputSettings: outputSettings(advancedSettings),
-            apiKey: await getSetting(`${engineKey}_api_key`),
-            model: engineModel,
-          });
-          const usage = mergeActualUsage(usageEstimate, engineResult?.usage);
-          await pool.query("UPDATE generations SET status = 'completed', output_path = $2, usage_metrics = $3::jsonb, completed_at = now() WHERE id = $1", [id, outputPath, JSON.stringify(usage)]);
-          logger.info("generation completed", { requestId: req.requestId, generationId: id, engine: engineKey, outputPath });
-        } catch (err) {
-          logger.error("generation failed", { requestId: req.requestId, generationId: id, engine: engineKey, error: err.message });
-          await pool.query("UPDATE generations SET status = 'failed', error_message = $2, completed_at = now() WHERE id = $1", [id, err.message]);
-        }
+      const { id } = await createGeneration({
+        characterSources,
+        poseSource,
+        engineKey,
+        engine,
+        engineModel,
+        background,
+        style,
+        customInstructions,
+        studioMode,
+        advancedSettings,
+        variantIndex,
+        variantCount,
+        collageEnabled,
+        batchId,
+        requestId: req.requestId,
       });
       generationIds.push(id);
-      logger.info("generation accepted", { requestId: req.requestId, generationId: id, batchId, engine: engineKey, status: "pending", characterCount: characterPaths.length });
+      logger.info("generation accepted", { requestId: req.requestId, generationId: id, batchId, engine: engineKey, status: "pending", characterCount: characterSources.length });
     }
     res.status(202).json({ id: generationIds[0], generationIds, batchId, status: "pending" });
   } finally {

@@ -44,3 +44,22 @@ test("OpenAI uses GPT Image 2 high-fidelity edits without the legacy fidelity pa
   assert.equal(result.usage.totalTokens, 50);
   assert.equal((await sharp(outputPath).metadata()).format, "png");
 });
+
+test("OpenAI assistPrompt sends a chat completion and returns the refined prompt", async (t) => {
+  const originalFetch = global.fetch;
+  let request;
+  global.fetch = async (url, options) => {
+    request = { url, options: { ...options, body: JSON.parse(options.body) } };
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: "A moody, cinematic portrait." } }],
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+  t.after(() => { global.fetch = originalFetch; });
+
+  const result = await openai.assistPrompt({ instruction: "make it moody", apiKey: "test-openai-key" });
+
+  assert.equal(request.url, "https://api.openai.com/v1/chat/completions");
+  assert.equal(request.options.headers.Authorization, "Bearer test-openai-key");
+  assert.equal(request.options.body.messages[1].content, "make it moody");
+  assert.equal(result.text, "A moody, cinematic portrait.");
+});

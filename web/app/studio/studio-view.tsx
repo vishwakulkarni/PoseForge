@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   useCharacters,
   useCreateCharacter,
@@ -230,7 +230,8 @@ function SaveRecipeDialog({
   );
 }
 
-export function StudioView() {
+export function StudioView({ projectId }: { projectId?: string } = {}) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const toast = useToast();
 
@@ -249,7 +250,11 @@ export function StudioView() {
   const [selectedSubjectId, setSelectedSubjectId] = React.useState<string | null>(null);
   const [selectedSuggestionIds, setSelectedSuggestionIds] = React.useState<string[]>([]);
   const [suggestionSubmitting, setSuggestionSubmitting] = React.useState(false);
-  const projectWorkspace = useStudioProjectWorkspace();
+  const projectWorkspace = useStudioProjectWorkspace({ projectId });
+
+  React.useEffect(() => {
+    if (projectWorkspace.projectMissing) router.replace('/studio');
+  }, [projectWorkspace.projectMissing, router]);
 
   const { data: characters } = useCharacters();
   const { data: engineData } = useEngines();
@@ -896,18 +901,23 @@ export function StudioView() {
               setSelectedSuggestionIds([]);
               setErrors([]);
               await projectWorkspace.switchProject(id);
+              router.push(`/studio/${id}`);
             }}
             onCreateProject={async (name) => {
               setSelectedSubjectId(null);
               setSelectedSuggestionIds([]);
               setErrors([]);
-              return projectWorkspace.createProject(name);
+              const project = await projectWorkspace.createProject(name);
+              router.push(`/studio/${project.id}`);
+              return project;
             }}
             onDeleteProject={async (id) => {
               setSelectedSubjectId(null);
               setSelectedSuggestionIds([]);
               setErrors([]);
+              const wasActive = id === projectId;
               await projectWorkspace.deleteProject(id);
+              if (wasActive) router.push('/studio');
             }}
             characterAssets={characterAssets}
             poseAssets={poseAssets}
@@ -928,6 +938,12 @@ export function StudioView() {
                         : 'Add sources to continue'
               )
             }
+            onRunPipeline={() => projectWorkspace.runPipeline()}
+            onRunNode={(nodeId) => projectWorkspace.runNode(nodeId)}
+            onAssistNode={(nodeId, instruction, assistEngine) =>
+              projectWorkspace.assistNode(nodeId, instruction, assistEngine)
+            }
+            engines={engines}
           />
 
           <PanelResizeHandle

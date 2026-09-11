@@ -2,6 +2,7 @@ const fs = require("fs");
 const sharp = require("sharp");
 const { pool } = require("../db/pool");
 const { RATE_DATE } = require("../lib/usageEstimator");
+const { SYSTEM_PROMPT } = require("../lib/promptAssistant");
 
 const models = [
   { id: "gemini-3-pro-image-preview", label: "Gemini 3 Pro Image", tier: "quality", note: "Highest-fidelity identity and portrait tier; preview model." },
@@ -74,11 +75,33 @@ async function generateFromReferences({ referencePaths, prompt, outputPath, outp
   } };
 }
 
+async function assistPrompt({ instruction, apiKey, model }) {
+  const key = apiKey || await configuredKey();
+  if (!key) throw new Error("No Gemini API key configured.");
+  const selectedModel = validModel(model || await configuredModel());
+  const body = {
+    systemInstruction: { role: "system", parts: [{ text: SYSTEM_PROMPT }] },
+    contents: [{ role: "user", parts: [{ text: instruction }] }],
+    generationConfig: { responseModalities: ["TEXT"] },
+  };
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(selectedModel)}:generateContent`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+    body: JSON.stringify(body),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error?.message || `Gemini request failed (${response.status}).`);
+  const text = result.candidates?.flatMap((candidate) => candidate.content?.parts || [])
+    .map((part) => part.text).filter(Boolean).join(" ").trim();
+  if (!text) throw new Error("Gemini returned no text.");
+  return { text };
+}
+
 const engine = {
   key: "gemini",
   label: "Google Gemini",
   models,
-  capabilities: { multiImage: true, maxReferenceImages: 5, angleProfiles: true, aspectRatio: true, quality: true, variants: true, local: false },
+  capabilities: { multiImage: true, maxReferenceImages: 5, angleProfiles: true, aspectRatio: true, quality: true, variants: true, local: false, assistPrompt: true },
   getConfiguredModel: configuredModel,
   async isReady() {
     const apiKey = await configuredKey();
@@ -105,6 +128,7 @@ const engine = {
       model,
     });
   },
+  assistPrompt,
 };
 
 module.exports = engine;

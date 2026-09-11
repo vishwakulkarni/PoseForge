@@ -29,6 +29,8 @@ const ACTIVE_STUDIO_PROJECT_KEY = 'poseforge:active-studio-project';
 export type StudioProjectActionState = 'idle' | 'creating' | 'switching' | 'deleting';
 
 interface StudioProjectWorkspaceOptions {
+  /** When set, the route (not localStorage) is the source of truth for which project is open. */
+  projectId?: string;
   saveDelayMs?: number;
 }
 
@@ -77,9 +79,12 @@ function clearActiveProjectId() {
  * around an API response for every pan, zoom, or drag frame.
  */
 export function useStudioProjectWorkspace({
+  projectId,
   saveDelayMs = STUDIO_PROJECT_SAVE_DELAY_MS,
 }: StudioProjectWorkspaceOptions = {}) {
-  const [activeProjectId, setActiveProjectId] = React.useState<string | null>(readActiveProjectId);
+  const [activeProjectId, setActiveProjectId] = React.useState<string | null>(
+    () => projectId ?? readActiveProjectId(),
+  );
   const selectedQuery = useStudioProject(activeProjectId);
   const selectedProjectMissing = selectedQuery.error instanceof ApiError && selectedQuery.error.isNotFound;
   const defaultQuery = useDefaultStudioProject(!activeProjectId || selectedProjectMissing);
@@ -341,8 +346,61 @@ export function useStudioProjectWorkspace({
     }
   }, [activateProject, flushBeforeProjectChange, query.data, queryClient]);
 
+  // Route-driven mode: a new `/studio/[projectId]` navigation (e.g. a link
+  // click or browser back/forward) changes this prop without remounting the
+  // component, so the workspace must re-target itself to match the URL.
+  React.useEffect(() => {
+    if (projectId && projectId !== activeProjectId) {
+      void switchProject(projectId);
+    }
+  }, [projectId, activeProjectId, switchProject]);
+
+  // Node runs act on the server's persisted document, so any locally pending
+  // edit must land first or the run would read stale inputs.
+  const syncBeforeRun = React.useCallback(async () => {
+    clearSaveTimer();
+    while (savingRef.current || pendingRef.current) {
+      await flushRef.current();
+      if (failedRef.current) throw new Error('Save the current project successfully before running it.');
+    }
+  }, [clearSaveTimer]);
+
+  const runPipeline = React.useCallback(async () => {
+    const projectId = projectIdRef.current;
+    if (!projectId) throw new Error('No Studio project is open.');
+    await syncBeforeRun();
+    const response = await api.studioProjects.run(projectId);
+    revisionRef.current = response.project.revision;
+    acknowledgedKeyRef.current = documentKey(response.project.document);
+    cacheProject(response.project);
+    return response.results;
+  }, [cacheProject, syncBeforeRun]);
+
+  const runNode = React.useCallback(async (nodeId: string) => {
+    const projectId = projectIdRef.current;
+    if (!projectId) throw new Error('No Studio project is open.');
+    await syncBeforeRun();
+    const response = await api.studioProjects.runNode(projectId, nodeId);
+    revisionRef.current = response.project.revision;
+    acknowledgedKeyRef.current = documentKey(response.project.document);
+    cacheProject(response.project);
+    return response;
+  }, [cacheProject, syncBeforeRun]);
+
+  const assistNode = React.useCallback(async (nodeId: string, instruction: string, engine: string) => {
+    const projectId = projectIdRef.current;
+    if (!projectId) throw new Error('No Studio project is open.');
+    await syncBeforeRun();
+    const response = await api.studioProjects.assist(projectId, nodeId, { instruction, engine });
+    revisionRef.current = response.project.revision;
+    acknowledgedKeyRef.current = documentKey(response.project.document);
+    cacheProject(response.project);
+    return response;
+  }, [cacheProject, syncBeforeRun]);
+
   return {
     project: query.data ?? null,
+    projectMissing: Boolean(projectId) && selectedProjectMissing,
     saveState: query.error instanceof ApiError && query.error.isNotFound
       ? undefined
       : query.data
@@ -362,5 +420,8 @@ export function useStudioProjectWorkspace({
     switchProject,
     createProject,
     deleteProject,
+    runPipeline,
+    runNode,
+    assistNode,
   };
 }

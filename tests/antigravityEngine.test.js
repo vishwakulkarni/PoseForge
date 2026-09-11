@@ -45,6 +45,39 @@ test("Antigravity runs headlessly in the generation workspace and records CLI us
   assert.equal(fs.existsSync(path.join(directory, "agy-native-output.jpg")), false);
 });
 
+test("Antigravity passes --effort for the balanced Flash tier", async (t) => {
+  const directory = await fs.promises.mkdtemp(path.join(os.tmpdir(), "poseforge-agy-effort-test-"));
+  const fixture = path.join(__dirname, "fixtures", "fake-antigravity.js");
+  await fs.promises.chmod(fixture, 0o755);
+  const previousBinary = process.env.ANTIGRAVITY_BIN;
+  process.env.ANTIGRAVITY_BIN = fixture;
+  const modulePath = require.resolve("../engines/antigravityEngine");
+  delete require.cache[modulePath];
+  const engine = require(modulePath);
+  t.after(async () => {
+    if (previousBinary == null) delete process.env.ANTIGRAVITY_BIN;
+    else process.env.ANTIGRAVITY_BIN = previousBinary;
+    delete require.cache[modulePath];
+    await fs.promises.rm(directory, { recursive: true, force: true });
+  });
+
+  const characterPath = path.join(directory, "character-1.png");
+  const posePath = path.join(directory, "pose.png");
+  const outputPath = path.join(directory, "output.png");
+  await sharp({ create: { width: 8, height: 8, channels: 4, background: "#3186ff" } }).png().toFile(characterPath);
+  await sharp({ create: { width: 8, height: 8, channels: 4, background: "#fbbc04" } }).png().toFile(posePath);
+
+  const result = await engine.generate({
+    characterPhotoPaths: [characterPath],
+    posePhotoPath: posePath,
+    prompt: "Preserve the subject and apply the reference pose.",
+    outputPath,
+    model: "gemini-3.6-flash-medium",
+  });
+
+  assert.equal(result.usage.model, "gemini-3.6-flash-medium");
+});
+
 test("Antigravity rejects reference paths outside its generation workspace", async () => {
   const engine = require("../engines/antigravityEngine");
   await assert.rejects(engine.generate({

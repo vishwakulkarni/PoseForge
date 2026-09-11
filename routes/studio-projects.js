@@ -6,6 +6,11 @@ const {
   defaultStudioDocument,
   sanitizeStudioDocument,
 } = require("../lib/studioProject");
+const { buildWaves, resolveGenerateInputs } = require("../lib/studioPipeline");
+const { sanitizeAdvancedSettings } = require("../lib/studioSettings");
+const { createGeneration } = require("../lib/generationRunner");
+const storage = require("../lib/storage");
+const { registry } = require("../engines");
 
 const router = express.Router();
 const MAX_DOCUMENT_BYTES = 768 * 1024;
@@ -47,6 +52,85 @@ function validateDocument(input) {
     throw error;
   }
   return sanitizeStudioDocument(input);
+}
+
+function findNode(document, nodeId) {
+  return (document.nodes || []).find((node) => node.id === nodeId) || null;
+}
+
+/** Runs a single `generate` node in place: resolves its inputs from connected
+ * edges, invokes the chosen engine, and mutates the node (and any connected
+ * `result` nodes) with the outcome. Awaits the underlying generation job so
+ * pipeline waves can rely on chained outputs being ready before the next
+ * wave starts. Returns `{ ok, error? }` instead of throwing so a run endpoint
+ * can report per-node failures without aborting the rest of the run. */
+async function runGenerateNode(document, nodeId, requestId) {
+  const node = findNode(document, nodeId);
+  if (!node || node.kind !== "generate") return { ok: false, error: "Node is not a generate node." };
+
+  const resolved = resolveGenerateInputs(document, nodeId);
+  if (resolved.errors.length) {
+    node.status = "error";
+    return { ok: false, error: resolved.errors.join(" ") };
+  }
+
+  const engineKey = node.engine;
+  const engine = engineKey ? registry[engineKey] : null;
+  if (!engine) {
+    node.status = "error";
+    return { ok: false, error: "Select a valid engine for this generate node." };
+  }
+  const ready = await engine.isReady();
+  if (!ready.ready) {
+    node.status = "error";
+    return { ok: false, error: ready.reason || "Engine is not ready." };
+  }
+  const engineModel = engine.getConfiguredModel ? await engine.getConfiguredModel() : null;
+
+  const characterSources = resolved.characterSources.map((source, index) => {
+    const sourcePath = storage.absolutePathFromPublicUrl(source.imageUrl);
+    return { position: index + 1, characterId: source.characterId, sourcePath, identitySourcePath: sourcePath, referenceKind: "photo" };
+  });
+  const poseSourcePath = storage.absolutePathFromPublicUrl(resolved.poseSource.imageUrl);
+  if (characterSources.some((source) => !source.sourcePath) || !poseSourcePath) {
+    node.status = "error";
+    return { ok: false, error: "One of the connected images could not be resolved." };
+  }
+  const advancedSettings = sanitizeAdvancedSettings(node.advancedSettings, characterSources.length);
+
+  node.status = "running";
+  try {
+    const { id } = await createGeneration({
+      characterSources,
+      poseSource: { referenceId: resolved.poseSource.referenceId, sourcePath: poseSourcePath },
+      engineKey,
+      engine,
+      engineModel,
+      background: null,
+      style: null,
+      customInstructions: resolved.prompt,
+      studioMode: "normal",
+      advancedSettings,
+      requestId,
+      awaitCompletion: true,
+    });
+    node.status = "done";
+    node.generationId = id;
+    const imageUrl = storage.publicUrl(storage.getGenerationOutputPath(id));
+    for (const edge of document.edges || []) {
+      if (edge.source !== nodeId || edge.targetHandle === "prompt") continue;
+      const target = findNode(document, edge.target);
+      if (target && target.kind === "result") {
+        target.generationId = id;
+        target.imageUrl = imageUrl;
+        target.status = "done";
+      }
+    }
+    return { ok: true, generationId: id, imageUrl };
+  } catch (err) {
+    node.status = "error";
+    return { ok: false, error: err.message };
+  }
 }
 
 router.use((req, res, next) => {
@@ -137,6 +221,97 @@ router.put("/:id", asyncHandler(async (req, res) => {
     });
   }
   res.json(shape(result.rows[0]));
+}));
+
+router.post("/:id/run", asyncHandler(async (req, res) => {
+  if (!isUuid(req.params.id)) return res.status(404).json({ error: "Studio project not found." });
+  const result = await pool.query("SELECT * FROM studio_projects WHERE id = $1 AND archived_at IS NULL", [req.params.id]);
+  if (!result.rowCount) return res.status(404).json({ error: "Studio project not found." });
+
+  let row = result.rows[0];
+  let document = sanitizeStudioDocument(row.document);
+  const waves = buildWaves(document);
+  const results = {};
+
+  for (const wave of waves) {
+    await Promise.allSettled(wave.map(async (nodeId) => {
+      results[nodeId] = await runGenerateNode(document, nodeId, req.requestId);
+    }));
+    const saved = await pool.query(
+      `UPDATE studio_projects SET document = $1::jsonb, revision = revision + 1, updated_at = now()
+       WHERE id = $2 AND revision = $3 AND archived_at IS NULL RETURNING *`,
+      [JSON.stringify(validateDocument(document)), req.params.id, Number(row.revision)]
+    );
+    if (!saved.rowCount) {
+      return res.status(409).json({ error: "This Studio project changed in another tab. Reload before running again." });
+    }
+    row = saved.rows[0];
+    document = sanitizeStudioDocument(row.document);
+  }
+
+  res.json({ project: shape(row), results });
+}));
+
+router.post("/:id/nodes/:nodeId/run", asyncHandler(async (req, res) => {
+  if (!isUuid(req.params.id)) return res.status(404).json({ error: "Studio project not found." });
+  const result = await pool.query("SELECT * FROM studio_projects WHERE id = $1 AND archived_at IS NULL", [req.params.id]);
+  if (!result.rowCount) return res.status(404).json({ error: "Studio project not found." });
+  const row = result.rows[0];
+  const document = sanitizeStudioDocument(row.document);
+  if (!findNode(document, req.params.nodeId)) return res.status(404).json({ error: "Node not found." });
+
+  const outcome = await runGenerateNode(document, req.params.nodeId, req.requestId);
+  const saved = await pool.query(
+    `UPDATE studio_projects SET document = $1::jsonb, revision = revision + 1, updated_at = now()
+     WHERE id = $2 AND revision = $3 AND archived_at IS NULL RETURNING *`,
+    [JSON.stringify(validateDocument(document)), req.params.id, Number(row.revision)]
+  );
+  if (!saved.rowCount) return res.status(409).json({ error: "This Studio project changed in another tab. Reload before running again." });
+  if (!outcome.ok) return res.status(422).json({ error: outcome.error, project: shape(saved.rows[0]) });
+  res.json({ project: shape(saved.rows[0]), generationId: outcome.generationId, imageUrl: outcome.imageUrl });
+}));
+
+router.post("/:id/nodes/:nodeId/assist", asyncHandler(async (req, res) => {
+  if (!isUuid(req.params.id)) return res.status(404).json({ error: "Studio project not found." });
+  const result = await pool.query("SELECT * FROM studio_projects WHERE id = $1 AND archived_at IS NULL", [req.params.id]);
+  if (!result.rowCount) return res.status(404).json({ error: "Studio project not found." });
+  const row = result.rows[0];
+  const document = sanitizeStudioDocument(row.document);
+  const node = findNode(document, req.params.nodeId);
+  if (!node || node.kind !== "assistant") return res.status(404).json({ error: "Assistant node not found." });
+
+  const instruction = String(req.body?.instruction || node.instruction || "").trim().slice(0, 2_000);
+  if (!instruction) return res.status(400).json({ error: "An instruction is required." });
+  const engineKey = String(req.body?.engine || node.engine || "");
+  const engine = engineKey ? registry[engineKey] : null;
+  if (!engine || !engine.assistPrompt) return res.status(400).json({ error: "Select an engine that supports prompt assistance." });
+
+  node.instruction = instruction;
+  node.engine = engineKey;
+  node.status = "running";
+  let outputText;
+  try {
+    const assisted = await engine.assistPrompt({ instruction });
+    outputText = assisted.text;
+    node.outputText = outputText;
+    node.status = "done";
+  } catch (err) {
+    node.status = "error";
+    const saved = await pool.query(
+      `UPDATE studio_projects SET document = $1::jsonb, revision = revision + 1, updated_at = now()
+       WHERE id = $2 AND revision = $3 AND archived_at IS NULL RETURNING *`,
+      [JSON.stringify(validateDocument(document)), req.params.id, Number(row.revision)]
+    );
+    return res.status(502).json({ error: err.message, project: saved.rowCount ? shape(saved.rows[0]) : undefined });
+  }
+
+  const saved = await pool.query(
+    `UPDATE studio_projects SET document = $1::jsonb, revision = revision + 1, updated_at = now()
+     WHERE id = $2 AND revision = $3 AND archived_at IS NULL RETURNING *`,
+    [JSON.stringify(validateDocument(document)), req.params.id, Number(row.revision)]
+  );
+  if (!saved.rowCount) return res.status(409).json({ error: "This Studio project changed in another tab. Reload before saving again." });
+  res.json({ project: shape(saved.rows[0]), outputText });
 }));
 
 router.delete("/:id", asyncHandler(async (req, res) => {

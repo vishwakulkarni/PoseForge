@@ -7,6 +7,15 @@ const args = process.argv.slice(2);
 if (args.includes("--help")) process.exit(0);
 const promptIndex = args.indexOf("-p");
 const modelIndex = args.indexOf("--model");
+const model = modelIndex >= 0 ? args[modelIndex + 1] : "";
+// Mirrors the real CLI's behavior: an unrecognized model is rejected
+// outright, the same way a retired tier (e.g. a past "3.5" Flash id) would
+// be after the CLI drops it in favor of newer tiers.
+const KNOWN_MODELS = ["gemini-3.6-flash-high", "gemini-3.6-flash-medium", "gemini-3.1-pro-high"];
+if (modelIndex >= 0 && !KNOWN_MODELS.includes(model)) {
+  process.stderr.write(`invalid model selection (--model "${model}" --effort "${args.includes("--effort") ? args[args.indexOf("--effort") + 1] : ""}"): model ${model} is not recognized as a known model or custom model in settings`);
+  process.exit(1);
+}
 const prompt = promptIndex >= 0 ? args[promptIndex + 1] : "";
 const identity = prompt.match(/Identity image 1: ([^\n]+)/)?.[1];
 const pose = prompt.match(/Pose image: ([^\n]+)/)?.[1];

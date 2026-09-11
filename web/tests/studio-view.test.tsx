@@ -9,6 +9,7 @@ import { StudioView } from '@/app/studio/studio-view';
 // The Studio reads deep-link params; jsdom has no Next router context.
 vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
 }));
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));

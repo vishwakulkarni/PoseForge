@@ -46,3 +46,23 @@ test("Gemini sends identity and pose references with the selected image model", 
   assert.equal(result.usage.totalTokens, 300);
   assert.equal((await sharp(outputPath).metadata()).format, "png");
 });
+
+test("Gemini assistPrompt sends a text-only request and returns the refined prompt", async (t) => {
+  const originalFetch = global.fetch;
+  let request;
+  global.fetch = async (url, options) => {
+    request = { url, options, body: JSON.parse(options.body) };
+    return new Response(JSON.stringify({
+      candidates: [{ content: { parts: [{ text: "A moody, cinematic portrait." }] } }],
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+  t.after(() => { global.fetch = originalFetch; });
+
+  const result = await gemini.assistPrompt({ instruction: "make it moody", apiKey: "test-gemini-key", model: "gemini-3.1-flash-image-preview" });
+
+  assert.match(request.url, /generateContent$/);
+  assert.equal(request.body.generationConfig.responseModalities.length, 1);
+  assert.equal(request.body.generationConfig.responseModalities[0], "TEXT");
+  assert.equal(request.body.contents[0].parts[0].text, "make it moody");
+  assert.equal(result.text, "A moody, cinematic portrait.");
+});

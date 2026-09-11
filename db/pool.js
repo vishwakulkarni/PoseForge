@@ -105,6 +105,15 @@ const pool = {
     if (typeof backend.client.end === "function") await backend.client.end();
     else if (typeof backend.client.close === "function") await backend.client.close();
   },
+
+  // Consistent point-in-time snapshot of the embedded PGlite data directory,
+  // taken through PGlite itself rather than copying files on disk (which
+  // could capture a torn, mid-write state). Not available in postgres mode.
+  async dumpDataDir(compression) {
+    const backend = await getBackend();
+    if (backend.kind !== "pglite") throw new Error("dumpDataDir is only available in pglite mode.");
+    return backend.client.dumpDataDir(compression);
+  },
 };
 
 module.exports = {

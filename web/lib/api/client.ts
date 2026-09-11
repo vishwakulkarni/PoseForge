@@ -17,7 +17,10 @@ import type {
   Recipe,
   Settings,
   StudioProject,
+  StudioProjectAssistResponse,
   StudioProjectDocument,
+  StudioProjectNodeRunResponse,
+  StudioProjectRunResponse,
   StudioProjectSummary,
   UsageEstimate,
 } from './types';
@@ -202,6 +205,17 @@ export const api = {
       }),
     remove: (id: string) =>
       request<void>(`/api/studio-projects/${id}`, { method: 'DELETE' }),
+    run: (id: string) =>
+      request<StudioProjectRunResponse>(`/api/studio-projects/${id}/run`, { method: 'POST' }),
+    runNode: (id: string, nodeId: string) =>
+      request<StudioProjectNodeRunResponse>(`/api/studio-projects/${id}/nodes/${nodeId}/run`, {
+        method: 'POST',
+      }),
+    assist: (id: string, nodeId: string, input: { instruction: string; engine: string }) =>
+      request<StudioProjectAssistResponse>(`/api/studio-projects/${id}/nodes/${nodeId}/assist`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
   },
 
   settings: {

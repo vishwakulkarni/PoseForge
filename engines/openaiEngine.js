@@ -1,6 +1,8 @@
 const fs = require("fs");
 const { pool } = require("../db/pool");
 const { RATE_DATE } = require("../lib/usageEstimator");
+const { SYSTEM_PROMPT } = require("../lib/promptAssistant");
+const ASSIST_MODEL = "gpt-5-mini";
 
 const MODEL_ID = "gpt-image-2";
 const models = [{
@@ -91,6 +93,27 @@ async function editImage({ referencePaths, prompt, outputPath, outputSettings = 
   } };
 }
 
+async function assistPrompt({ instruction, apiKey }) {
+  const key = apiKey || await configured();
+  if (!key) throw new Error("No OpenAI API key configured.");
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+    body: JSON.stringify({
+      model: ASSIST_MODEL,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: instruction },
+      ],
+    }),
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.error?.message || `OpenAI request failed (${response.status}).`);
+  const text = body.choices?.[0]?.message?.content?.trim();
+  if (!text) throw new Error("OpenAI returned no text.");
+  return { text };
+}
+
 const engine = {
   key: "openai",
   label: "OpenAI API",
@@ -103,6 +126,7 @@ const engine = {
     aspectRatio: true,
     quality: true,
     variants: true,
+    assistPrompt: true,
   },
   async getConfiguredModel() { return MODEL_ID; },
   async isReady() {
@@ -132,6 +156,7 @@ const engine = {
       model,
     });
   },
+  assistPrompt,
 };
 
 module.exports = engine;

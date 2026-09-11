@@ -70,6 +70,16 @@ test("publicUrl always returns a /storage-prefixed, forward-slash path", () => {
   assert.equal(result, "/storage/characters/char-1/photo-1.png");
 });
 
+test("absolutePathFromPublicUrl reverses a publicUrl back to an absolute path", () => {
+  const relativePath = "characters/char-1/photo-1.png";
+  const resolved = storage.absolutePathFromPublicUrl(storage.publicUrl(relativePath));
+  assert.equal(resolved, storage.absolutePath(relativePath));
+});
+
+test("absolutePathFromPublicUrl returns null for a URL that isn't storage-prefixed", () => {
+  assert.equal(storage.absolutePathFromPublicUrl("https://example.com/photo.png"), null);
+});
+
 test("every pose path in the bundled seed migration ships with the repository", () => {
   const migration = fs.readFileSync(
     path.join(__dirname, "..", "db", "migrations", "011_bundle_seed_pose_images.sql"),

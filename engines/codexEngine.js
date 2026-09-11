@@ -6,6 +6,26 @@ const logger = require("../lib/logger");
 const CODEX_BIN = process.env.CODEX_BIN || "codex";
 const TIMEOUT_MS = Number(process.env.CODEX_TIMEOUT_MS || 300000);
 
+/**
+ * The CLI's stderr is a multi-line blob that can include the entire prompt
+ * (multi-image generations echo it back) plus its own ERROR: lines. Users
+ * see this text verbatim in the generation history, so it's parsed down to
+ * a short, actionable message instead of the raw blob.
+ */
+function describeCodexFailure(stderr, stdout, code) {
+  const text = stderr || stdout || "";
+  const lines = text.split("\n").map((line) => line.trim()).filter(Boolean);
+  const usageLimitLine = lines.find((line) => /usage limit/i.test(line));
+  if (usageLimitLine) {
+    const retryMatch = usageLimitLine.match(/try again at ([^.]+)/i);
+    const retrySuffix = retryMatch ? ` Try again at ${retryMatch[1].trim()}.` : "";
+    return `Codex CLI usage limit reached.${retrySuffix} Upgrade at https://chatgpt.com/explore/pro or check usage at https://chatgpt.com/codex/settings/usage.`;
+  }
+  const errorLines = lines.filter((line) => line.startsWith("ERROR:"));
+  if (errorLines.length) return `Codex CLI failed: ${errorLines[errorLines.length - 1]}`;
+  return `Codex CLI exited with code ${code}.`;
+}
+
 function runCodexImageGeneration({ referencePaths, prompt, outputPath, referenceDescription }) {
   return new Promise((resolve, reject) => {
     const fullPrompt = `${prompt}\n\nThe attached images are the references: ${referenceDescription}. Use the image-generation tool directly. Do not inspect skill documentation, run exploratory shell commands, or ask for clarification.\n\nOUTPUT CONTRACT: Generate the image now and write a valid PNG to this exact path:\n${outputPath}\nAfter the file exists, finish immediately.`;
@@ -29,7 +49,7 @@ function runCodexImageGeneration({ referencePaths, prompt, outputPath, reference
     child.on("close", (code) => {
       if (settled) return;
       settled = true; clearTimeout(timer);
-      if (code !== 0) { logger.error("Codex CLI exited unsuccessfully", { code, durationMs: Date.now() - startedAt, stderr: stderr.slice(-2000) }); return reject(new Error(`Codex CLI exited with code ${code}. ${stderr || stdout}`)); }
+      if (code !== 0) { logger.error("Codex CLI exited unsuccessfully", { code, durationMs: Date.now() - startedAt, stderr: stderr.slice(-2000) }); return reject(new Error(describeCodexFailure(stderr, stdout, code))); }
       if (!fs.existsSync(outputPath)) { logger.error("Codex CLI produced no output", { outputPath, durationMs: Date.now() - startedAt, stdout: stdout.slice(-1000), stderr: stderr.slice(-2000) }); return reject(new Error(`Codex CLI finished but did not write ${outputPath}.`)); }
       logger.info("Codex CLI completed", { outputPath, durationMs: Date.now() - startedAt });
       resolve();
@@ -69,3 +89,4 @@ const engine = {
   },
 };
 module.exports = engine;
+module.exports.describeCodexFailure = describeCodexFailure;

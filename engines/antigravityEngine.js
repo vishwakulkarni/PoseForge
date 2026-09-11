@@ -9,12 +9,22 @@ const { pool } = require("../db/pool");
 const logger = require("../lib/logger");
 const { RATE_DATE } = require("../lib/usageEstimator");
 
+// Model ids/labels below must match what the installed Antigravity CLI
+// reports via `agy generate --model bogus` (it lists currently supported
+// models in its error output). The CLI has periodically retired older
+// Gemini Flash tiers (e.g. 3.5) as newer ones (3.6/3.7/3.8) ship, so a
+// stale id here causes generations to fail with "model ... is not
+// recognized" even though nothing in this app changed.
 const models = [
-  { id: "gemini-3.6-flash-high", label: "Gemini 3.6 Flash · High", tier: "quality", note: "Latest Antigravity Gemini tier with high reasoning effort; recommended for complex identity and pose work." },
-  { id: "gemini-3.5-flash-medium", label: "Gemini 3.5 Flash · Medium", tier: "balanced", note: "Balanced Antigravity tier for everyday portrait transformations." },
-  { id: "gemini-3.1-pro-high", label: "Gemini 3.1 Pro · High", tier: "deep", note: "Deeper agent reasoning for difficult multi-person or highly directed compositions." },
+  { id: "gemini-3.6-flash-high", label: "Gemini 3.6 Flash · High", tier: "quality", note: "Latest Antigravity Gemini tier with high reasoning effort; recommended for complex identity and pose work.", effort: "high" },
+  { id: "gemini-3.6-flash-medium", label: "Gemini 3.6 Flash · Medium", tier: "balanced", note: "Balanced Antigravity tier for everyday portrait transformations.", effort: "medium" },
+  { id: "gemini-3.1-pro-high", label: "Gemini 3.1 Pro · High", tier: "deep", note: "Deeper agent reasoning for difficult multi-person or highly directed compositions.", effort: "high" },
 ];
 const DEFAULT_MODEL = models[0].id;
+
+function effortForModel(modelId) {
+  return models.find((model) => model.id === modelId)?.effort ?? null;
+}
 const AGY_BIN = process.env.ANTIGRAVITY_BIN || "agy";
 const TIMEOUT_MS = Math.max(Number(process.env.ANTIGRAVITY_TIMEOUT_MS) || 600000, 30000);
 const BRAIN_ROOT = path.resolve(process.env.ANTIGRAVITY_BRAIN_DIR || path.join(os.homedir(), ".gemini", "antigravity-cli", "brain"));
@@ -121,11 +131,12 @@ async function materializePng(envelope, outputPath, nativeOutputPath) {
 
 function runAntigravityImageGeneration({ workspace, outputPath, nativeOutput, selectedModel, fullPrompt }) {
   return new Promise((resolve, reject) => {
+    const effort = effortForModel(selectedModel);
     const args = [
       "-p", fullPrompt,
       "--output-format", "json",
       "--model", selectedModel,
-      "--effort", selectedModel.endsWith("-high") ? "high" : "medium",
+      ...(effort ? ["--effort", effort] : []),
       "--print-timeout", `${Math.ceil(TIMEOUT_MS / 1000)}s`,
       "--sandbox",
       // Headless mode cannot ask for read_file/image-tool approval. The

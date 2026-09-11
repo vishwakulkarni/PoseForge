@@ -14,6 +14,7 @@ import type {
   GenerationStatus,
   MetricsScope,
   Preset,
+  StudioProjectSummary,
 } from './types';
 
 /**
@@ -345,6 +346,68 @@ export function useStudioProject(id: string | null) {
     staleTime: Infinity,
     retry: (failureCount, error) =>
       error instanceof ApiError && error.isNotFound ? false : failureCount < 3,
+  });
+}
+
+/** Creates a Studio project from the dashboard, without the autosave machinery. */
+export function useCreateStudioProject() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => api.studioProjects.create({ name }),
+    onSuccess: (project) => {
+      client.setQueryData(queryKeys.studioProject(project.id), project);
+      client.setQueryData<StudioProjectSummary[]>(queryKeys.studioProjects, (current) =>
+        current ? [project, ...current] : [project],
+      );
+    },
+  });
+}
+
+/** Deletes a non-default Studio project from the dashboard. */
+export function useDeleteStudioProject() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.studioProjects.remove(id),
+    onSuccess: (_data, id) => {
+      client.removeQueries({ queryKey: queryKeys.studioProject(id), exact: true });
+      client.setQueryData<StudioProjectSummary[]>(queryKeys.studioProjects, (current) =>
+        current?.filter((item) => item.id !== id) ?? [],
+      );
+    },
+  });
+}
+
+/** Runs every generate node in the project's pipeline (parallel where independent). */
+export function useRunStudioProject() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.studioProjects.run(id),
+    onSuccess: (response) => {
+      client.setQueryData(queryKeys.studioProject(response.project.id), response.project);
+    },
+  });
+}
+
+/** Runs a single generate node; its inputs must already be resolvable. */
+export function useRunStudioNode() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, nodeId }: { id: string; nodeId: string }) => api.studioProjects.runNode(id, nodeId),
+    onSuccess: (response) => {
+      client.setQueryData(queryKeys.studioProject(response.project.id), response.project);
+    },
+  });
+}
+
+/** Calls an assistant node's engine to refine prompt text from an instruction. */
+export function useAssistStudioPrompt() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, nodeId, instruction, engine }: { id: string; nodeId: string; instruction: string; engine: string }) =>
+      api.studioProjects.assist(id, nodeId, { instruction, engine }),
+    onSuccess: (response) => {
+      client.setQueryData(queryKeys.studioProject(response.project.id), response.project);
+    },
   });
 }
 

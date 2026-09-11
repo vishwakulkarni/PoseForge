@@ -66,6 +66,7 @@ export interface EngineInfo {
   selectedModel?: string | null;
   capabilities?: {
     angleProfiles?: boolean;
+    assistPrompt?: boolean;
     [key: string]: unknown;
   };
 }
@@ -169,9 +170,10 @@ export interface Recipe {
 }
 
 /** GET/PUT /api/studio-projects */
-export type StudioProjectNodeKind = 'character' | 'pose' | 'generate' | 'result';
+export type StudioProjectNodeKind = 'character' | 'pose' | 'generate' | 'result' | 'prompt' | 'assistant';
 export type StudioProjectNodeAssetType = 'character' | 'pose' | 'generation' | 'upload';
 export type StudioProjectNodeImageFit = 'fit' | 'fill';
+export type StudioProjectNodeStatus = 'idle' | 'queued' | 'running' | 'done' | 'error';
 
 export interface StudioProjectNode {
   id: string;
@@ -180,6 +182,22 @@ export interface StudioProjectNode {
   custom?: boolean;
   width?: number;
   height?: number;
+  /** `generate`/`result`/`assistant` nodes: reflects pipeline run progress. */
+  status?: StudioProjectNodeStatus;
+  /** `generate`/`result` nodes: the generation this node last produced/consumed. */
+  generationId?: string;
+  /** `generate` nodes: this node's own prompt text, used when no `prompt`/`assistant` node feeds it. */
+  prompt?: string;
+  /** `generate`/`assistant` nodes: engine key to run this node with. */
+  engine?: string;
+  /** `generate` nodes: per-node advanced settings (output size, quality, etc). */
+  advancedSettings?: Record<string, unknown>;
+  /** `prompt` nodes: the raw prompt text authored by the user. */
+  text?: string;
+  /** `assistant` nodes: the instruction sent to the prompt-assistant engine call. */
+  instruction?: string;
+  /** `assistant` nodes: the refined prompt text returned by the last `assist` call. */
+  outputText?: string;
   collapsed?: boolean;
   lastExpandedWidth?: number;
   lastExpandedHeight?: number;
@@ -221,6 +239,32 @@ export interface StudioProject {
 }
 
 export type StudioProjectSummary = Omit<StudioProject, 'document'>;
+
+/** POST /api/studio-projects/:id/run — per-node outcome, keyed by node id. */
+export interface StudioProjectNodeRunResult {
+  ok: boolean;
+  generationId?: string;
+  imageUrl?: string;
+  error?: string;
+}
+
+export interface StudioProjectRunResponse {
+  project: StudioProject;
+  results: Record<string, StudioProjectNodeRunResult>;
+}
+
+/** POST /api/studio-projects/:id/nodes/:nodeId/run */
+export interface StudioProjectNodeRunResponse {
+  project: StudioProject;
+  generationId: string;
+  imageUrl: string;
+}
+
+/** POST /api/studio-projects/:id/nodes/:nodeId/assist */
+export interface StudioProjectAssistResponse {
+  project: StudioProject;
+  outputText: string;
+}
 
 /** GET /api/settings */
 export interface Credential {

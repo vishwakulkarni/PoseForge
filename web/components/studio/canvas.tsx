@@ -27,6 +27,7 @@ import {
   useUpdateNodeInternals,
 } from '@xyflow/react';
 import {
+  ArrowLeft,
   Check,
   ChevronDown,
   ClipboardPaste,
@@ -34,6 +35,7 @@ import {
   LockKeyhole,
   Maximize2,
   Menu,
+  MessageSquareText,
   PersonStanding,
   Plus,
   Redo2,
@@ -43,6 +45,7 @@ import {
   Undo2,
   UnlockKeyhole,
   UserRound,
+  Wand2,
   X,
   ZoomIn,
   ZoomOut,
@@ -58,12 +61,14 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import type {
+  EngineInfo,
   Generation,
   StudioProject,
   StudioProjectDocument,
   StudioProjectNode,
   StudioProjectNodeAssetType,
   StudioProjectNodeImageFit,
+  StudioProjectNodeStatus,
   StudioProjectSummary,
 } from '@/lib/api/types';
 import type {
@@ -170,9 +175,17 @@ export interface CanvasPanelProps {
   engineLabel?: string;
   forgeValidation?: string;
   onStudioEvent?: (event: StudioCanvasEvent) => void;
+  /** Runs every generate node in the pipeline (chainable/parallel graph mode). */
+  onRunPipeline?: () => Promise<Record<string, { ok: boolean; generationId?: string; imageUrl?: string; error?: string }>>;
+  /** Runs a single generate node; its own inputs must already be resolvable. */
+  onRunNode?: (nodeId: string) => Promise<{ generationId: string; imageUrl: string }>;
+  /** Calls an assistant node's engine to refine prompt text from an instruction. */
+  onAssistNode?: (nodeId: string, instruction: string, engine: string) => Promise<{ outputText: string }>;
+  /** Engines available for a `generate`/`assistant` node's engine picker; only those with `capabilities.assistPrompt` support assistant nodes. */
+  engines?: EngineInfo[];
 }
 
-type StudioNodeKind = 'character' | 'pose' | 'generate' | 'result';
+type StudioNodeKind = 'character' | 'pose' | 'generate' | 'result' | 'prompt' | 'assistant';
 
 interface StudioNodeData extends Record<string, unknown> {
   kind: StudioNodeKind;
@@ -201,6 +214,19 @@ interface StudioNodeData extends Record<string, unknown> {
   inputCount?: number;
   outputCount?: number;
   validation?: string;
+  /** `prompt` nodes: the raw prompt text authored by the user. */
+  text?: string;
+  /** `assistant` nodes: the instruction sent to the prompt-assistant engine call. */
+  instruction?: string;
+  /** `assistant` nodes: the refined prompt text returned by the last `assist` call. */
+  outputText?: string;
+  generationId?: string;
+  /** `generate` nodes: this node's own prompt text, used when no `prompt`/`assistant` node feeds it. */
+  prompt?: string;
+  /** `generate`/`assistant` nodes: engine key to run this node with. */
+  nodeEngine?: string;
+  /** Server-reported pipeline run status for `generate`/`assistant` nodes (distinct from `status`, which drives image-node UI states). */
+  pipelineStatus?: StudioProjectNodeStatus;
 }
 
 type StudioFlowNode = Node<StudioNodeData, 'poseforge'>;
@@ -244,6 +270,11 @@ const StudioNodeActionsContext = React.createContext<{
   onToggleImageFit: (id: string) => void;
   onDisconnect: (id: string) => void;
   onRemove: (id: string) => void;
+  onEditText: (id: string, text: string) => void;
+  onEditInstruction: (id: string, instruction: string) => void;
+  onRunNode: (id: string) => void;
+  onAssist: (id: string) => void;
+  runningNodeIds: ReadonlySet<string>;
 }>({
   onSelectVariant: () => {},
   onPreviewResult: () => {},
@@ -259,6 +290,11 @@ const StudioNodeActionsContext = React.createContext<{
   onToggleImageFit: () => {},
   onDisconnect: () => {},
   onRemove: () => {},
+  onEditText: () => {},
+  onEditInstruction: () => {},
+  onRunNode: () => {},
+  onAssist: () => {},
+  runningNodeIds: new Set(),
 });
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 4;
@@ -281,6 +317,7 @@ const EMPTY_IDS: string[] = [];
 const EMPTY_LABELS: string[] = [];
 const EMPTY_ASSETS: CanvasAsset[] = [];
 const EMPTY_PROJECTS: StudioProjectSummary[] = [];
+const EMPTY_ENGINES: EngineInfo[] = [];
 
 function isAssetValidForKind(kind: 'character' | 'pose', asset: CanvasAsset) {
   if (!asset.id || !asset.label || !asset.imageUrl) return false;
@@ -292,6 +329,8 @@ const NODE_GEOMETRY: Record<StudioNodeKind, NodeGeometry> = {
   pose: { width: 330, height: 388, minWidth: 220, minHeight: 250, maxWidth: 560, maxHeight: 720 },
   generate: { width: 330, height: 112, minWidth: 280, minHeight: 96, maxWidth: 600, maxHeight: 240 },
   result: { width: 480, height: 538, minWidth: 320, minHeight: 360, maxWidth: 800, maxHeight: 900 },
+  prompt: { width: 300, height: 160, minWidth: 220, minHeight: 120, maxWidth: 520, maxHeight: 420 },
+  assistant: { width: 320, height: 260, minWidth: 260, minHeight: 200, maxWidth: 520, maxHeight: 520 },
 };
 
 const TYPE_COPY: Record<StudioNodeKind, { label: string; icon: React.ComponentType<{ size?: number; strokeWidth?: number }> }> = {
@@ -299,6 +338,8 @@ const TYPE_COPY: Record<StudioNodeKind, { label: string; icon: React.ComponentTy
   pose: { label: 'Pose', icon: PersonStanding },
   generate: { label: 'Generate', icon: Sparkles },
   result: { label: 'Result', icon: ImageIcon },
+  prompt: { label: 'Prompt', icon: MessageSquareText },
+  assistant: { label: 'Prompt assistant', icon: Wand2 },
 };
 
 function nodePositions(nodes: StudioFlowNode[]): PositionMap {
@@ -367,6 +408,13 @@ function projectDocument(
       ...(node.data.imageUrl ? { imageUrl: node.data.imageUrl } : {}),
       ...(node.data.assetType ? { assetType: node.data.assetType } : {}),
       ...(node.data.assetId ? { assetId: node.data.assetId } : {}),
+      ...(node.data.pipelineStatus ? { status: node.data.pipelineStatus } : {}),
+      ...(node.data.generationId ? { generationId: node.data.generationId } : {}),
+      ...(node.data.text ? { text: node.data.text } : {}),
+      ...(node.data.instruction ? { instruction: node.data.instruction } : {}),
+      ...(node.data.outputText ? { outputText: node.data.outputText } : {}),
+      ...(node.data.prompt ? { prompt: node.data.prompt } : {}),
+      ...(node.data.nodeEngine ? { engine: node.data.nodeEngine } : {}),
     })),
     edges: edges.map((edge) => ({
       id: edge.id,
@@ -440,6 +488,13 @@ function configurableNode(
       ...(saved?.imageUrl ? { imageUrl: saved.imageUrl, empty: false } : {}),
       ...(saved?.assetType ? { assetType: saved.assetType } : {}),
       ...(saved?.assetId ? { assetId: saved.assetId } : {}),
+      ...(saved?.status ? { pipelineStatus: saved.status } : {}),
+      ...(saved?.generationId ? { generationId: saved.generationId } : {}),
+      ...(saved?.text !== undefined ? { text: saved.text } : {}),
+      ...(saved?.instruction !== undefined ? { instruction: saved.instruction } : {}),
+      ...(saved?.outputText !== undefined ? { outputText: saved.outputText } : {}),
+      ...(saved?.prompt !== undefined ? { prompt: saved.prompt } : {}),
+      ...(saved?.engine ? { nodeEngine: saved.engine } : {}),
       collapsed: saved?.collapsed ?? node.data.collapsed ?? false,
       imageFit: saved?.imageFit ?? node.data.imageFit ?? 'fill',
       lastExpandedWidth: saved?.lastExpandedWidth ?? width,
@@ -500,9 +555,10 @@ function StudioNode({ id, data, selected }: NodeProps<StudioFlowNode>) {
   const [draftLabel, setDraftLabel] = React.useState(data.label);
   const type = TYPE_COPY[data.kind];
   const Icon = type.icon;
-  const running = data.status === 'pending' || data.status === 'running';
-  const failed = data.status === 'failed';
+  const running = data.status === 'pending' || data.status === 'running' || data.pipelineStatus === 'running' || data.pipelineStatus === 'queued';
+  const failed = data.status === 'failed' || data.pipelineStatus === 'error';
   const geometry = NODE_GEOMETRY[data.kind];
+  const isRunningNode = actions.runningNodeIds.has(id);
 
   return (
     <article
@@ -534,9 +590,12 @@ function StudioNode({ id, data, selected }: NodeProps<StudioFlowNode>) {
         <>
           <StudioHandle type="target" id="character" position={Position.Top} />
           <StudioHandle type="target" id="pose" position={Position.Top} />
+          <StudioHandle type="target" id="prompt" position={Position.Left} />
         </>
       ) : data.kind === 'result' ? (
         <StudioHandle type="target" position={Position.Top} />
+      ) : data.kind === 'assistant' ? (
+        <StudioHandle type="target" id="instruction" position={Position.Top} />
       ) : null}
 
       <div className="poseforge-node-tab">
@@ -628,7 +687,56 @@ function StudioNode({ id, data, selected }: NodeProps<StudioFlowNode>) {
             </span>
             <small>{data.validation ?? data.meta}</small>
           </span>
-          <span className={cn('poseforge-ready-dot', data.status)} aria-hidden />
+          <span className={cn('poseforge-ready-dot', data.status, data.pipelineStatus)} aria-hidden />
+          {data.custom && actions.onRunNode ? (
+            <button
+              type="button"
+              className="nodrag poseforge-node-run"
+              disabled={actions.locked || isRunningNode}
+              onClick={(event) => {
+                event.stopPropagation();
+                actions.onRunNode(id);
+              }}
+            >
+              {isRunningNode ? 'Running…' : 'Run'}
+            </button>
+          ) : null}
+        </div>
+      ) : data.kind === 'prompt' ? (
+        <div className="poseforge-prompt-body">
+          <textarea
+            className="nodrag"
+            placeholder="Describe the scene, framing, or mood…"
+            maxLength={2000}
+            value={data.text ?? ''}
+            disabled={actions.locked}
+            onChange={(event) => actions.onEditText(id, event.target.value)}
+          />
+        </div>
+      ) : data.kind === 'assistant' ? (
+        <div className="poseforge-assistant-body">
+          <textarea
+            className="nodrag"
+            placeholder="Tell the assistant what to improve about the prompt…"
+            maxLength={2000}
+            value={data.instruction ?? ''}
+            disabled={actions.locked}
+            onChange={(event) => actions.onEditInstruction(id, event.target.value)}
+          />
+          <button
+            type="button"
+            className="nodrag poseforge-node-run"
+            disabled={actions.locked || isRunningNode || !data.instruction?.trim() || !data.nodeEngine}
+            onClick={(event) => {
+              event.stopPropagation();
+              actions.onAssist(id);
+            }}
+          >
+            {isRunningNode ? 'Improving…' : 'Improve with AI'}
+          </button>
+          {data.outputText ? (
+            <p className="poseforge-assistant-output" title={data.outputText}>{data.outputText}</p>
+          ) : null}
         </div>
       ) : (
         <>
@@ -931,6 +1039,9 @@ function CanvasControls({
   canUndo,
   canRedo,
   onReset,
+  onRunPipeline,
+  runningPipeline,
+  onAddGraphNode,
 }: {
   zoom: number;
   locked: boolean;
@@ -942,6 +1053,9 @@ function CanvasControls({
   canUndo: boolean;
   canRedo: boolean;
   onReset: () => void;
+  onRunPipeline?: () => void;
+  runningPipeline?: boolean;
+  onAddGraphNode?: (kind: 'generate' | 'prompt' | 'assistant') => void;
 }) {
   const [resetOpen, setResetOpen] = React.useState(false);
   const { zoomIn, zoomOut, zoomTo, fitView, getViewport } = useReactFlow();
@@ -972,6 +1086,26 @@ function CanvasControls({
         </button>
         <button type="button" aria-label="Undo canvas move" title="Undo" disabled={disabled || !canUndo} onClick={onUndo}><Undo2 size={15} /></button>
         <button type="button" aria-label="Redo canvas move" title="Redo" disabled={disabled || !canRedo} onClick={onRedo}><Redo2 size={15} /></button>
+        {onAddGraphNode ? (
+          <>
+            <button type="button" aria-label="Add generate node" title="Add a chainable generate node" disabled={disabled} onClick={() => onAddGraphNode('generate')}><Sparkles size={15} /></button>
+            <button type="button" aria-label="Add prompt node" title="Add a prompt node" disabled={disabled} onClick={() => onAddGraphNode('prompt')}><MessageSquareText size={15} /></button>
+            <button type="button" aria-label="Add prompt assistant node" title="Add a prompt assistant node" disabled={disabled} onClick={() => onAddGraphNode('assistant')}><Wand2 size={15} /></button>
+          </>
+        ) : null}
+        {onRunPipeline ? (
+          <button
+            type="button"
+            className="poseforge-run-pipeline"
+            aria-label="Run pipeline"
+            title="Run every generate node in the pipeline"
+            disabled={disabled || runningPipeline}
+            onClick={onRunPipeline}
+          >
+            <Sparkles size={15} />
+            {runningPipeline ? 'Running…' : 'Run pipeline'}
+          </button>
+        ) : null}
       </Panel>
       <ConfirmDialog
         open={resetOpen}
@@ -1271,6 +1405,9 @@ function ProjectSaveStatus({
       className={cn('poseforge-project-control', 'nodrag', 'nopan', state && `is-${state}`)}
     >
       <div ref={control} className="poseforge-project-control-inner">
+        <Link href="/studio" className="poseforge-project-back nodrag" aria-label="Back to Studio projects">
+          <ArrowLeft size={14} aria-hidden />
+        </Link>
         <div
           className="poseforge-save-status"
           aria-live="polite"
@@ -1624,6 +1761,10 @@ function CanvasFlow(props: CanvasPanelProps) {
     forgeValidation,
     onStudioEvent,
     onResetCanvas,
+    onRunPipeline,
+    onRunNode,
+    onAssistNode,
+    engines = EMPTY_ENGINES,
   } = props;
   const flow = React.useMemo(() => buildFlow({
     aspectRatio,
@@ -2082,6 +2223,40 @@ function CanvasFlow(props: CanvasPanelProps) {
     }
   }, [commitMutation, emitStudioEvent, onSelectCharacterAsset, onSelectPoseAsset, screenToFlowPosition, workspaceReady]);
 
+  const addGraphNode = React.useCallback((kind: 'generate' | 'prompt' | 'assistant') => {
+    if (!workspaceReady || lockedRef.current) return;
+    const id = `${kind}-block-${crypto.randomUUID()}`;
+    const geometry = NODE_GEOMETRY[kind];
+    const pane = document.querySelector('.canvas-viewport')?.getBoundingClientRect();
+    const center = pane
+      ? { x: pane.left + pane.width / 2, y: pane.top + pane.height / 2 }
+      : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    const projected = screenToFlowPosition(center);
+    const position = nearestOpenPosition(
+      { x: projected.x - geometry.width / 2, y: projected.y - geometry.height / 2 },
+      geometry,
+      nodesRef.current,
+    );
+    const node = configurableNode({
+      id,
+      type: 'poseforge',
+      position,
+      selected: true,
+      data: {
+        kind,
+        label: `Untitled ${TYPE_COPY[kind].label.toLowerCase()}`,
+        meta: kind === 'generate' ? 'Chained generate node' : kind === 'prompt' ? 'Prompt text' : 'Prompt assistant',
+        custom: true,
+        ...(kind === 'generate' ? { studioMode: 'normal' as const, inputCount: 0, outputCount: 1 } : {}),
+      },
+    });
+    const nextNodes = [
+      ...nodesRef.current.map((current) => ({ ...current, selected: false })),
+      node,
+    ];
+    commitMutation(nextNodes);
+  }, [commitMutation, screenToFlowPosition, workspaceReady]);
+
   const updateNode = React.useCallback((
     id: string,
     updater: (node: StudioFlowNode) => StudioFlowNode,
@@ -2361,6 +2536,106 @@ function CanvasFlow(props: CanvasPanelProps) {
     sourceStartedAt.current.delete(id);
   }, [commitMutation, onDeletePose, onDeleteSubject, onToggleSuggestion, pickerNodeId]);
 
+  const [runningNodeIds, setRunningNodeIds] = React.useState<Set<string>>(() => new Set());
+  const [runningPipeline, setRunningPipeline] = React.useState(false);
+
+  const runPipeline = React.useCallback(() => {
+    if (!onRunPipeline || runningPipeline) return;
+    setRunningPipeline(true);
+    onRunPipeline()
+      .then((results) => {
+        const nextNodes = nodesRef.current.map((node) => {
+          const result = results[node.id];
+          if (!result) return node;
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              pipelineStatus: result.ok ? 'done' as const : 'error' as const,
+              ...(result.generationId ? { generationId: result.generationId } : {}),
+              ...(result.imageUrl ? { imageUrl: result.imageUrl } : {}),
+              ...(result.error ? { errorMessage: result.error } : {}),
+            },
+          };
+        });
+        setNodes(nextNodes);
+        nodesRef.current = nextNodes;
+      })
+      .finally(() => setRunningPipeline(false));
+  }, [onRunPipeline, runningPipeline]);
+
+  const editNodeText = React.useCallback((id: string, text: string) => {
+    updateNode(id, (node) => ({ ...node, data: { ...node.data, text } }));
+  }, [updateNode]);
+
+  const editNodeInstruction = React.useCallback((id: string, instruction: string) => {
+    updateNode(id, (node) => ({ ...node, data: { ...node.data, instruction } }));
+  }, [updateNode]);
+
+  const runNode = React.useCallback((id: string) => {
+    if (!onRunNode || runningNodeIds.has(id)) return;
+    setRunningNodeIds((current) => new Set(current).add(id));
+    updateNode(id, (node) => ({ ...node, data: { ...node.data, pipelineStatus: 'running' } }));
+    onRunNode(id)
+      .then(({ generationId, imageUrl }) => {
+        updateNode(id, (node) => ({
+          ...node,
+          data: { ...node.data, pipelineStatus: 'done', generationId, imageUrl },
+        }));
+      })
+      .catch((cause: unknown) => {
+        updateNode(id, (node) => ({
+          ...node,
+          data: {
+            ...node.data,
+            pipelineStatus: 'error',
+            errorMessage: cause instanceof Error ? cause.message : 'The node could not be run.',
+          },
+        }));
+      })
+      .finally(() => {
+        setRunningNodeIds((current) => {
+          const next = new Set(current);
+          next.delete(id);
+          return next;
+        });
+      });
+  }, [onRunNode, runningNodeIds, updateNode]);
+
+  const assistNode = React.useCallback((id: string) => {
+    if (!onAssistNode || runningNodeIds.has(id)) return;
+    const node = nodesRef.current.find((current) => current.id === id);
+    const instruction = node?.data.instruction?.trim();
+    const engine = node?.data.nodeEngine;
+    if (!instruction || !engine) return;
+    setRunningNodeIds((current) => new Set(current).add(id));
+    updateNode(id, (current) => ({ ...current, data: { ...current.data, pipelineStatus: 'running' } }));
+    onAssistNode(id, instruction, engine)
+      .then(({ outputText }) => {
+        updateNode(id, (current) => ({
+          ...current,
+          data: { ...current.data, pipelineStatus: 'done', outputText },
+        }));
+      })
+      .catch((cause: unknown) => {
+        updateNode(id, (current) => ({
+          ...current,
+          data: {
+            ...current.data,
+            pipelineStatus: 'error',
+            errorMessage: cause instanceof Error ? cause.message : 'The assistant could not be run.',
+          },
+        }));
+      })
+      .finally(() => {
+        setRunningNodeIds((current) => {
+          const next = new Set(current);
+          next.delete(id);
+          return next;
+        });
+      });
+  }, [onAssistNode, runningNodeIds, updateNode]);
+
   const nodeActions = React.useMemo(() => ({
     onToggleSuggestion,
     onSelectVariant,
@@ -2387,9 +2662,17 @@ function CanvasFlow(props: CanvasPanelProps) {
     })),
     onDisconnect: disconnectNode,
     onRemove: removeNode,
+    onEditText: editNodeText,
+    onEditInstruction: editNodeInstruction,
+    onRunNode: runNode,
+    onAssist: assistNode,
+    runningNodeIds,
   }), [
+    assistNode,
     disconnectNode,
     duplicateNode,
+    editNodeInstruction,
+    editNodeText,
     emitStudioEvent,
     locked,
     onRegenerate,
@@ -2400,6 +2683,8 @@ function CanvasFlow(props: CanvasPanelProps) {
     resizeEnd,
     resizePreset,
     resizeStart,
+    runNode,
+    runningNodeIds,
     toggleCollapse,
     updateNode,
   ]);
@@ -2503,8 +2788,15 @@ function CanvasFlow(props: CanvasPanelProps) {
     const target = nodes.find((node) => node.id === connection.target);
     if (!source || !target) return false;
     if (target.data.kind === 'generate') {
-      return (connection.targetHandle === 'character' && source.data.kind === 'character') ||
-        (connection.targetHandle === 'pose' && source.data.kind === 'pose');
+      // Character/pose handles accept any image-bearing node — a saved
+      // character/pose block, or a chained `result` from another generate node.
+      const isImageSource = source.data.kind === 'character' || source.data.kind === 'pose' || source.data.kind === 'result';
+      return (connection.targetHandle === 'character' && isImageSource) ||
+        (connection.targetHandle === 'pose' && isImageSource) ||
+        (connection.targetHandle === 'prompt' && (source.data.kind === 'prompt' || source.data.kind === 'assistant'));
+    }
+    if (target.data.kind === 'assistant') {
+      return connection.targetHandle === 'instruction' && source.data.kind === 'prompt';
     }
     return target.data.kind === 'result' && source.data.kind === 'generate';
   }, [nodes]);
@@ -2738,6 +3030,9 @@ function CanvasFlow(props: CanvasPanelProps) {
         canUndo={undoStack.length > 0}
         canRedo={redoStack.length > 0}
         onReset={resetToDefault}
+        onRunPipeline={onRunPipeline ? runPipeline : undefined}
+        runningPipeline={runningPipeline}
+        onAddGraphNode={onRunPipeline ? addGraphNode : undefined}
       />
       <ProjectSaveStatus
         state={!workspaceReady && onProjectChange ? 'loading' : projectSaveState}

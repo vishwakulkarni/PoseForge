@@ -111,7 +111,9 @@ describe('PoseForge workflow canvas', () => {
     expect(container.querySelector('[data-id="character-subject-2"]')).toHaveTextContent('Ravi');
     expect(container.querySelector('[data-id="pose-manual"]')).toHaveTextContent('Arms crossed');
     expect(container.querySelector('[data-id="generate"]')).toHaveTextContent('Forge composition');
-    expect(container.querySelectorAll('.poseforge-handle')).toHaveLength(8);
+    // 2 character sources + 2 pose sources + generate (character/pose/prompt
+    // targets + 1 source) + result (1 target) = 9 handles.
+    expect(container.querySelectorAll('.poseforge-handle')).toHaveLength(9);
     const arrowhead = container.querySelector<SVGPolylineElement>(
       '.react-flow__arrowhead polyline.arrowclosed',
     );

@@ -17,6 +17,7 @@ const logger = require("./lib/logger");
 const { prefetchProviderLimits } = require("./lib/providerLimits");
 const { pool, databaseConfig } = require("./db/pool");
 const { runMigrations } = require("./db/migrate");
+const { createDailyBackup, scheduleDailyBackups } = require("./lib/dbBackup");
 
 const WEB_DIR = path.join(__dirname, "web");
 const requireFromWeb = createRequire(path.join(WEB_DIR, "package.json"));
@@ -81,6 +82,11 @@ async function start() {
 
   await runMigrations();
 
+  await createDailyBackup(pool, logger).catch((error) =>
+    logger.error("startup database backup failed", { error: error.message })
+  );
+  const backupInterval = scheduleDailyBackups(pool, logger);
+
   // Next and Fumadocs resolve project-relative generated imports from cwd.
   // Express, storage, and database paths use __dirname, so the complete app
   // can safely run with the web project as its working directory.
@@ -119,6 +125,7 @@ async function start() {
     if (closing) return;
     closing = true;
     logger.info("server stopping", { signal });
+    clearInterval(backupInterval);
     await nextApp.close();
     await new Promise((resolve) => server.close(resolve));
     await pool.end();
