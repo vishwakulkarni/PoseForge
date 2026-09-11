@@ -1,4 +1,13 @@
 import type {
+  AdvAssetUploadResponse,
+  AdvDocument,
+  AdvEngineCapability,
+  AdvNodeRunResponse,
+  AdvProject,
+  AdvProjectSummary,
+  AdvTemplateId,
+} from '../advanced-studio/types';
+import type {
   CharacterDetail,
   CharacterAngleProfile,
   CharacterSummary,
@@ -215,6 +224,45 @@ export const api = {
       request<StudioProjectAssistResponse>(`/api/studio-projects/${id}/nodes/${nodeId}/assist`, {
         method: 'POST',
         body: JSON.stringify(input),
+      }),
+  },
+
+  /**
+   * Advanced Studio projects. Deliberately mirrors the studioProjects contract
+   * (revision-checked updates, soft delete) so the shared autosave hook works
+   * against either workspace, but talks to its own workspace-scoped endpoints.
+   */
+  advancedStudio: {
+    capabilities: () =>
+      request<{ engines: AdvEngineCapability[] }>('/api/advanced-studio-projects/capabilities')
+        .then((response) => response.engines),
+    list: () =>
+      request<{ projects: AdvProjectSummary[] }>('/api/advanced-studio-projects')
+        .then((response) => response.projects),
+    get: (id: string) => request<AdvProject>(`/api/advanced-studio-projects/${id}`),
+    create: (input: { name?: string; template: AdvTemplateId }) =>
+      request<AdvProject>('/api/advanced-studio-projects', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    update: (id: string, input: { expectedRevision: number; document: AdvDocument; name?: string }) =>
+      request<AdvProject>(`/api/advanced-studio-projects/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(input),
+      }),
+    remove: (id: string) =>
+      request<void>(`/api/advanced-studio-projects/${id}`, { method: 'DELETE' }),
+    uploadAsset: (id: string, file: File) => {
+      const form = new FormData();
+      form.append('image', file);
+      return request<AdvAssetUploadResponse>(`/api/advanced-studio-projects/${id}/assets`, {
+        method: 'POST',
+        body: form,
+      });
+    },
+    runNode: (id: string, nodeId: string) =>
+      request<AdvNodeRunResponse>(`/api/advanced-studio-projects/${id}/nodes/${nodeId}/run`, {
+        method: 'POST',
       }),
   },
 

@@ -46,7 +46,7 @@ function loadRoute({ registry, createGeneration } = {}) {
       const found = projects.find((item) => item.is_default);
       return found ? { rows: [found], rowCount: 1 } : { rows: [], rowCount: 0 };
     }
-    if (/SELECT \* FROM studio_projects WHERE id = \$1 AND archived_at IS NULL/.test(sql)) {
+    if (/SELECT \* FROM studio_projects WHERE id = \$1/.test(sql)) {
       const found = projects.find((item) => item.id === params[0]);
       return found ? { rows: [found], rowCount: 1 } : { rows: [], rowCount: 0 };
     }

@@ -88,5 +88,44 @@ const engine = {
     });
   },
 };
+/* --- Advanced Studio -------------------------------------------------------
+ * Freeform image generation through the local Codex CLI.
+ *
+ * Codex has no API parameters for aspect ratio or resolution — the engine
+ * declares both as "prompt", meaning they are expressed in the instruction —
+ * so they are appended as an explicit line rather than silently dropped.
+ * With no connected images this is a plain text-to-image request. */
+function freeformSettingsLine({ aspectRatio, quality }) {
+  const parts = [];
+  if (aspectRatio) parts.push(`Aspect ratio: ${aspectRatio}.`);
+  if (quality === "high") parts.push("Render at the highest detail the tool supports (about 2K on the long edge).");
+  else if (quality) parts.push("Render at standard detail (about 1K on the long edge).");
+  return parts.join(" ");
+}
+
+engine.capabilities.freeform = true;
+engine.capabilities.textToImage = true;
+engine.capabilities.maxReferenceImages = 6;
+engine.capabilities.promptDrivenSettings = true;
+engine.generateFreeform = function generateFreeform({ referencePaths = [], prompt, outputPath, outputSettings = {} }) {
+  const settings = freeformSettingsLine(outputSettings);
+  const fullPrompt = settings ? `${prompt}\n\n${settings}` : prompt;
+  if (!referencePaths.length) {
+    return runCodexImageGeneration({
+      referencePaths: [],
+      prompt: fullPrompt,
+      outputPath,
+      referenceDescription: "no reference images are attached; generate the image from the description alone",
+    });
+  }
+  const description = referencePaths.length === 1
+    ? "attachment 1 is a visual reference for the described subject, style, or composition"
+    : `attachments 1-${referencePaths.length} are visual references, in order, for the described subject, style, or composition`;
+  return runCodexImageGeneration({ referencePaths, prompt: fullPrompt, outputPath, referenceDescription: description });
+};
+
 module.exports = engine;
 module.exports.describeCodexFailure = describeCodexFailure;
+// Exported for tests: the settings line is the only way aspect ratio and
+// resolution reach a provider that has no parameters for them.
+module.exports.freeformSettingsLine = freeformSettingsLine;

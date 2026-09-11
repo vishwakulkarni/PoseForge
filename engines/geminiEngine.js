@@ -20,11 +20,13 @@ function roughCost(model, quality) {
   return quality === "low" ? 0.04 : 0.067;
 }
 
-async function generateFromReferences({ referencePaths, prompt, outputPath, outputSettings = {}, apiKey, model }) {
+async function generateFromReferences({ referencePaths, prompt, outputPath, outputSettings = {}, apiKey, model, allowTextOnly = false }) {
   const key = apiKey || await configuredKey();
   if (!key) throw new Error("No Gemini API key configured.");
   const selectedModel = validModel(model || await configuredModel());
-  if (!referencePaths.length) throw new Error("At least one Gemini image reference is required.");
+  // Advanced Studio can run text-to-image with no references; the guided
+  // Studio and profile paths still require at least one reference image.
+  if (!referencePaths.length && !allowTextOnly) throw new Error("At least one Gemini image reference is required.");
   if (referencePaths.length > 5) throw new Error("Gemini supports at most five reference images for this workflow.");
   const parts = [];
   for (const imagePath of referencePaths) {
@@ -132,3 +134,12 @@ const engine = {
 };
 
 module.exports = engine;
+
+/* --- Advanced Studio -------------------------------------------------------
+ * Gemini accepts a text-only request, so Advanced Studio gets both
+ * text-to-image and image-to-image from the same call. */
+engine.capabilities.freeform = true;
+engine.capabilities.textToImage = true;
+engine.generateFreeform = async function generateFreeform({ referencePaths = [], prompt, outputPath, outputSettings = {}, apiKey, model }) {
+  return generateFromReferences({ referencePaths, prompt, outputPath, outputSettings, apiKey, model, allowTextOnly: true });
+};

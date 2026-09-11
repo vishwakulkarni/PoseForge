@@ -160,3 +160,42 @@ const engine = {
 };
 
 module.exports = engine;
+
+/* --- Advanced Studio -------------------------------------------------------
+ * With references this reuses the existing edit endpoint; with none it calls
+ * the generations endpoint so a prompt-only Image Generator node works. */
+async function createImage({ prompt, outputPath, outputSettings = {}, apiKey, model }) {
+  const key = apiKey || await configured();
+  if (!key) throw new Error("No OpenAI API key configured.");
+  const quality = outputQuality(outputSettings.quality);
+  const size = outputSize(outputSettings);
+  const response = await fetch("https://api.openai.com/v1/images/generations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+    body: JSON.stringify({ model: selectedModel(model), prompt, size, quality, output_format: "png" }),
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.error?.message || `OpenAI request failed (${response.status}).`);
+  const image = body.data?.[0]?.b64_json;
+  if (!image) throw new Error("OpenAI returned no image data.");
+  await fs.promises.writeFile(outputPath, Buffer.from(image, "base64"));
+  const usage = body.usage || {};
+  return { usage: {
+    source: usage.total_tokens ? "actual" : "provider-estimate",
+    rateDate: RATE_DATE,
+    model: MODEL_ID,
+    inputTokens: Number(usage.input_tokens || 0),
+    outputTokens: Number(usage.output_tokens || 0),
+    totalTokens: Number(usage.total_tokens || 0),
+    estimatedCostUsd: outputCost(size, quality),
+    pricingNote: "GPT Image 2 output estimate for the selected size and quality.",
+  } };
+}
+
+engine.capabilities.freeform = true;
+engine.capabilities.textToImage = true;
+engine.generateFreeform = async function generateFreeform({ referencePaths = [], prompt, outputPath, outputSettings = {}, apiKey, model }) {
+  return referencePaths.length
+    ? editImage({ referencePaths, prompt, outputPath, outputSettings, apiKey, model })
+    : createImage({ prompt, outputPath, outputSettings, apiKey, model });
+};

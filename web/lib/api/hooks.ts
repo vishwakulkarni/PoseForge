@@ -8,6 +8,7 @@ import {
   type UseQueryOptions,
 } from '@tanstack/react-query';
 import { api, ApiError } from './client';
+import type { AdvProjectSummary, AdvTemplateId } from '../advanced-studio/types';
 import type {
   EngineKey,
   Generation,
@@ -35,6 +36,9 @@ export const queryKeys = {
   studioProjects: ['studio-projects'] as const,
   studioProjectDefault: ['studio-projects', 'default'] as const,
   studioProject: (id: string) => ['studio-projects', id] as const,
+  advancedProjects: ['advanced-studio-projects'] as const,
+  advancedProject: (id: string) => ['advanced-studio-projects', id] as const,
+  advancedCapabilities: ['advanced-studio-capabilities'] as const,
   recipes: ['recipes'] as const,
   settings: ['settings'] as const,
   metrics: (scope: MetricsScope) => ['metrics', scope] as const,
@@ -464,5 +468,61 @@ export function useMetrics(scope: MetricsScope, refreshMs = 30_000) {
       return data?.codexLimits.loading || data?.antigravityLimits.loading ? 1_000 : refreshMs;
     },
     placeholderData: (previous) => previous,
+  });
+}
+
+
+/* ------------------------------------------------- Advanced Studio projects */
+
+/** Model and capability catalog for generator nodes. Cached for the session:
+ * it only changes when the user edits API keys in Settings. */
+export function useAdvancedCapabilities() {
+  return useQuery({
+    queryKey: queryKeys.advancedCapabilities,
+    queryFn: api.advancedStudio.capabilities,
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useAdvancedProjects() {
+  return useQuery({
+    queryKey: queryKeys.advancedProjects,
+    queryFn: api.advancedStudio.list,
+    staleTime: 30_000,
+  });
+}
+
+export function useAdvancedProject(id: string | null) {
+  return useQuery({
+    queryKey: queryKeys.advancedProject(id ?? ''),
+    queryFn: () => api.advancedStudio.get(id!),
+    enabled: Boolean(id),
+    staleTime: Infinity,
+    retry: (failureCount, error) =>
+      error instanceof ApiError && error.isNotFound ? false : failureCount < 3,
+  });
+}
+
+export function useCreateAdvancedProject() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { name?: string; template: AdvTemplateId }) => api.advancedStudio.create(input),
+    onSuccess: (project) => {
+      client.setQueryData(queryKeys.advancedProject(project.id), project);
+      client.invalidateQueries({ queryKey: queryKeys.advancedProjects });
+    },
+  });
+}
+
+export function useDeleteAdvancedProject() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.advancedStudio.remove(id),
+    onSuccess: (_data, id) => {
+      client.removeQueries({ queryKey: queryKeys.advancedProject(id), exact: true });
+      client.setQueryData<AdvProjectSummary[]>(queryKeys.advancedProjects, (current) =>
+        current?.filter((item) => item.id !== id) ?? [],
+      );
+    },
   });
 }

@@ -137,3 +137,19 @@ const engine = {
 };
 
 module.exports = engine;
+
+/* --- Advanced Studio -------------------------------------------------------
+ * Freeform image generation: the prompt is passed through verbatim instead of
+ * being wrapped in the pose-transfer role instructions, and connected images
+ * are plain references. Additive: the pose-transfer `generate` path above is
+ * untouched. */
+const FREEFORM_SYSTEM_PROMPT = "Follow the user's instructions exactly. Any provided images are visual references for the subject, style, or composition described in the prompt.";
+
+engine.capabilities.freeform = true;
+engine.capabilities.textToImage = false;
+engine.generateFreeform = async function generateFreeform({ referencePaths = [], prompt, outputPath, outputSettings = {}, apiKey }) {
+  if (!referencePaths.length) {
+    throw new Error("This fal.ai model edits images and needs at least one connected image. Connect an Image Input node, or choose an engine that supports text-to-image.");
+  }
+  return generateEdit({ referencePaths, prompt, systemPrompt: FREEFORM_SYSTEM_PROMPT, outputPath, outputSettings, apiKey });
+};

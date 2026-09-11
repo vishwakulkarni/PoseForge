@@ -169,6 +169,30 @@ test("database schema and seed data", async (t) => {
     assert.equal(generationColumns.rowCount, 4);
   });
 
+  await t.test("Studio projects carry a workspace discriminator defaulting to the guided Studio", async () => {
+    const workspaceColumns = await pool.query(`
+      SELECT column_name, data_type, column_default FROM information_schema.columns
+      WHERE table_name = 'studio_projects' AND column_name = ANY($1::text[])
+    `, [["workspace", "template"]]);
+    const columns = Object.fromEntries(workspaceColumns.rows.map((row) => [row.column_name, row]));
+    assert.equal(columns.workspace?.data_type, "text");
+    assert.match(columns.workspace?.column_default || "", /studio/);
+    assert.equal(columns.template?.data_type, "text");
+
+    // Existing rows must migrate into the guided workspace, and the workspace
+    // check constraint must reject anything outside the two known values.
+    const inserted = await pool.query(
+      "INSERT INTO studio_projects (name, schema_version, document) VALUES ($1, 1, '{}'::jsonb) RETURNING id, workspace",
+      ["workspace smoke test"]
+    );
+    assert.equal(inserted.rows[0].workspace, "studio");
+    await assert.rejects(pool.query(
+      "UPDATE studio_projects SET workspace = 'nonsense' WHERE id = $1",
+      [inserted.rows[0].id]
+    ));
+    await pool.query("DELETE FROM studio_projects WHERE id = $1", [inserted.rows[0].id]);
+  });
+
   await t.test("database adapter rolls back transactions", async () => {
     const key = "transaction_rollback_smoke_test";
     await assert.rejects(

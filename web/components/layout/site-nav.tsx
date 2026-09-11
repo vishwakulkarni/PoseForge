@@ -10,6 +10,10 @@ import { Button } from '@/components/ui/button';
 
 export const NAV_ITEMS = [
   { label: 'Studio', href: '/studio' },
+  // Advanced Studio is a sibling top-level route, not a child of /studio:
+  // isActive() matches with startsWith, so a nested path would keep Studio
+  // highlighted while the other workspace is open.
+  { label: 'Advanced Studio', href: '/studio-advanced' },
   { label: 'Characters', href: '/characters' },
   { label: 'Poses', href: '/poses' },
   { label: 'History', href: '/history' },

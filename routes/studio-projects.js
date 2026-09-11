@@ -164,7 +164,7 @@ router.get("/", asyncHandler(async (req, res) => {
   const result = await pool.query(
     `SELECT id, name, schema_version, revision, is_default, created_at, updated_at, document
      FROM studio_projects
-     WHERE archived_at IS NULL
+     WHERE workspace = 'studio' AND archived_at IS NULL
      ORDER BY is_default DESC, updated_at DESC, created_at DESC`
   );
   res.json({ projects: result.rows.map(summary) });
@@ -172,7 +172,7 @@ router.get("/", asyncHandler(async (req, res) => {
 
 router.get("/default", asyncHandler(async (req, res) => {
   let result = await pool.query(
-    "SELECT * FROM studio_projects WHERE is_default = true AND archived_at IS NULL LIMIT 1"
+    "SELECT * FROM studio_projects WHERE is_default = true AND workspace = 'studio' AND archived_at IS NULL LIMIT 1"
   );
   if (!result.rowCount) {
     try {
@@ -185,7 +185,7 @@ router.get("/default", asyncHandler(async (req, res) => {
     } catch (error) {
       if (error.code !== "23505") throw error;
       result = await pool.query(
-        "SELECT * FROM studio_projects WHERE is_default = true AND archived_at IS NULL LIMIT 1"
+        "SELECT * FROM studio_projects WHERE is_default = true AND workspace = 'studio' AND archived_at IS NULL LIMIT 1"
       );
     }
   }
@@ -195,7 +195,7 @@ router.get("/default", asyncHandler(async (req, res) => {
 router.get("/:id", asyncHandler(async (req, res) => {
   if (!isUuid(req.params.id)) return res.status(404).json({ error: "Studio project not found." });
   const result = await pool.query(
-    "SELECT * FROM studio_projects WHERE id = $1 AND archived_at IS NULL",
+    "SELECT * FROM studio_projects WHERE id = $1 AND workspace = 'studio' AND archived_at IS NULL",
     [req.params.id]
   );
   if (!result.rowCount) return res.status(404).json({ error: "Studio project not found." });
@@ -227,13 +227,13 @@ router.put("/:id", asyncHandler(async (req, res) => {
          schema_version = $2,
          revision = revision + 1,
          updated_at = now()
-     WHERE id = $3 AND revision = $4 AND archived_at IS NULL
+     WHERE id = $3 AND revision = $4 AND workspace = 'studio' AND archived_at IS NULL
      RETURNING *`,
     [JSON.stringify(document), PROJECT_SCHEMA_VERSION, req.params.id, expectedRevision]
   );
   if (!result.rowCount) {
     const exists = await pool.query(
-      "SELECT revision FROM studio_projects WHERE id = $1 AND archived_at IS NULL",
+      "SELECT revision FROM studio_projects WHERE id = $1 AND workspace = 'studio' AND archived_at IS NULL",
       [req.params.id]
     );
     if (!exists.rowCount) return res.status(404).json({ error: "Studio project not found." });
@@ -247,7 +247,7 @@ router.put("/:id", asyncHandler(async (req, res) => {
 
 router.post("/:id/run", asyncHandler(async (req, res) => {
   if (!isUuid(req.params.id)) return res.status(404).json({ error: "Studio project not found." });
-  const result = await pool.query("SELECT * FROM studio_projects WHERE id = $1 AND archived_at IS NULL", [req.params.id]);
+  const result = await pool.query("SELECT * FROM studio_projects WHERE id = $1 AND workspace = 'studio' AND archived_at IS NULL", [req.params.id]);
   if (!result.rowCount) return res.status(404).json({ error: "Studio project not found." });
 
   let row = result.rows[0];
@@ -261,7 +261,7 @@ router.post("/:id/run", asyncHandler(async (req, res) => {
     }));
     const saved = await pool.query(
       `UPDATE studio_projects SET document = $1::jsonb, revision = revision + 1, updated_at = now()
-       WHERE id = $2 AND revision = $3 AND archived_at IS NULL RETURNING *`,
+       WHERE id = $2 AND revision = $3 AND workspace = 'studio' AND archived_at IS NULL RETURNING *`,
       [JSON.stringify(validateDocument(document)), req.params.id, Number(row.revision)]
     );
     if (!saved.rowCount) {
@@ -276,7 +276,7 @@ router.post("/:id/run", asyncHandler(async (req, res) => {
 
 router.post("/:id/nodes/:nodeId/run", asyncHandler(async (req, res) => {
   if (!isUuid(req.params.id)) return res.status(404).json({ error: "Studio project not found." });
-  const result = await pool.query("SELECT * FROM studio_projects WHERE id = $1 AND archived_at IS NULL", [req.params.id]);
+  const result = await pool.query("SELECT * FROM studio_projects WHERE id = $1 AND workspace = 'studio' AND archived_at IS NULL", [req.params.id]);
   if (!result.rowCount) return res.status(404).json({ error: "Studio project not found." });
   const row = result.rows[0];
   const document = sanitizeStudioDocument(row.document);
@@ -285,7 +285,7 @@ router.post("/:id/nodes/:nodeId/run", asyncHandler(async (req, res) => {
   const outcome = await runGenerateNode(document, req.params.nodeId, req.requestId);
   const saved = await pool.query(
     `UPDATE studio_projects SET document = $1::jsonb, revision = revision + 1, updated_at = now()
-     WHERE id = $2 AND revision = $3 AND archived_at IS NULL RETURNING *`,
+     WHERE id = $2 AND revision = $3 AND workspace = 'studio' AND archived_at IS NULL RETURNING *`,
     [JSON.stringify(validateDocument(document)), req.params.id, Number(row.revision)]
   );
   if (!saved.rowCount) return res.status(409).json({ error: "This Studio project changed in another tab. Reload before running again." });
@@ -295,7 +295,7 @@ router.post("/:id/nodes/:nodeId/run", asyncHandler(async (req, res) => {
 
 router.post("/:id/nodes/:nodeId/assist", asyncHandler(async (req, res) => {
   if (!isUuid(req.params.id)) return res.status(404).json({ error: "Studio project not found." });
-  const result = await pool.query("SELECT * FROM studio_projects WHERE id = $1 AND archived_at IS NULL", [req.params.id]);
+  const result = await pool.query("SELECT * FROM studio_projects WHERE id = $1 AND workspace = 'studio' AND archived_at IS NULL", [req.params.id]);
   if (!result.rowCount) return res.status(404).json({ error: "Studio project not found." });
   const row = result.rows[0];
   const document = sanitizeStudioDocument(row.document);
@@ -321,7 +321,7 @@ router.post("/:id/nodes/:nodeId/assist", asyncHandler(async (req, res) => {
     node.status = "error";
     const saved = await pool.query(
       `UPDATE studio_projects SET document = $1::jsonb, revision = revision + 1, updated_at = now()
-       WHERE id = $2 AND revision = $3 AND archived_at IS NULL RETURNING *`,
+       WHERE id = $2 AND revision = $3 AND workspace = 'studio' AND archived_at IS NULL RETURNING *`,
       [JSON.stringify(validateDocument(document)), req.params.id, Number(row.revision)]
     );
     return res.status(502).json({ error: err.message, project: saved.rowCount ? shape(saved.rows[0]) : undefined });
@@ -329,7 +329,7 @@ router.post("/:id/nodes/:nodeId/assist", asyncHandler(async (req, res) => {
 
   const saved = await pool.query(
     `UPDATE studio_projects SET document = $1::jsonb, revision = revision + 1, updated_at = now()
-     WHERE id = $2 AND revision = $3 AND archived_at IS NULL RETURNING *`,
+     WHERE id = $2 AND revision = $3 AND workspace = 'studio' AND archived_at IS NULL RETURNING *`,
     [JSON.stringify(validateDocument(document)), req.params.id, Number(row.revision)]
   );
   if (!saved.rowCount) return res.status(409).json({ error: "This Studio project changed in another tab. Reload before saving again." });
@@ -339,7 +339,7 @@ router.post("/:id/nodes/:nodeId/assist", asyncHandler(async (req, res) => {
 router.delete("/:id", asyncHandler(async (req, res) => {
   if (!isUuid(req.params.id)) return res.status(404).json({ error: "Studio project not found." });
   const existing = await pool.query(
-    "SELECT is_default FROM studio_projects WHERE id = $1 AND archived_at IS NULL",
+    "SELECT is_default FROM studio_projects WHERE id = $1 AND workspace = 'studio' AND archived_at IS NULL",
     [req.params.id]
   );
   if (!existing.rowCount) return res.status(404).json({ error: "Studio project not found." });
@@ -349,7 +349,7 @@ router.delete("/:id", asyncHandler(async (req, res) => {
   const result = await pool.query(
     `UPDATE studio_projects
      SET archived_at = now(), is_default = false, updated_at = now()
-     WHERE id = $1 AND archived_at IS NULL AND is_default = false`,
+     WHERE id = $1 AND workspace = 'studio' AND archived_at IS NULL AND is_default = false`,
     [req.params.id]
   );
   if (!result.rowCount) return res.status(404).json({ error: "Studio project not found." });
