@@ -41,7 +41,29 @@ function summary(row) {
     isDefault: row.is_default,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    preview: projectPreview(row.document),
   };
+}
+
+function projectPreview(rawDocument) {
+  const document = sanitizeStudioDocument(rawDocument);
+  const nodes = document.nodes || [];
+  const generatedImageUrl = [...nodes]
+    .reverse()
+    .map((node) => {
+      if (node.kind !== "result") return null;
+      if (node.imageUrl) return node.imageUrl;
+      return node.generationId
+        ? storage.publicUrl(storage.getGenerationOutputPath(node.generationId))
+        : null;
+    })
+    .find(Boolean) || null;
+  const loadedImageUrls = nodes
+    .filter((node) => (node.kind === "character" || node.kind === "pose") && node.imageUrl)
+    .map((node) => node.imageUrl)
+    .filter((url, index, urls) => urls.indexOf(url) === index)
+    .slice(0, 4);
+  return { generatedImageUrl, loadedImageUrls };
 }
 
 function validateDocument(input) {
@@ -140,7 +162,7 @@ router.use((req, res, next) => {
 
 router.get("/", asyncHandler(async (req, res) => {
   const result = await pool.query(
-    `SELECT id, name, schema_version, revision, is_default, created_at, updated_at
+    `SELECT id, name, schema_version, revision, is_default, created_at, updated_at, document
      FROM studio_projects
      WHERE archived_at IS NULL
      ORDER BY is_default DESC, updated_at DESC, created_at DESC`

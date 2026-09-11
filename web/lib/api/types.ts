@@ -242,7 +242,14 @@ export interface StudioProject {
   updatedAt: string;
 }
 
-export type StudioProjectSummary = Omit<StudioProject, 'document'>;
+export interface StudioProjectPreview {
+  generatedImageUrl: string | null;
+  loadedImageUrls: string[];
+}
+
+export type StudioProjectSummary = Omit<StudioProject, 'document'> & {
+  preview?: StudioProjectPreview;
+};
 
 /** POST /api/studio-projects/:id/run — per-node outcome, keyed by node id. */
 export interface StudioProjectNodeRunResult {

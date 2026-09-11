@@ -25,6 +25,31 @@ import { useToast } from '@/components/ui/toast';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Badge } from '@/components/ui/badge';
 
+function ProjectPreview({ project }: { project: StudioProjectSummary }) {
+  const generatedImageUrl = project.preview?.generatedImageUrl;
+  const loadedImageUrls = project.preview?.loadedImageUrls ?? [];
+
+  if (generatedImageUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- project assets are served by the local storage mount
+      <img src={generatedImageUrl} alt="Latest generated result" className="h-full w-full object-cover" />
+    );
+  }
+
+  if (loadedImageUrls.length) {
+    return (
+      <div className="flex h-full w-full gap-1.5 p-2" aria-label={`${loadedImageUrls.length} loaded project images`}>
+        {loadedImageUrls.map((imageUrl) => (
+          // eslint-disable-next-line @next/next/no-img-element -- project assets are served by the local storage mount
+          <img key={imageUrl} src={imageUrl} alt="Loaded project source" className="min-w-0 flex-1 rounded-[10px] object-cover" />
+        ))}
+      </div>
+    );
+  }
+
+  return <FolderKanban className="size-7" />;
+}
+
 function CreateProjectForm({
   onCreated,
   onCancel,
@@ -160,10 +185,10 @@ export function StudioProjectsView() {
               <button
                 type="button"
                 onClick={() => openProject(project.id)}
-                className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-2 bg-[var(--pf-surface-muted)] text-[var(--pf-text-tertiary)]"
+                className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-2 overflow-hidden bg-[var(--pf-surface-muted)] text-[var(--pf-text-tertiary)]"
                 aria-label={`Open ${project.name}`}
               >
-                <FolderKanban className="size-7" />
+                <ProjectPreview project={project} />
               </button>
 
               {!project.isDefault ? (
