@@ -13,7 +13,7 @@ export function ResultNodeBody({ id: _id, data, actions, running, failed }: Stud
     <>
       <button
         type="button"
-        className="nodrag poseforge-result-media"
+        className="poseforge-result-media"
         aria-label={data.imageUrl
           ? `Open generated result ${(data.index ?? 0) + 1} preview`
           : `Select result ${(data.index ?? 0) + 1}`}

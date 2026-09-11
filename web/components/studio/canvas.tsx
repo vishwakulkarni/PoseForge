@@ -333,7 +333,6 @@ const EMPTY_IDS: string[] = [];
 const EMPTY_LABELS: string[] = [];
 const EMPTY_ASSETS: CanvasAsset[] = [];
 const EMPTY_PROJECTS: StudioProjectSummary[] = [];
-const EMPTY_ENGINES: EngineInfo[] = [];
 
 function isAssetValidForKind(kind: 'character' | 'pose', asset: CanvasAsset) {
   if (!asset.id || !asset.label || !asset.imageUrl) return false;
@@ -877,6 +876,7 @@ function buildFlow(
         meta: `Output ${index + 1}`,
         imageUrl: generation?.outputUrl,
         status: generation?.status ?? (running ? 'running' : status),
+        generationId: generation?.id,
         errorMessage: generation?.errorMessage,
         index,
         aspectRatio,
@@ -1676,7 +1676,6 @@ function CanvasFlow(props: CanvasPanelProps) {
     onRunPipeline,
     onRunNode,
     onAssistNode,
-    engines = EMPTY_ENGINES,
   } = props;
   const flow = React.useMemo(() => buildFlow({
     aspectRatio,
@@ -1733,6 +1732,7 @@ function CanvasFlow(props: CanvasPanelProps) {
     selectedSuggestionIds,
   }), [pose, selectedSuggestionIds, subjects]);
   const previousSourceSelectionKey = React.useRef(sourceSelectionKey);
+  const persistedResultSignature = React.useRef<string | null>(null);
   const dragSnapshot = React.useRef<CanvasSnapshot | null>(null);
   const resizeSnapshot = React.useRef<CanvasSnapshot | null>(null);
   const sourceStartedAt = React.useRef(new Map<string, number>());
@@ -1853,6 +1853,7 @@ function CanvasFlow(props: CanvasPanelProps) {
     commitNodes(nextNodes);
 
     const nodeIds = new Set(nextNodes.map((node) => node.id));
+    const flowNodesById = new Map(flow.nodes.map((node) => [node.id, node]));
     const authoredEdges = new Map(flow.edges.map((edge) => [edge.id, edge]));
     const nextEdges = edgesRef.current
       .filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target))
@@ -1866,10 +1867,15 @@ function CanvasFlow(props: CanvasPanelProps) {
 
     for (const edge of flow.edges) {
       const isNewAuthoredEdge = !knownFlowEdgeIdsRef.current.has(edge.id);
-      const canRestoreDefault = !hasExplicitEdgeStateRef.current || isNewAuthoredEdge;
+      const targetNode = flowNodesById.get(edge.target);
+      const isOutputEdge = Boolean(
+        targetNode?.data.kind === 'result' &&
+        flowNodesById.get(edge.source)?.data.kind === 'generate',
+      );
+      const canRestoreDefault = !hasExplicitEdgeStateRef.current || isNewAuthoredEdge || isOutputEdge;
       if (
         !nextEdgeIds.has(edge.id) &&
-        !suppressedEdgeIdsRef.current.has(edge.id) &&
+        (!suppressedEdgeIdsRef.current.has(edge.id) || isOutputEdge) &&
         canRestoreDefault
       ) {
         nextEdges.push(edge);
@@ -1900,6 +1906,7 @@ function CanvasFlow(props: CanvasPanelProps) {
     hydratedProject.current = project.id;
     const sequence = ++hydrationSequence.current;
     persistenceReady.current = false;
+    persistedResultSignature.current = null;
     setWorkspaceReady(false);
     const savedPositions = new Map(project.document.nodes.map((node) => [node.id, node.position]));
     savedPositionsRef.current = savedPositions;
@@ -1910,14 +1917,27 @@ function CanvasFlow(props: CanvasPanelProps) {
     knownFlowEdgeIdsRef.current = new Set(flow.edges.map((edge) => edge.id));
     const authoredIds = new Set(flow.nodes.map((node) => node.id));
     const savedById = new Map(project.document.nodes.map((node) => [node.id, node]));
+    // A completed project run persists its result node in the document, but
+    // the live generation polling list is empty after a fresh reopen. Keep
+    // those saved result nodes (and remove the temporary placeholder) so
+    // the last generated image is restored into the canvas.
+    const savedResultNodes = project.document.nodes.filter((node) =>
+      !authoredIds.has(node.id) &&
+      node.kind === 'result' &&
+      Boolean(node.imageUrl || node.generationId),
+    );
+    const hasSavedResults = savedResultNodes.length > 0;
     const hydratedNodes = [
-      ...flow.nodes.map((node) => {
-        const saved = savedById.get(node.id);
-        return configurableNode(
-          saved ? { ...node, position: { ...saved.position } } : node,
-          saved,
-        );
-      }),
+      ...flow.nodes
+        .filter((node) => !(hasSavedResults && node.data.kind === 'result' && node.id.startsWith('result-placeholder-')))
+        .map((node) => {
+          const saved = savedById.get(node.id);
+          return configurableNode(
+            saved ? { ...node, position: { ...saved.position } } : node,
+            saved,
+          );
+        }),
+      ...savedResultNodes.map(savedCustomNode),
       ...project.document.nodes
         .filter((node) =>
           !authoredIds.has(node.id) &&
@@ -1929,6 +1949,20 @@ function CanvasFlow(props: CanvasPanelProps) {
     ];
     commitNodes(hydratedNodes);
     const savedEdges = styledSavedEdges(project.document, hydratedNodes, flow.edges);
+    const generateNode = hydratedNodes.find((node) => node.data.kind === 'generate');
+    if (generateNode) {
+      hydratedNodes
+        .filter((node) => node.data.kind === 'result' && (node.data.imageUrl || node.data.generationId))
+        .forEach((resultNode) => {
+          if (savedEdges.some((edge) => edge.target === resultNode.id)) return;
+          savedEdges.push({
+            id: `${generateNode.id}-${resultNode.id}`,
+            source: generateNode.id,
+            target: resultNode.id,
+            className: 'poseforge-edge',
+          });
+        });
+    }
     // Documents saved before edgeState existed could contain node geometry but
     // an empty edge array. Treat those as incomplete legacy snapshots and
     // restore the authored workflow arrows once. New saves mark their edge
@@ -1995,6 +2029,27 @@ function CanvasFlow(props: CanvasPanelProps) {
     if (!persistenceReady.current) return;
     onProjectChange?.(projectDocument(nextNodes, nextEdges, nextViewport, nextLocked));
   }, [onProjectChange]);
+
+  // Generation polling changes result nodes outside React Flow mutations.
+  // Persist those output URLs too, so reopening the project restores the last
+  // generated image instead of rebuilding an empty placeholder node.
+  const resultSignature = React.useMemo(
+    () => flow.nodes
+      .filter((node) => node.data.kind === 'result')
+      .map((node) => [node.id, node.data.generationId ?? '', node.data.imageUrl ?? '', node.data.pipelineStatus ?? '', node.data.status ?? ''].join(':'))
+      .join('|'),
+    [flow.nodes],
+  );
+  React.useEffect(() => {
+    if (!persistenceReady.current) return;
+    if (persistedResultSignature.current === null) {
+      persistedResultSignature.current = resultSignature;
+      return;
+    }
+    if (persistedResultSignature.current === resultSignature) return;
+    persistedResultSignature.current = resultSignature;
+    emitProject(nodesRef.current, edgesRef.current, viewportRef.current, lockedRef.current);
+  }, [emitProject, resultSignature]);
 
   // Source choices originate outside React Flow as well as inside it. Persist
   // the reconciled graph whenever that shared selection changes so reopening
