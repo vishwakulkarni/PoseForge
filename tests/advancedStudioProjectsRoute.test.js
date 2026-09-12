@@ -34,7 +34,7 @@ function row(overrides = {}) {
  * runner replaced, mirroring tests/studioProjectsRoute.test.js so both route
  * suites share one harness shape. `rows` seeds the fake table, including any
  * guided-Studio rows used to prove workspace isolation. */
-function loadRoute({ rows = [row()], registry, createAdvancedImageGeneration } = {}) {
+function loadRoute({ rows = [row()], registry, createAdvancedImageGeneration, createAdvancedVideoGeneration } = {}) {
   const projects = rows.map((item) => ({ ...item }));
   const visible = (workspace) => projects.filter((item) => item.workspace === workspace && !item.archived_at);
   const findIndex = (id, workspace) => projects.findIndex((item) => item.id === id && item.workspace === workspace && !item.archived_at);
@@ -84,8 +84,8 @@ function loadRoute({ rows = [row()], registry, createAdvancedImageGeneration } =
 
   const stubbed = [stub("db/pool.js", { pool: { query } })];
   if (registry) stubbed.push(stub("engines/index.js", { registry }));
-  if (createAdvancedImageGeneration) {
-    stubbed.push(stub("lib/advancedGenerationRunner.js", { createAdvancedImageGeneration }));
+  if (createAdvancedImageGeneration || createAdvancedVideoGeneration) {
+    stubbed.push(stub("lib/advancedGenerationRunner.js", { createAdvancedImageGeneration, createAdvancedVideoGeneration }));
   }
   const routePath = require.resolve(path.join(ROOT, "routes/advanced-studio-projects.js"));
   delete require.cache[routePath];
@@ -144,6 +144,24 @@ function graph(nodeOverrides = {}) {
     ],
     edges: [
       { id: "e1", source: "text-1", sourceHandle: "text", target: "gen-1", targetHandle: "prompt", dataType: "text" },
+    ],
+  };
+}
+
+function videoGraph(nodeOverrides = {}) {
+  return {
+    schemaVersion: 2,
+    template: "video",
+    viewport: null,
+    locked: false,
+    nodes: [
+      { id: "text-1", type: "text", position: { x: 0, y: 0 }, data: { text: "a lighthouse at dusk", mode: "plain" } },
+      { id: "frame-1", type: "imageInput", position: { x: 0, y: 300 }, data: { imageUrl: "/storage/advanced/start.png" } },
+      { id: "video-1", type: "videoGenerator", position: { x: 500, y: 0 }, data: { engine: "fal-video", model: "video-model", duration: 10, aspectRatio: "9:16", resolution: "1080p", sound: true, outputs: 1, ...nodeOverrides } },
+    ],
+    edges: [
+      { id: "e1", source: "text-1", sourceHandle: "text", target: "video-1", targetHandle: "prompt", dataType: "text" },
+      { id: "e2", source: "frame-1", sourceHandle: "image", target: "video-1", targetHandle: "startFrame", dataType: "image" },
     ],
   };
 }
@@ -521,4 +539,50 @@ test("connected image inputs are resolved in edge order and passed as references
     "/storage/advanced/a.png",
     "/storage/generations/prev/output.png",
   ]);
+});
+
+test("running a video node coerces settings and attaches an MP4 result", async () => {
+  const calls = [];
+  const videoModel = {
+    id: "video-model",
+    label: "Video Model",
+    inputs: ["prompt", "startFrame"],
+    durations: [5],
+    defaultDuration: 5,
+    aspectRatios: ["16:9"],
+    defaultAspectRatio: "16:9",
+    resolutions: ["720p"],
+    defaultResolution: "720p",
+    sound: false,
+  };
+  const videoEngine = {
+    key: "fal-video",
+    label: "fal.ai Video",
+    async isReady() { return { ready: true }; },
+    modelDefinition(id) { return id === videoModel.id ? videoModel : null; },
+    generateVideo: async () => ({}),
+  };
+  const { router, cleanup } = loadRoute({
+    registry: { "fal-video": videoEngine },
+    createAdvancedVideoGeneration: async (request) => {
+      calls.push(request);
+      return { id: "55555555-5555-4555-8555-555555555555", videoUrl: "/storage/generations/55555555-5555-4555-8555-555555555555/output.mp4" };
+    },
+  });
+  try {
+    await invoke(router, "PUT", "/:id", { params: { id: PROJECT_ID }, body: { expectedRevision: 0, document: videoGraph() } });
+    const response = await invoke(router, "POST", "/:id/nodes/:nodeId/run", { params: { id: PROJECT_ID, nodeId: "video-1" } });
+    assert.equal(response.status, 200);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].duration, 5);
+    assert.equal(calls[0].aspectRatio, "16:9");
+    assert.equal(calls[0].resolution, "720p");
+    assert.equal(calls[0].sound, false);
+    assert.match(calls[0].startFramePath, /advanced\/start\.png$/);
+    const node = response.body.project.document.nodes.find((item) => item.id === "video-1");
+    assert.equal(node.data.status, "done");
+    assert.match(node.data.results[0].videoUrl, /output\.mp4$/);
+  } finally {
+    cleanup();
+  }
 });

@@ -39,6 +39,7 @@ function shape(row, characters = []) {
     poseReferenceId: row.pose_reference_id || null,
     poseTitle: row.pose_title || null,
     outputUrl: row.output_path ? storage.publicUrl(row.output_path) : null,
+    mediaKind: row.media_kind || "image",
     backgroundPreset: row.background_preset_id ? { id: row.background_preset_id, name: row.background_name, type: "background", isCustom: false } : null,
     stylePreset: row.style_preset_id ? { id: row.style_preset_id, name: row.style_name, type: "style", isCustom: false } : null,
     prompt: row.prompt,

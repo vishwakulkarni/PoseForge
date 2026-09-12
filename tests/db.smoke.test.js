@@ -135,11 +135,12 @@ test("database schema and seed data", async (t) => {
     const result = await pool.query(`
       SELECT column_name, data_type FROM information_schema.columns
       WHERE table_name = 'generations' AND column_name = ANY($1::text[])
-    `, [["studio_mode", "advanced_settings", "batch_id"]]);
+    `, [["studio_mode", "advanced_settings", "batch_id", "media_kind"]]);
     const columns = Object.fromEntries(result.rows.map((row) => [row.column_name, row.data_type]));
     assert.equal(columns.studio_mode, "text");
     assert.equal(columns.advanced_settings, "jsonb");
     assert.equal(columns.batch_id, "uuid");
+    assert.equal(columns.media_kind, "text");
   });
 
   await t.test("generation usage metadata is available", async () => {

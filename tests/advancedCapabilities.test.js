@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { IMAGE_CAPABILITIES, qualityForResolution, supportsAspectRatio } = require("../lib/advancedCapabilities");
 const codexEngine = require("../engines/codexEngine");
+const falVideoEngine = require("../engines/falVideoEngine");
 
 test("the Codex CLI is offered for Advanced Studio image generation", () => {
   assert.ok(IMAGE_CAPABILITIES.codex, "codex must have an image capability entry");
@@ -44,4 +45,16 @@ test("Codex expresses aspect ratio and resolution in the prompt", () => {
 
   // Nothing selected yet must not append a stray instruction.
   assert.equal(freeformSettingsLine({}), "");
+});
+
+test("fal.ai video models expose model-specific inputs and settings", () => {
+  assert.equal(falVideoEngine.capabilities.video, true);
+  assert.equal(typeof falVideoEngine.generateVideo, "function");
+  const textModel = falVideoEngine.videoModels.find((model) => model.id.includes("text-to-video"));
+  const imageModel = falVideoEngine.videoModels.find((model) => model.id.includes("image-to-video"));
+  assert.deepEqual(textModel.inputs, ["prompt"]);
+  assert.ok(imageModel.inputs.includes("startFrame"));
+  assert.ok(imageModel.durations.length > 0);
+  assert.ok(imageModel.aspectRatios.length > 0);
+  assert.ok(imageModel.resolutions.length > 0);
 });

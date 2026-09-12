@@ -22,10 +22,11 @@ const {
   templateDocument,
 } = require("../lib/advancedStudioProject");
 const { listAdvancedCapabilities } = require("../lib/advancedCapabilities");
-const { createAdvancedImageGeneration } = require("../lib/advancedGenerationRunner");
+const { createAdvancedImageGeneration, createAdvancedVideoGeneration } = require("../lib/advancedGenerationRunner");
 const { normalizeToPng } = require("../lib/imageNormalizer");
 const storage = require("../lib/storage");
-const { registry } = require("../engines");
+const engines = require("../engines");
+const registry = engines.advancedRegistry || engines.registry;
 
 const router = express.Router();
 const WORKSPACE = "advanced";
@@ -133,6 +134,18 @@ function resolveNodeInputs(document, nodeId) {
   const byId = new Map((document.nodes || []).map((node) => [node.id, node]));
   const prompts = [];
   const imageUrls = [];
+  const startFrameUrls = [];
+  const endFrameUrls = [];
+  const referenceImageUrls = [];
+  const outputImageUrl = (source) => {
+    if (source.type === "imageInput") return source.data?.imageUrl || null;
+    if (source.type === "imageGenerator") {
+      const results = source.data?.results || [];
+      const active = results[source.data?.activeResultIndex ?? 0] || results[results.length - 1];
+      return active?.imageUrl || null;
+    }
+    return null;
+  };
   for (const edge of document.edges || []) {
     if (edge.target !== nodeId) continue;
     const source = byId.get(edge.source);
@@ -141,17 +154,14 @@ function resolveNodeInputs(document, nodeId) {
       if (source.type === "text" && source.data?.text) prompts.push(source.data.text);
       continue;
     }
-    if (edge.targetHandle === "image") {
-      if (source.type === "imageInput" && source.data?.imageUrl) {
-        imageUrls.push(source.data.imageUrl);
-      } else if (source.type === "imageGenerator") {
-        const results = source.data?.results || [];
-        const active = results[source.data?.activeResultIndex ?? 0] || results[results.length - 1];
-        if (active?.imageUrl) imageUrls.push(active.imageUrl);
-      }
+    const imageUrl = outputImageUrl(source);
+    if (!imageUrl) continue;
+    if (edge.targetHandle === "image") imageUrls.push(imageUrl);
+    else if (edge.targetHandle === "startFrame") startFrameUrls.push(imageUrl);
+    else if (edge.targetHandle === "endFrame") endFrameUrls.push(imageUrl);
+    else if (edge.targetHandle === "reference") referenceImageUrls.push(imageUrl);
     }
-  }
-  return { prompt: prompts.join("\n\n"), imageUrls };
+  return { prompt: prompts.join("\n\n"), imageUrls, startFrameUrls, endFrameUrls, referenceImageUrls };
 }
 
 /** Runs one image generator node in place, mutating only that node. Returns
@@ -224,6 +234,64 @@ async function runImageGeneratorNode(document, nodeId, requestId) {
     node.data.error = err.message;
     return { ok: false, error: err.message };
   }
+}
+
+async function runVideoGeneratorNode(document, nodeId, requestId) {
+  const node = findNode(document, nodeId);
+  if (!node || node.type !== "videoGenerator") return { ok: false, error: "Node is not a video generator." };
+  const engine = node.data.engine ? registry[node.data.engine] : null;
+  const definition = engine?.modelDefinition?.(node.data.model);
+  const fail = (message) => {
+    node.data.status = "error";
+    node.data.error = message;
+    return { ok: false, error: message };
+  };
+  if (!engine || typeof engine.generateVideo !== "function") return fail("Choose a video model before generating.");
+  if (!definition) return fail("That video model is no longer available. Choose another.");
+  const ready = await engine.isReady();
+  if (!ready.ready) return fail(ready.reason || `${engine.label} is not ready.`);
+
+  const resolved = resolveNodeInputs(document, nodeId);
+  if (!resolved.prompt.trim()) return fail("Connect a prompt with some text before generating.");
+  if (definition.inputs.includes("startFrame") && !resolved.startFrameUrls.length) {
+    return fail(`${definition.label} requires a connected start frame.`);
+  }
+  const urls = [resolved.startFrameUrls[0], resolved.endFrameUrls[0], ...resolved.referenceImageUrls].filter(Boolean);
+  const paths = urls.map((url) => storage.absolutePathFromPublicUrl(url));
+  if (paths.some((inputPath) => !inputPath)) return fail("One of the connected frames could not be resolved.");
+
+  node.data.status = "running";
+  delete node.data.error;
+  try {
+    const result = await createAdvancedVideoGeneration({
+      engineKey: engine.key,
+      engine,
+      engineModel: definition.id,
+      prompt: resolved.prompt,
+      startFramePath: resolved.startFrameUrls[0] ? paths[0] : undefined,
+      endFramePath: resolved.endFrameUrls[0] ? paths[resolved.startFrameUrls[0] ? 1 : 0] : undefined,
+      referencePaths: paths.slice((resolved.startFrameUrls[0] ? 1 : 0) + (resolved.endFrameUrls[0] ? 1 : 0)),
+      duration: definition.durations.includes(Number(node.data.duration)) ? Number(node.data.duration) : definition.defaultDuration,
+      aspectRatio: definition.aspectRatios.includes(node.data.aspectRatio) ? node.data.aspectRatio : definition.defaultAspectRatio,
+      resolution: definition.resolutions.includes(node.data.resolution) ? node.data.resolution : definition.defaultResolution,
+      sound: definition.sound && node.data.sound === true,
+      requestId,
+    });
+    const generated = [{ videoUrl: result.videoUrl, generationId: result.id }];
+    node.data.results = [...(node.data.results || []), ...generated].slice(-8);
+    node.data.activeResultIndex = node.data.results.length - 1;
+    node.data.status = "done";
+    return { ok: true, results: generated };
+  } catch (error) {
+    return fail(error.message);
+  }
+}
+
+function runGeneratorNode(document, nodeId, requestId) {
+  const node = findNode(document, nodeId);
+  return node?.type === "videoGenerator"
+    ? runVideoGeneratorNode(document, nodeId, requestId)
+    : runImageGeneratorNode(document, nodeId, requestId);
 }
 
 router.use((req, res, next) => {
@@ -384,7 +452,7 @@ router.post("/:id/nodes/:nodeId/run", asyncHandler(async (req, res) => {
 
   let outcome;
   try {
-    outcome = await runImageGeneratorNode(document, req.params.nodeId, req.requestId);
+    outcome = await runGeneratorNode(document, req.params.nodeId, req.requestId);
   } finally {
     runningNodes.delete(runKey);
   }

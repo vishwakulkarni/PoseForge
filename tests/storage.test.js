@@ -23,6 +23,10 @@ test("getGenerationOutputPath is always a PNG regardless of input", () => {
   assert.equal(storage.getGenerationOutputPath("gen-1"), "generations/gen-1/output.png");
 });
 
+test("getGenerationVideoOutputPath stores MP4 beside image output", () => {
+  assert.equal(storage.getGenerationVideoOutputPath("gen-1"), "generations/gen-1/output.mp4");
+});
+
 test("document photo paths keep application and print assets together", () => {
   assert.equal(storage.getDocumentOutputPath("gen-1", "jpeg"), "generations/gen-1/document-photo.jpg");
   assert.equal(storage.getDocumentOutputPath("gen-1", "png"), "generations/gen-1/document-photo.png");
