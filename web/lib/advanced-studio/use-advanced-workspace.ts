@@ -11,6 +11,29 @@ export type AdvSaveState = 'loading' | 'pending' | 'saving' | 'saved' | 'error' 
 
 export const ADV_SAVE_DELAY_MS = 1_500;
 
+const RUN_OUTPUT_FIELDS = ['status', 'error', 'results', 'activeResultIndex'] as const;
+
+/** Merge only fields owned by the server-side generation mutation into a
+ * locally newer canvas snapshot. This preserves edits made while a long run
+ * is in flight without allowing that snapshot to erase the completed result. */
+export function mergeServerRunOutputs(local: AdvDocument, server: AdvDocument): AdvDocument {
+  const serverNodes = new Map(server.nodes.map((node) => [node.id, node]));
+  return {
+    ...local,
+    nodes: local.nodes.map((node) => {
+      const serverNode = serverNodes.get(node.id);
+      if (!serverNode || (node.type !== 'imageGenerator' && node.type !== 'videoGenerator')) return node;
+      const data = { ...node.data } as Record<string, unknown>;
+      const serverData = serverNode.data as Record<string, unknown>;
+      for (const field of RUN_OUTPUT_FIELDS) {
+        if (serverData[field] === undefined) delete data[field];
+        else data[field] = serverData[field];
+      }
+      return { ...node, data } as typeof node;
+    }),
+  };
+}
+
 /**
  * Autosave for one Advanced Studio project.
  *
@@ -37,6 +60,7 @@ export function useAdvancedWorkspace(projectId: string, saveDelayMs = ADV_SAVE_D
   const flushRef = React.useRef<() => Promise<void>>(async () => {});
   const nameRef = React.useRef<string | undefined>(undefined);
   const acknowledgedNameRef = React.useRef<string | undefined>(undefined);
+  const adoptedRunDocumentRef = React.useRef<AdvDocument | null>(null);
 
   const clearTimer = React.useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -87,7 +111,9 @@ export function useAdvancedWorkspace(projectId: string, saveDelayMs = ADV_SAVE_D
         cacheProject(saved);
         setSaveState(pendingRef.current ? 'pending' : 'saved');
       } catch (cause) {
-        failedRef.current = document;
+        failedRef.current = adoptedRunDocumentRef.current
+          ? mergeServerRunOutputs(document, adoptedRunDocumentRef.current)
+          : document;
         setSaveState(cause instanceof ApiError && cause.isConflict ? 'conflict' : 'error');
       } finally {
         activeRef.current = null;
@@ -175,6 +201,13 @@ export function useAdvancedWorkspace(projectId: string, saveDelayMs = ADV_SAVE_D
   /** Adopts the revision returned by a server-side mutation (a node run) so
    * the next autosave is not treated as a stale writer. */
   const adoptProject = React.useCallback((project: AdvProject) => {
+    adoptedRunDocumentRef.current = project.document;
+    if (pendingRef.current) {
+      pendingRef.current = mergeServerRunOutputs(pendingRef.current, project.document);
+    }
+    if (failedRef.current) {
+      failedRef.current = mergeServerRunOutputs(failedRef.current, project.document);
+    }
     revisionRef.current = project.revision;
     acknowledgedKeyRef.current = documentKey(project.document);
     acknowledgedNameRef.current = project.name;

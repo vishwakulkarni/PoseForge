@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
@@ -178,5 +178,45 @@ describe('Advanced Studio autosave', () => {
     act(() => { result.current.save(document({ locked: true })); });
     await waitFor(() => expect(bodies.length).toBe(1));
     expect(bodies[0].expectedRevision).toBe(8);
+  });
+
+  it.each([
+    ['imageGenerator', { imageUrl: '/storage/generations/image/output.png', generationId: 'image-run' }],
+    ['videoGenerator', { videoUrl: '/storage/generations/video/output.mp4', generationId: 'video-run' }],
+  ] as const)('does not let a pending canvas save erase a completed %s result', async (type, generated) => {
+    const local = document({
+      nodes: [{
+        id: 'generator-1',
+        type,
+        position: { x: 0, y: 0 },
+        data: type === 'videoGenerator'
+          ? { outputs: 1, activeResultIndex: 0, duration: 5 }
+          : { outputs: 1, activeResultIndex: 0 },
+      }],
+    });
+    const completed = document({
+      nodes: [{
+        ...local.nodes[0],
+        data: { ...local.nodes[0].data, status: 'done', results: [generated], activeResultIndex: 0 },
+      }],
+    });
+    serveProject(2);
+    const bodies: Array<{ expectedRevision: number; document: AdvDocument }> = [];
+    server.use(http.put(`/api/advanced-studio-projects/${PROJECT_ID}`, async ({ request }) => {
+      const body = await request.json() as { expectedRevision: number; document: AdvDocument };
+      bodies.push(body);
+      return HttpResponse.json(projectResponse(9, body.document));
+    }));
+
+    const { result } = renderHook(() => useAdvancedWorkspace(PROJECT_ID, 20), { wrapper });
+    await waitFor(() => expect(result.current.project).not.toBeNull());
+    act(() => { result.current.save({ ...local, locked: true }); });
+    act(() => { result.current.adoptProject(projectResponse(8, completed) as never); });
+
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0].expectedRevision).toBe(8);
+    const savedNode = bodies[0].document.nodes.find((node) => node.id === 'generator-1');
+    expect(savedNode?.data).toMatchObject({ status: 'done', results: [generated] });
+    expect(bodies[0].document.locked).toBe(true);
   });
 });
