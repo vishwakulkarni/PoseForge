@@ -119,6 +119,7 @@ export interface Generation {
   poseReferenceId: string | null;
   poseTitle: string | null;
   outputUrl: string | null;
+  mediaKind?: 'image' | 'video';
   backgroundPreset: Preset | null;
   stylePreset: Preset | null;
   prompt: string;

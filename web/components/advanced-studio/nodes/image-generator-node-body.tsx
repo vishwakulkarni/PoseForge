@@ -31,7 +31,8 @@ export const ImageGeneratorNodeBody = React.memo(function ImageGeneratorNodeBody
   data,
   actions,
 }: AdvNodeBodyProps<AdvImageGeneratorNodeData>) {
-  const capability = actions.capabilityFor(data.engine);
+  const candidateCapability = actions.capabilityFor(data.engine);
+  const capability = candidateCapability?.image.supported ? candidateCapability : undefined;
   // A result can point at a file that is unreadable or has been removed from
   // storage. Without this the node would render the browser's broken-image
   // glyph and its alt text, which reads like a rendering bug.
@@ -43,7 +44,7 @@ export const ImageGeneratorNodeBody = React.memo(function ImageGeneratorNodeBody
   const resolved = actions.resolveInputsFor(id);
 
   const modelOptions = React.useMemo<PillOption<string>[]>(
-    () => actions.capabilities.flatMap((engine) =>
+    () => actions.capabilities.filter((engine) => engine.image.supported).flatMap((engine) =>
       (engine.models.length ? engine.models : [{ id: engine.key, label: engine.label }]).map((model) => ({
         value: `${engine.key}::${model.id}`,
         label: model.label,
@@ -64,7 +65,7 @@ export const ImageGeneratorNodeBody = React.memo(function ImageGeneratorNodeBody
   const onModelChange = (value: string) => {
     const [engineKey, modelId] = value.split('::');
     const next = actions.capabilities.find((engine) => engine.key === engineKey);
-    if (!next) return;
+    if (!next || !next.image.supported) return;
     actions.updateNodeData(id, {
       engine: engineKey,
       model: modelId,

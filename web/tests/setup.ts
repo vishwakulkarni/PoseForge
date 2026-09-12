@@ -12,8 +12,10 @@ afterEach(() => {
   // Hooks such as the Studio project workspace persist state (e.g. the
   // last-active project id) to localStorage; without clearing it, a value
   // written by one test leaks into the next test's initial render.
-  window.localStorage.clear();
-  window.sessionStorage.clear();
+  // Node 25 may expose these Web Storage getters without a backing file in
+  // worker threads. jsdom normally supplies both, but keep cleanup portable.
+  window.localStorage?.clear();
+  window.sessionStorage?.clear();
 });
 
 // jsdom implements neither of these, and Radix + our own components rely on

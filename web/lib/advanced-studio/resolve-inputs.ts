@@ -42,6 +42,9 @@ export function resolveInputs(
   const byId = new Map(nodes.map((node) => [node.id, node]));
   const prompts: string[] = [];
   const imageUrls: string[] = [];
+  const startFrameUrls: string[] = [];
+  const endFrameUrls: string[] = [];
+  const referenceImageUrls: string[] = [];
   const videoUrls: string[] = [];
   const audioUrls: string[] = [];
 
@@ -57,7 +60,12 @@ export function resolveInputs(
     }
     if (handle === 'image' || handle === 'startFrame' || handle === 'endFrame' || handle === 'reference') {
       const url = nodeOutputUrl(source, 'image');
-      if (url) imageUrls.push(url);
+      if (url) {
+        imageUrls.push(url);
+        if (handle === 'startFrame') startFrameUrls.push(url);
+        else if (handle === 'endFrame') endFrameUrls.push(url);
+        else if (handle === 'reference') referenceImageUrls.push(url);
+      }
       continue;
     }
     if (handle === 'video') {
@@ -66,5 +74,5 @@ export function resolveInputs(
     }
   }
 
-  return { prompt: prompts.join('\n\n'), imageUrls, videoUrls, audioUrls };
+  return { prompt: prompts.join('\n\n'), imageUrls, startFrameUrls, endFrameUrls, referenceImageUrls, videoUrls, audioUrls };
 }

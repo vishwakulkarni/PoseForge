@@ -47,7 +47,7 @@ export const AdvNodeActionsContext = React.createContext<AdvNodeActions>({
   uploadImage: async () => {},
   clearImage: noop,
   openPreview: noop,
-  resolveInputsFor: () => ({ prompt: '', imageUrls: [], videoUrls: [], audioUrls: [] }),
+  resolveInputsFor: () => ({ prompt: '', imageUrls: [], startFrameUrls: [], endFrameUrls: [], referenceImageUrls: [], videoUrls: [], audioUrls: [] }),
 });
 
 export function useAdvNodeActions() {

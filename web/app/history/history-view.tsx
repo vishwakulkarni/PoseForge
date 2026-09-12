@@ -57,7 +57,9 @@ function DetailDialog({
 
         <div className="grid gap-5 lg:grid-cols-[1.2fr_1fr]">
           <div className="overflow-hidden rounded-[16px] border border-[var(--pf-border)] bg-[var(--pf-surface-muted)]">
-            {generation.outputUrl ? (
+          {generation.outputUrl ? generation.mediaKind === 'video' ? (
+            <video src={generation.outputUrl} controls playsInline className="max-h-[60vh] w-full object-contain" />
+          ) : (
               // eslint-disable-next-line @next/next/no-img-element -- local storage mount
               <img
                 src={generation.outputUrl}
@@ -116,7 +118,7 @@ function DetailDialog({
               <Button asChild variant="primary" size="sm" className="mt-1">
                 <a href={generation.outputUrl} download>
                   <Download />
-                  Download PNG
+                Download {generation.mediaKind === 'video' ? 'MP4' : 'PNG'}
                 </a>
               </Button>
             ) : null}
@@ -226,7 +228,9 @@ export function HistoryView() {
                   aria-label={`Open detail for generation from ${relativeTime(generation.createdAt)}`}
                 >
                   <div className="relative aspect-square overflow-hidden bg-[var(--pf-surface-muted)]">
-                    {generation.outputUrl ? (
+                  {generation.outputUrl ? generation.mediaKind === 'video' ? (
+                    <video src={generation.outputUrl} muted playsInline preload="metadata" className="size-full object-cover" />
+                  ) : (
                       // eslint-disable-next-line @next/next/no-img-element -- local storage mount
                       <img
                         src={generation.outputUrl}

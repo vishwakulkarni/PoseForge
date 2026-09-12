@@ -167,7 +167,7 @@ export interface AdvResolutionOption {
 }
 
 export interface AdvImageCapability {
-  supported: true;
+  supported: boolean;
   textToImage: boolean;
   /** True when the provider has no API parameters for aspect ratio and
    * resolution and receives them as prompt text (the Codex CLI). */
@@ -180,6 +180,24 @@ export interface AdvImageCapability {
   maxOutputs: number;
 }
 
+export interface AdvVideoModelCapability {
+  id: string;
+  inputs: Array<'prompt' | 'startFrame' | 'endFrame' | 'reference'>;
+  durations: number[];
+  defaultDuration: number;
+  aspectRatios: string[];
+  defaultAspectRatio: string;
+  resolutions: string[];
+  defaultResolution: string;
+  sound: boolean;
+}
+
+export type AdvVideoCapability = {
+  supported: true;
+  maxOutputs: number;
+  models: AdvVideoModelCapability[];
+} | { supported: false };
+
 export interface AdvEngineCapability {
   key: string;
   label: string;
@@ -188,7 +206,7 @@ export interface AdvEngineCapability {
   models: { id: string; label: string; note?: string }[];
   defaultModel: string | null;
   image: AdvImageCapability;
-  video: { supported: boolean };
+  video: AdvVideoCapability;
 }
 
 export interface AdvAssetUploadResponse {
@@ -231,6 +249,9 @@ export interface AdvNodeDefinition<T extends AdvNodeType = AdvNodeType> {
 export interface AdvResolvedInputs {
   prompt: string;
   imageUrls: string[];
+  startFrameUrls: string[];
+  endFrameUrls: string[];
+  referenceImageUrls: string[];
   videoUrls: string[];
   audioUrls: string[];
 }

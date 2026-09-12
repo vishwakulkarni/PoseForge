@@ -15,6 +15,7 @@ import {
   nodeDefinition,
   nodeListings,
 } from '@/lib/advanced-studio/registry';
+import { coerceVideoSettings } from '@/lib/advanced-studio/registry/video-generator-node';
 import { connectionProblem, isValidAdvConnection, type GraphNodeLike } from '@/lib/advanced-studio/validation';
 import { resolveInputs } from '@/lib/advanced-studio/resolve-inputs';
 import { acceptsDataType, ADV_DATA_TYPES } from '@/lib/advanced-studio/data-types';
@@ -68,6 +69,43 @@ describe('node registry', () => {
     expect(addable).toContain('imageInput');
     expect(addable).toContain('imageGenerator');
     expect(addable).toContain('group');
+    expect(addable).toContain('videoGenerator');
+  });
+
+  it('derives video handles from the selected model', () => {
+    const videoCapability: AdvEngineCapability = {
+      ...capability(),
+      key: 'fal-video',
+      label: 'fal.ai Video',
+      image: { ...capability().image, supported: false },
+      models: [{ id: 'image-video', label: 'Image Video' }],
+      video: {
+        supported: true,
+        maxOutputs: 1,
+        models: [{
+          id: 'image-video', inputs: ['prompt', 'startFrame', 'endFrame'],
+          durations: [5, 10], defaultDuration: 5,
+          aspectRatios: ['16:9'], defaultAspectRatio: '16:9',
+          resolutions: ['720p'], defaultResolution: '720p', sound: false,
+        }],
+      },
+    };
+    const definition = nodeDefinition('videoGenerator');
+    const data = { ...definition.defaultData(), model: 'image-video' };
+    expect(definition.handles(data, videoCapability).inputs.map((handle) => handle.id))
+      .toEqual(['prompt', 'startFrame', 'endFrame']);
+  });
+
+  it('coerces unsupported settings when a video model changes', () => {
+    const coerced = coerceVideoSettings(
+      { outputs: 1, activeResultIndex: 0, duration: 10, aspectRatio: '1:1', resolution: '1080p', sound: true },
+      {
+        id: 'next', inputs: ['prompt'], durations: [5], defaultDuration: 5,
+        aspectRatios: ['16:9'], defaultAspectRatio: '16:9',
+        resolutions: ['720p'], defaultResolution: '720p', sound: false,
+      },
+    );
+    expect(coerced).toEqual({ duration: 5, aspectRatio: '16:9', resolution: '720p', sound: false });
   });
 
   it('rejects unknown node types', () => {

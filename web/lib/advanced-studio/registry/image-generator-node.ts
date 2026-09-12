@@ -18,7 +18,7 @@ export const imageGeneratorNodeDefinition: AdvNodeDefinition<'imageGenerator'> =
   defaultLabel: (index) => `Image Generator #${index}`,
   defaultData: () => ({ outputs: 1, activeResultIndex: 0, status: 'idle' }),
   handles: (data, capability) => {
-    const maxImages = capability?.image?.maxImages ?? 1;
+    const maxImages = capability?.image.supported ? capability.image.maxImages : 1;
     const inputs: AdvHandleDef[] = [
       { id: 'prompt', dataType: 'text', label: 'Prompt', maxConnections: 1, required: true },
     ];
