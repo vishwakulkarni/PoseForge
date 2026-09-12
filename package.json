@@ -31,7 +31,7 @@
   "scripts": {
     "setup": "node scripts/setup.js",
     "start": "node server.js",
-    "dev": "node server.js --dev",
+    "dev": "node scripts/dev-with-pglite-recovery.js",
     "build:web": "npm --prefix web run build",
     "install:all": "npm install && npm --prefix web install",
     "migrate": "node db/migrate.js",
