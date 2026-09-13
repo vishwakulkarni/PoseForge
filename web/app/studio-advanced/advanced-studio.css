@@ -557,6 +557,60 @@
 
 /* ---------------------------------------------------------------- text node */
 
+.adv-text-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.adv-text-format {
+  padding: 4px 10px;
+  border: 1px solid var(--pf-adv-border);
+  border-radius: 999px;
+  background: none;
+  color: var(--pf-adv-text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.adv-text-format:hover:not(:disabled) { color: var(--pf-adv-text); border-color: var(--pf-adv-text-secondary); }
+.adv-text-format:disabled { opacity: 0.4; cursor: default; }
+
+.adv-text-editor {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 90px;
+}
+
+.adv-code-highlight {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  margin: 0;
+  padding: 10px;
+  overflow: auto;
+  pointer-events: none;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--pf-adv-text);
+  background: var(--pf-adv-node-subtle);
+  border: 1px solid var(--pf-adv-border);
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+}
+
+.tok-key { color: var(--pf-adv-type-image, #7aa2f7); font-weight: 600; }
+.tok-string { color: var(--pf-adv-type-video, #9ece6a); }
+.tok-number { color: #e0af68; }
+.tok-boolean { color: #bb9af7; }
+.tok-null { color: var(--pf-adv-text-tertiary); font-style: italic; }
+.tok-comment { color: var(--pf-adv-text-tertiary); font-style: italic; }
+
 .adv-textarea {
   flex: 1;
   min-height: 90px;
@@ -573,6 +627,25 @@
 
 .adv-textarea:focus-visible { outline: 2px solid var(--pf-accent); outline-offset: -1px; }
 .adv-textarea.is-invalid { border-color: var(--pf-warning); }
+/* Structured mode: the highlighted <pre> is the visible layer (background,
+   border, colored tokens); the textarea sits on top of it with a fully
+   transparent background and text so it never paints over the highlight,
+   while still owning the caret, selection, and keystrokes. */
+.adv-textarea.is-code {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+  border-color: transparent;
+  color: transparent;
+  caret-color: var(--pf-adv-text);
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.adv-textarea.is-code.is-invalid { border-color: var(--pf-warning); }
+
+.adv-textarea.is-code::selection { background: color-mix(in srgb, var(--pf-accent) 35%, transparent); }
+
 
 .adv-text-footer {
   display: flex;

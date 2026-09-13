@@ -5,6 +5,7 @@ import { TEXT_NODE_MAX_LENGTH } from '@/lib/advanced-studio/registry/text-node';
 import type { AdvTextNodeData } from '@/lib/advanced-studio/types';
 import type { AdvNodeBodyProps } from '../node-context';
 import { cn } from '@/lib/utils';
+import { highlightStructuredText, looksLikeJson, tryFormatJson } from '@/lib/advanced-studio/code-highlight';
 
 /**
  * Prompt editor.
@@ -21,6 +22,8 @@ export const TextNodeBody = React.memo(function TextNodeBody({
   const [draft, setDraft] = React.useState(data.text ?? '');
   const committedRef = React.useRef(data.text ?? '');
   const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const highlightRef = React.useRef<HTMLPreElement>(null);
 
   // Adopt external changes (undo, paste of a duplicated node) without
   // clobbering what the user is currently typing.
@@ -47,6 +50,17 @@ export const TextNodeBody = React.memo(function TextNodeBody({
 
   const structured = data.mode === 'structured';
   const invalid = structured && draft.trim().length > 0 && !isParseable(draft);
+  const formatted = structured && draft.trim().length > 0 && looksLikeJson(draft) ? tryFormatJson(draft) : null;
+  const tokens = React.useMemo(
+    () => (structured && draft ? highlightStructuredText(draft) : null),
+    [structured, draft],
+  );
+
+  const syncScroll = () => {
+    if (!textareaRef.current || !highlightRef.current) return;
+    highlightRef.current.scrollTop = textareaRef.current.scrollTop;
+    highlightRef.current.scrollLeft = textareaRef.current.scrollLeft;
+  };
 
   return (
     <div className="adv-node-body adv-text-body">
@@ -71,22 +85,50 @@ export const TextNodeBody = React.memo(function TextNodeBody({
             JSON/YAML
           </button>
         </div>
+        {structured ? (
+          <button
+            type="button"
+            className="adv-text-format"
+            disabled={actions.locked || !formatted || formatted === draft}
+            title="Pretty-print this JSON"
+            onClick={() => {
+              if (!formatted) return;
+              setDraft(formatted);
+              commit(formatted);
+            }}
+          >
+            Format
+          </button>
+        ) : null}
       </div>
-      <textarea
-        className={cn('adv-textarea nodrag nopan', invalid && 'is-invalid')}
-        value={draft}
-        maxLength={TEXT_NODE_MAX_LENGTH}
-        readOnly={actions.locked}
-        spellCheck={!structured}
-        aria-label={`${data.label} text`}
-        aria-invalid={invalid || undefined}
-        placeholder={structured ? '{\n  "subject": ""\n}' : 'Describe what you want to generate…'}
-        onChange={(event) => onChange(event.target.value)}
-        onBlur={() => {
-          if (timerRef.current) clearTimeout(timerRef.current);
-          commit(draft);
-        }}
-      />
+      <div className={cn('adv-text-editor', structured && 'is-structured')}>
+        {structured ? (
+          <pre ref={highlightRef} className="adv-code-highlight" aria-hidden>
+            {(tokens ?? []).map((token, index) => (
+              token.cls ? <span key={index} className={token.cls}>{token.text}</span> : <React.Fragment key={index}>{token.text}</React.Fragment>
+            ))}
+            {/* Trailing newline keeps the overlay's last line the same height as the textarea's. */}
+            {'\n'}
+          </pre>
+        ) : null}
+        <textarea
+          ref={textareaRef}
+          className={cn('adv-textarea nodrag nopan nowheel', structured && 'is-code', invalid && 'is-invalid')}
+          value={draft}
+          maxLength={TEXT_NODE_MAX_LENGTH}
+          readOnly={actions.locked}
+          spellCheck={!structured}
+          aria-label={`${data.label} text`}
+          aria-invalid={invalid || undefined}
+          placeholder={structured ? '{\n  "subject": ""\n}' : 'Describe what you want to generate…'}
+          onChange={(event) => onChange(event.target.value)}
+          onScroll={syncScroll}
+          onBlur={() => {
+            if (timerRef.current) clearTimeout(timerRef.current);
+            commit(draft);
+          }}
+        />
+      </div>
       <div className="adv-text-footer">
         {invalid ? <span className="adv-inline-error">Not valid JSON or YAML yet</span> : <span />}
         <span className="adv-counter">{draft.length.toLocaleString()}/{TEXT_NODE_MAX_LENGTH.toLocaleString()}</span>
