@@ -5,6 +5,7 @@ import { ToastProvider } from '@/components/ui/toast';
 import { TooltipProvider } from '@/components/ui/controls';
 import { AdvCanvas } from '@/components/advanced-studio/canvas';
 import type { AdvDocument, AdvEngineCapability, AdvProject } from '@/lib/advanced-studio/types';
+import type { CharacterSummary } from '@/lib/api/types';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
@@ -112,6 +113,38 @@ function renderCanvas(overrides: Partial<React.ComponentProps<typeof AdvCanvas>>
 }
 
 describe('Advanced Studio canvas', () => {
+  it('selects an existing character for an image input and persists the association', async () => {
+    const user = userEvent.setup();
+    const document = advDocument({
+      nodes: [
+        { id: 'image-1', type: 'imageInput', position: { x: 0, y: 0 }, label: 'Image #1', data: {} },
+      ],
+      edges: [],
+    });
+    const maya: CharacterSummary = {
+      id: '11111111-1111-4111-8111-111111111111',
+      name: 'Maya',
+      createdAt: '2026-09-01T00:00:00.000Z',
+      primaryPhotoUrl: '/storage/characters/maya/photo.png',
+    };
+    const { onSave } = renderCanvas({ project: project({ document }), characters: [maya] });
+
+    await user.click(await screen.findByRole('button', { name: 'Image #1: choose an image' }));
+    const picker = await screen.findByRole('dialog', { name: 'Choose a character image' });
+    await user.click(within(picker).getByRole('button', { name: 'Maya' }));
+
+    const selectedImage = await screen.findByAltText('Maya');
+    expect(selectedImage).toHaveAttribute('src', maya.primaryPhotoUrl);
+    await waitFor(() => {
+      const saved = onSave.mock.calls.at(-1)?.[0] as AdvDocument;
+      const node = saved.nodes.find((item) => item.id === 'image-1');
+      expect(node?.data).toMatchObject({ imageUrl: maya.primaryPhotoUrl, characterId: maya.id });
+    });
+
+    fireEvent.doubleClick(selectedImage);
+    expect(await screen.findByRole('dialog', { name: 'Image preview' })).toBeInTheDocument();
+  });
+
   it('renders the project name, save state and the nodes from the document', async () => {
     renderCanvas();
     expect(screen.getByLabelText('Project name')).toHaveValue('Lighthouse run');
@@ -181,6 +214,64 @@ describe('Advanced Studio canvas', () => {
     await waitFor(() => expect(screen.getByText('Prompt #2')).toBeInTheDocument());
   });
 
+  it('offers Studio-style node sizing, collapse, and disconnect actions', async () => {
+    const user = userEvent.setup();
+    renderCanvas();
+    await user.click(await screen.findByRole('button', { name: 'Prompt #1 actions' }));
+    const menu = screen.getByRole('menu');
+
+    expect(within(menu).getByRole('menuitem', { name: 'Smaller' })).toBeInTheDocument();
+    expect(within(menu).getByRole('menuitem', { name: 'Larger' })).toBeInTheDocument();
+    expect(within(menu).getByRole('menuitem', { name: 'Reset size' })).toBeInTheDocument();
+    expect(within(menu).getByRole('menuitem', { name: 'Collapse' })).toBeInTheDocument();
+    expect(within(menu).getByRole('menuitem', { name: 'Disconnect (1)' })).toBeEnabled();
+  });
+
+  it('collapses a node, persists it, and restores its expanded size', async () => {
+    const user = userEvent.setup();
+    const { container, onSave } = renderCanvas();
+    await user.click(await screen.findByRole('button', { name: 'Prompt #1 actions' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Collapse' }));
+
+    expect(await screen.findByText('Double-click the header to expand')).toBeInTheDocument();
+    await waitFor(() => {
+      const node = (onSave.mock.calls.at(-1)?.[0] as AdvDocument).nodes.find((item) => item.id === 'text-1');
+      expect(node).toMatchObject({ collapsed: true, height: 68, expandedWidth: 460, expandedHeight: 300 });
+    });
+
+    fireEvent.doubleClick(container.querySelector('[data-id="text-1"] .adv-node-head')!);
+    await waitFor(() => {
+      const node = (onSave.mock.calls.at(-1)?.[0] as AdvDocument).nodes.find((item) => item.id === 'text-1');
+      expect(node?.collapsed).toBeUndefined();
+      expect(node).toMatchObject({ width: 460, height: 300 });
+    });
+  });
+
+  it('resizes and disconnects nodes with undo support', async () => {
+    const user = userEvent.setup();
+    const { onSave } = renderCanvas();
+
+    await user.click(await screen.findByRole('button', { name: 'Prompt #1 actions' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Larger' }));
+    await waitFor(() => {
+      const node = (onSave.mock.calls.at(-1)?.[0] as AdvDocument).nodes.find((item) => item.id === 'text-1');
+      expect(node).toMatchObject({ width: 552, height: 360 });
+    });
+
+    fireEvent.keyDown(document, { key: 'z', ctrlKey: true });
+    await waitFor(() => {
+      const node = (onSave.mock.calls.at(-1)?.[0] as AdvDocument).nodes.find((item) => item.id === 'text-1');
+      expect(node).toMatchObject({ width: 460, height: 300 });
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Prompt #1 actions' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Disconnect (1)' }));
+    await waitFor(() => expect((onSave.mock.calls.at(-1)?.[0] as AdvDocument).edges).toHaveLength(0));
+
+    fireEvent.keyDown(document, { key: 'z', ctrlKey: true });
+    await waitFor(() => expect((onSave.mock.calls.at(-1)?.[0] as AdvDocument).edges).toHaveLength(1));
+  });
+
   it('deletes a node from its menu', async () => {
     const user = userEvent.setup();
     renderCanvas();
@@ -219,6 +310,18 @@ describe('Advanced Studio canvas', () => {
     renderCanvas();
     const textarea = await screen.findByLabelText('Prompt #1 text');
     expect(textarea).toHaveAttribute('maxlength', '20000');
+  });
+
+  it('includes node setting changes in undo history', async () => {
+    const user = userEvent.setup();
+    renderCanvas();
+    const textMode = await screen.findByRole('button', { name: 'Text' });
+    const structuredMode = screen.getByRole('button', { name: 'JSON/YAML' });
+
+    await user.click(structuredMode);
+    await waitFor(() => expect(structuredMode).toHaveAttribute('aria-pressed', 'true'));
+    fireEvent.keyDown(document, { key: 'z', ctrlKey: true });
+    await waitFor(() => expect(textMode).toHaveAttribute('aria-pressed', 'true'));
   });
 
   it('offers only the selected model’s aspect ratios and resolutions', async () => {
@@ -355,6 +458,47 @@ describe('Advanced Studio canvas', () => {
     expect(image).toHaveAttribute('src', '/storage/generations/abc/output.png');
     expect(screen.getByText('1024 × 1024')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Download image' })).toHaveAttribute('href', '/storage/generations/abc/output.png');
+  });
+
+  it('opens generated images in a full-size preview on double click', async () => {
+    const document = advDocument();
+    document.nodes[1].data = {
+      ...document.nodes[1].data,
+      status: 'done',
+      results: [{ imageUrl: '/storage/generations/abc/output.png', generationId: 'abc' }],
+      activeResultIndex: 0,
+    };
+    renderCanvas({ project: project({ document }) });
+
+    fireEvent.doubleClick(await screen.findByAltText('Image Generator #1 result 1'));
+    const preview = await screen.findByRole('dialog', { name: 'Image preview' });
+    expect(within(preview).getByAltText('Full-size preview')).toHaveAttribute('src', '/storage/generations/abc/output.png');
+  });
+
+  it('opens generated videos in a full-size playable preview on double click', async () => {
+    const document = advDocument({
+      nodes: [{
+        id: 'video-1',
+        type: 'videoGenerator',
+        position: { x: 0, y: 0 },
+        label: 'Video Generator #1',
+        data: {
+          outputs: 1,
+          duration: 5,
+          status: 'done',
+          results: [{ videoUrl: '/storage/generations/vid/output.mp4', generationId: 'vid' }],
+          activeResultIndex: 0,
+        },
+      }],
+      edges: [],
+    });
+    const { container } = renderCanvas({ project: project({ document }) });
+
+    const inlineVideo = await waitFor(() => container.querySelector('.adv-preview video'));
+    expect(inlineVideo).not.toBeNull();
+    fireEvent.doubleClick(inlineVideo!);
+    const preview = await screen.findByRole('dialog', { name: 'Video preview' });
+    expect(preview.querySelector('video')).toHaveAttribute('src', '/storage/generations/vid/output.mp4');
   });
 
   it('explains a result whose file cannot be loaded instead of showing a broken image', async () => {
@@ -515,6 +659,8 @@ describe('Advanced Studio canvas', () => {
 
     fireEvent.keyDown(document, { key: '?' });
     expect(await screen.findByText('Fit all nodes')).toBeInTheDocument();
+    expect(screen.getByText('Cut selection')).toBeInTheDocument();
+    expect(screen.getByText('Enlarge image or video')).toBeInTheDocument();
   });
 
   it('locks the canvas, persists it, and refuses edits while locked', async () => {
@@ -581,6 +727,21 @@ describe('Advanced Studio canvas', () => {
       const saved = onSave.mock.calls.at(-1)?.[0] as AdvDocument;
       expect(saved.nodes.find((node) => node.id === 'text-1')?.position.y).toBe(140);
     });
+  });
+
+  it('deletes a selected node, undoes it, and redoes it with Ctrl+Y', async () => {
+    const { container } = renderCanvas();
+    await waitFor(() => expect(screen.getByText('Prompt #1')).toBeInTheDocument());
+
+    fireEvent.click(container.querySelector('[data-id="text-1"]')!);
+    fireEvent.keyDown(document, { key: 'Delete' });
+    await waitFor(() => expect(screen.queryByText('Prompt #1')).not.toBeInTheDocument());
+
+    fireEvent.keyDown(document, { key: 'z', ctrlKey: true });
+    await waitFor(() => expect(screen.getByText('Prompt #1')).toBeInTheDocument());
+
+    fireEvent.keyDown(document, { key: 'y', ctrlKey: true });
+    await waitFor(() => expect(screen.queryByText('Prompt #1')).not.toBeInTheDocument());
   });
 
   it('selects everything with the select-all shortcut and clears it with Escape', async () => {

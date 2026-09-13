@@ -254,6 +254,28 @@ describe('document serialization', () => {
     expect(restored.viewport).toEqual({ x: 1, y: 3, zoom: 1.235 });
   });
 
+  it('round-trips collapsed state and remembered expanded geometry', () => {
+    const collapsed: AdvDocument = {
+      ...document,
+      nodes: [{
+        ...document.nodes[0],
+        width: 320,
+        height: 68,
+        collapsed: true,
+        expandedWidth: 620,
+        expandedHeight: 410,
+      }],
+      edges: [],
+    };
+    const { nodes } = documentToFlow(collapsed);
+    expect(nodes[0].data).toMatchObject({ collapsed: true, expandedWidth: 620, expandedHeight: 410 });
+    expect(flowToDocument(nodes, [], null, 'image').nodes[0]).toMatchObject({
+      collapsed: true,
+      expandedWidth: 620,
+      expandedHeight: 410,
+    });
+  });
+
   it('drops nodes of unknown types and edges to missing nodes', () => {
     const { nodes, edges } = documentToFlow({
       ...document,

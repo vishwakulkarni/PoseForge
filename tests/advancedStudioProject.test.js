@@ -52,6 +52,51 @@ test("sanitizer drops edges pointing at missing nodes and keeps typed edges", ()
   assert.equal(document.edges[0].dataType, "text");
 });
 
+test("image input character associations round-trip only when they are valid UUIDs", () => {
+  const validCharacterId = "11111111-1111-4111-8111-111111111111";
+  const document = sanitizeAdvancedDocument({
+    nodes: [
+      {
+        id: "valid",
+        type: "imageInput",
+        position: { x: 0, y: 0 },
+        data: { imageUrl: "/storage/characters/maya/photo.png", characterId: validCharacterId },
+      },
+      {
+        id: "invalid",
+        type: "imageInput",
+        position: { x: 1, y: 1 },
+        data: { imageUrl: "/storage/uploads/photo.png", characterId: "not-a-character-id" },
+      },
+    ],
+    edges: [],
+  });
+
+  assert.equal(document.nodes[0].data.characterId, validCharacterId);
+  assert.equal(document.nodes[1].data.characterId, undefined);
+});
+
+test("collapsed nodes retain the size needed to expand again", () => {
+  const document = sanitizeAdvancedDocument({
+    nodes: [{
+      id: "prompt",
+      type: "text",
+      position: { x: 0, y: 0 },
+      width: 320,
+      height: 68,
+      collapsed: true,
+      expandedWidth: 620,
+      expandedHeight: 410,
+      data: { text: "hello" },
+    }],
+    edges: [],
+  });
+
+  assert.equal(document.nodes[0].collapsed, true);
+  assert.equal(document.nodes[0].expandedWidth, 620);
+  assert.equal(document.nodes[0].expandedHeight, 410);
+});
+
 test("group membership is pruned to surviving nodes", () => {
   const document = sanitizeAdvancedDocument({
     schemaVersion: 2,

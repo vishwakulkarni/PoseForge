@@ -7,6 +7,7 @@ import type {
   AdvNodeType,
   AdvResolvedInputs,
 } from '@/lib/advanced-studio/types';
+import type { CharacterSummary } from '@/lib/api/types';
 
 /**
  * Everything a node body can do, injected once by the canvas.
@@ -20,14 +21,22 @@ export interface AdvNodeActions {
   capabilities: AdvEngineCapability[];
   capabilityFor: (engine?: string) => AdvEngineCapability | undefined;
   runningNodeIds: Set<string>;
+  characters: CharacterSummary[];
   updateNodeData: (id: string, patch: Record<string, unknown>) => void;
   renameNode: (id: string, label: string) => void;
   duplicateNode: (id: string) => void;
   removeNode: (id: string) => void;
+  disconnectNode: (id: string) => void;
+  resizeNode: (id: string, preset: 'smaller' | 'default' | 'larger') => void;
+  toggleNodeCollapse: (id: string) => void;
+  toggleImageFit: (id: string) => void;
+  connectionCountFor: (id: string) => number;
+  beginResize: () => void;
   generate: (id: string) => void;
   uploadImage: (id: string, file: File) => Promise<void>;
+  selectCharacter: (id: string, character: CharacterSummary) => void;
   clearImage: (id: string) => void;
-  openPreview: (url: string) => void;
+  openPreview: (url: string, mediaKind?: 'image' | 'video') => void;
   resolveInputsFor: (id: string) => AdvResolvedInputs;
 }
 
@@ -39,12 +48,20 @@ export const AdvNodeActionsContext = React.createContext<AdvNodeActions>({
   capabilities: [],
   capabilityFor: () => undefined,
   runningNodeIds: new Set(),
+  characters: [],
   updateNodeData: noop,
   renameNode: noop,
   duplicateNode: noop,
   removeNode: noop,
+  disconnectNode: noop,
+  resizeNode: noop,
+  toggleNodeCollapse: noop,
+  toggleImageFit: noop,
+  connectionCountFor: () => 0,
+  beginResize: noop,
   generate: noop,
   uploadImage: async () => {},
+  selectCharacter: noop,
   clearImage: noop,
   openPreview: noop,
   resolveInputsFor: () => ({ prompt: '', imageUrls: [], startFrameUrls: [], endFrameUrls: [], referenceImageUrls: [], videoUrls: [], audioUrls: [] }),

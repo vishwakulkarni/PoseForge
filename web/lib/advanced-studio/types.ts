@@ -48,6 +48,7 @@ export interface AdvTextNodeData {
 
 export interface AdvImageInputNodeData {
   imageUrl?: string;
+  characterId?: string;
   fileName?: string;
   naturalWidth?: number;
   naturalHeight?: number;
@@ -106,6 +107,8 @@ export interface AdvDocumentNode<T extends AdvNodeType = AdvNodeType> {
   height?: number;
   label?: string;
   collapsed?: boolean;
+  expandedWidth?: number;
+  expandedHeight?: number;
   data: AdvNodeDataMap[T];
 }
 

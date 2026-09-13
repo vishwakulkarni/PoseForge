@@ -2,7 +2,19 @@
 
 import * as React from 'react';
 import { NodeResizer, useUpdateNodeInternals, type NodeProps } from '@xyflow/react';
-import { Copy, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Maximize2,
+  Minimize2,
+  MoreHorizontal,
+  Pencil,
+  RotateCcw,
+  Scan,
+  Trash2,
+  Unplug,
+} from 'lucide-react';
 import { nodeDefinition } from '@/lib/advanced-studio/registry';
 import type { AdvNodeType } from '@/lib/advanced-studio/types';
 import type { AdvFlowNode } from '@/lib/advanced-studio/document';
@@ -36,6 +48,8 @@ function AdvNodeShellComponent({ id, type, data, selected }: NodeProps<AdvFlowNo
   const handles = definition.handles(data as any, capability);
   const status = (data as { status?: string }).status;
   const running = actions.runningNodeIds.has(id) || status === 'running' || status === 'queued';
+  const collapsed = data.collapsed === true;
+  const connectionCount = actions.connectionCountFor(id);
 
   // Handle positions change when a model adds or removes an input; React Flow
   // needs to remeasure or existing edges would point at stale coordinates.
@@ -68,17 +82,19 @@ function AdvNodeShellComponent({ id, type, data, selected }: NodeProps<AdvFlowNo
         selected && 'is-selected',
         running && 'is-running',
         status === 'error' && 'is-failed',
+        collapsed && 'is-collapsed',
       )}
       aria-label={`${definition.label}: ${data.label}`}
     >
       <NodeResizer
-        isVisible={Boolean(selected && !actions.locked)}
+        isVisible={Boolean(selected && !actions.locked && !collapsed)}
         minWidth={definition.geometry.minWidth}
         minHeight={definition.geometry.minHeight}
         maxWidth={definition.geometry.maxWidth}
         maxHeight={definition.geometry.maxHeight}
         lineClassName="adv-resize-line"
         handleClassName="adv-resize-handle"
+        onResizeStart={actions.beginResize}
       />
 
       {handles.inputs.map((handle, index) => (
@@ -100,7 +116,14 @@ function AdvNodeShellComponent({ id, type, data, selected }: NodeProps<AdvFlowNo
         />
       ))}
 
-      <header className="adv-node-head">
+      <header
+        className="adv-node-head"
+        onDoubleClick={(event) => {
+          if (actions.locked || nodeType === 'group' || (event.target as HTMLElement).closest('button, input')) return;
+          event.stopPropagation();
+          actions.toggleNodeCollapse(id);
+        }}
+      >
         <span className="adv-node-title">
           <Icon aria-hidden size={13} strokeWidth={1.9} />
           {renaming ? (
@@ -165,6 +188,46 @@ function AdvNodeShellComponent({ id, type, data, selected }: NodeProps<AdvFlowNo
               >
                 <Pencil aria-hidden size={13} /> Rename
               </button>
+              {nodeType === 'imageInput' && (data as { imageUrl?: string }).imageUrl ? (
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={actions.locked}
+                  onClick={() => {
+                    actions.toggleImageFit(id);
+                    setMenuOpen(false);
+                  }}
+                >
+                  <Scan aria-hidden size={13} /> Image: {(data as { imageFit?: string }).imageFit === 'fit' ? 'Fit' : 'Fill'}
+                </button>
+              ) : null}
+              {!collapsed ? (
+                <>
+                  <button type="button" role="menuitem" disabled={actions.locked} onClick={() => { actions.resizeNode(id, 'smaller'); setMenuOpen(false); }}>
+                    <Minimize2 aria-hidden size={13} /> Smaller
+                  </button>
+                  <button type="button" role="menuitem" disabled={actions.locked} onClick={() => { actions.resizeNode(id, 'larger'); setMenuOpen(false); }}>
+                    <Maximize2 aria-hidden size={13} /> Larger
+                  </button>
+                  <button type="button" role="menuitem" disabled={actions.locked} onClick={() => { actions.resizeNode(id, 'default'); setMenuOpen(false); }}>
+                    <RotateCcw aria-hidden size={13} /> Reset size
+                  </button>
+                </>
+              ) : null}
+              {nodeType !== 'group' ? (
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={actions.locked}
+                  onClick={() => {
+                    actions.toggleNodeCollapse(id);
+                    setMenuOpen(false);
+                  }}
+                >
+                  {collapsed ? <ChevronDown aria-hidden size={13} /> : <ChevronUp aria-hidden size={13} />}
+                  {collapsed ? 'Expand' : 'Collapse'}
+                </button>
+              ) : null}
               <button
                 type="button"
                 role="menuitem"
@@ -175,6 +238,17 @@ function AdvNodeShellComponent({ id, type, data, selected }: NodeProps<AdvFlowNo
                 }}
               >
                 <Copy aria-hidden size={13} /> Duplicate
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                disabled={actions.locked || connectionCount === 0}
+                onClick={() => {
+                  actions.disconnectNode(id);
+                  setMenuOpen(false);
+                }}
+              >
+                <Unplug aria-hidden size={13} /> Disconnect{connectionCount ? ` (${connectionCount})` : ''}
               </button>
               <button
                 type="button"
@@ -193,7 +267,14 @@ function AdvNodeShellComponent({ id, type, data, selected }: NodeProps<AdvFlowNo
         </div>
       </header>
 
-      <Body id={id} type={nodeType} data={data} selected={Boolean(selected)} actions={actions} />
+      {collapsed ? (
+        <div className="adv-collapsed-body">
+          <span>{running ? 'Running' : status === 'error' ? 'Needs attention' : definition.label}</span>
+          <small>Double-click the header to expand</small>
+        </div>
+      ) : (
+        <Body id={id} type={nodeType} data={data} selected={Boolean(selected)} actions={actions} />
+      )}
     </article>
   );
 }

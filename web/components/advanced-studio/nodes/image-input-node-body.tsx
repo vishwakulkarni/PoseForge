@@ -1,10 +1,17 @@
 'use client';
 
 import * as React from 'react';
-import { Download, ImageOff, Loader2, Repeat2, Trash2, Upload } from 'lucide-react';
+import { Check, ImageOff, Loader2, Maximize, Repeat2, Trash2, Upload, Users } from 'lucide-react';
 import type { AdvImageInputNodeData } from '@/lib/advanced-studio/types';
 import type { AdvNodeBodyProps } from '../node-context';
 import { cn } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 /**
  * Image input.
@@ -22,6 +29,7 @@ export const ImageInputNodeBody = React.memo(function ImageInputNodeBody({
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [brokenUrl, setBrokenUrl] = React.useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const dropRef = React.useRef<HTMLDivElement>(null);
 
@@ -32,6 +40,7 @@ export const ImageInputNodeBody = React.memo(function ImageInputNodeBody({
     setBrokenUrl(null);
     try {
       await actions.uploadImage(id, file);
+      setPickerOpen(false);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'That image could not be added.');
     } finally {
@@ -66,18 +75,27 @@ export const ImageInputNodeBody = React.memo(function ImageInputNodeBody({
         ref={dropRef}
         tabIndex={0}
         role="button"
-        aria-label={data.imageUrl ? `${data.label}: replace image` : `${data.label}: add an image`}
+        aria-label={data.imageUrl ? `${data.label}: image preview` : `${data.label}: choose an image`}
         className={cn('adv-dropzone nodrag nopan', !data.imageUrl && 'is-empty', failed && 'is-failed')}
         onDragOver={(event) => event.preventDefault()}
         onDrop={(event) => {
           event.preventDefault();
           void accept(event.dataTransfer.files?.[0]);
         }}
-        onClick={() => !actions.locked && inputRef.current?.click()}
+        onClick={() => {
+          if (!actions.locked && !data.imageUrl) setPickerOpen(true);
+        }}
+        onDoubleClick={(event) => {
+          if (!data.imageUrl) return;
+          event.preventDefault();
+          event.stopPropagation();
+          actions.openPreview(data.imageUrl);
+        }}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
-            if (!actions.locked) inputRef.current?.click();
+            if (data.imageUrl) actions.openPreview(data.imageUrl);
+            else if (!actions.locked) setPickerOpen(true);
           }
         }}
       >
@@ -97,7 +115,7 @@ export const ImageInputNodeBody = React.memo(function ImageInputNodeBody({
             onError={() => setBrokenUrl(data.imageUrl ?? null)}
           />
         ) : (
-          <span className="adv-state"><Upload aria-hidden size={18} /> Drop an image, paste, or click to browse</span>
+          <span className="adv-state"><Users aria-hidden size={18} /> Choose a saved character or upload an image</span>
         )}
         <input
           ref={inputRef}
@@ -130,7 +148,7 @@ export const ImageInputNodeBody = React.memo(function ImageInputNodeBody({
                 aria-label="Open full size"
                 onClick={() => actions.openPreview(data.imageUrl!)}
               >
-                <Download aria-hidden size={14} />
+                <Maximize aria-hidden size={14} />
               </button>
               <button
                 type="button"
@@ -138,7 +156,7 @@ export const ImageInputNodeBody = React.memo(function ImageInputNodeBody({
                 title="Replace image"
                 aria-label="Replace image"
                 disabled={actions.locked}
-                onClick={() => inputRef.current?.click()}
+                onClick={() => setPickerOpen(true)}
               >
                 <Repeat2 aria-hidden size={14} />
               </button>
@@ -156,6 +174,64 @@ export const ImageInputNodeBody = React.memo(function ImageInputNodeBody({
           ) : null}
         </span>
       </div>
+
+      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+        <DialogContent size="lg" className="adv-character-picker nodrag nopan">
+          <DialogHeader>
+            <DialogTitle>Choose a character image</DialogTitle>
+            <DialogDescription>
+              Use an existing character as this node&apos;s image input, or upload a different image.
+            </DialogDescription>
+          </DialogHeader>
+
+          <button
+            type="button"
+            className="adv-character-upload"
+            disabled={actions.locked || busy}
+            onClick={() => inputRef.current?.click()}
+          >
+            {busy ? <Loader2 aria-hidden className="adv-spin" size={18} /> : <Upload aria-hidden size={18} />}
+            {busy ? 'Uploading image…' : 'Upload from computer'}
+          </button>
+
+          <section className="adv-character-section" aria-labelledby={`saved-characters-${id}`}>
+            <div className="adv-character-section-head">
+              <h3 id={`saved-characters-${id}`}>Saved characters</h3>
+              <span>{actions.characters.filter((character) => character.primaryPhotoUrl).length}</span>
+            </div>
+            <div className="adv-character-grid">
+              {actions.characters.map((character) => {
+                const photoUrl = character.primaryPhotoUrl;
+                if (!photoUrl) return null;
+                return (
+                  <button
+                    type="button"
+                    key={character.id}
+                    className={cn('adv-character-card', data.characterId === character.id && 'is-selected')}
+                    aria-pressed={data.characterId === character.id}
+                    onClick={() => {
+                      actions.selectCharacter(id, character);
+                      setBrokenUrl(null);
+                      setError(null);
+                      setPickerOpen(false);
+                    }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element -- local character storage */}
+                    <img src={photoUrl} alt="" />
+                    <span>{character.name}</span>
+                    {data.characterId === character.id ? (
+                      <span className="adv-character-selected" aria-label="Selected"><Check aria-hidden size={13} /></span>
+                    ) : null}
+                  </button>
+                );
+              })}
+              {!actions.characters.some((character) => character.primaryPhotoUrl) ? (
+                <p className="adv-character-empty">No saved characters yet. Add one from the Characters page, or upload an image here.</p>
+              ) : null}
+            </div>
+          </section>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 });

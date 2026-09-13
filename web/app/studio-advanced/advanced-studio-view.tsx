@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api/client';
-import { useAdvancedCapabilities } from '@/lib/api/hooks';
+import { useAdvancedCapabilities, useCharacters } from '@/lib/api/hooks';
 import { useAdvancedWorkspace } from '@/lib/advanced-studio/use-advanced-workspace';
 import type { AdvDocument, AdvProject } from '@/lib/advanced-studio/types';
 import { AdvCanvas } from '@/components/advanced-studio/canvas';
@@ -20,6 +20,7 @@ export function AdvancedStudioView({ projectId }: { projectId: string }) {
   const router = useRouter();
   const workspace = useAdvancedWorkspace(projectId);
   const capabilities = useAdvancedCapabilities();
+  const characters = useCharacters();
 
   React.useEffect(() => {
     if (workspace.projectMissing) router.replace('/studio-advanced');
@@ -64,6 +65,7 @@ export function AdvancedStudioView({ projectId }: { projectId: string }) {
     <AdvCanvas
       project={workspace.project}
       capabilities={capabilities.data ?? []}
+      characters={characters.data ?? []}
       saveState={workspace.saveState}
       onSave={save}
       onRetry={() => { void retry(); }}

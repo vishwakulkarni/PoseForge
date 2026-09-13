@@ -86,7 +86,16 @@ export const ImageGeneratorNodeBody = React.memo(function ImageGeneratorNodeBody
 
   return (
     <div className="adv-node-body adv-generator-body">
-      <div className={cn('adv-preview', running && 'is-running')} data-aspect={data.aspectRatio ?? '1:1'}>
+      <div
+        className={cn('adv-preview', running && 'is-running')}
+        data-aspect={data.aspectRatio ?? '1:1'}
+        onDoubleClick={(event) => {
+          if (!active?.imageUrl || running) return;
+          event.preventDefault();
+          event.stopPropagation();
+          actions.openPreview(active.imageUrl);
+        }}
+      >
         {running ? (
           <span className="adv-state"><Loader2 aria-hidden className="adv-spin" size={20} /> Generating…</span>
         ) : active?.imageUrl && brokenUrl !== active.imageUrl ? (

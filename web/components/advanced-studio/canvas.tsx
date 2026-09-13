@@ -18,6 +18,7 @@ import {
   type Viewport,
 } from '@xyflow/react';
 import { useTheme } from 'next-themes';
+import { X } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { api } from '@/lib/api/client';
@@ -36,6 +37,7 @@ import type {
   AdvNodeType,
   AdvProject,
 } from '@/lib/advanced-studio/types';
+import type { CharacterSummary } from '@/lib/api/types';
 import { AdvNodeActionsContext, type AdvNodeActions } from './node-context';
 import { AdvNodeShell } from './node-shell';
 import { AddNodeMenu } from './add-node-menu';
@@ -60,6 +62,7 @@ const PASTE_OFFSET = 36;
 interface CanvasProps {
   project: AdvProject;
   capabilities: AdvEngineCapability[];
+  characters?: CharacterSummary[];
   saveState: AdvSaveState;
   onSave: (document: ReturnType<typeof flowToDocument>, name?: string) => void;
   onRetry: () => void;
@@ -71,7 +74,7 @@ interface HistoryEntry {
   edges: AdvFlowEdge[];
 }
 
-function AdvCanvasInner({ project, capabilities, saveState, onSave, onRetry, onRunNode }: CanvasProps) {
+function AdvCanvasInner({ project, capabilities, characters = [], saveState, onSave, onRetry, onRunNode }: CanvasProps) {
   const flow = useReactFlow<AdvFlowNode, AdvFlowEdge>();
   const { resolvedTheme } = useTheme();
   const toast = useToast();
@@ -87,7 +90,7 @@ function AdvCanvasInner({ project, capabilities, saveState, onSave, onRetry, onR
   const [locked, setLocked] = React.useState(project.document.locked);
   const [zoomPercent, setZoomPercent] = React.useState(100);
   const [runningNodeIds, setRunningNodeIds] = React.useState<Set<string>>(() => new Set());
-  const [preview, setPreview] = React.useState<string | null>(null);
+  const [preview, setPreview] = React.useState<{ url: string; mediaKind: 'image' | 'video' } | null>(null);
   const [pendingDelete, setPendingDelete] = React.useState<{ id: string; label: string; members: number } | null>(null);
 
   const viewportRef = React.useRef<Viewport | null>(null);
@@ -207,16 +210,21 @@ function AdvCanvasInner({ project, capabilities, saveState, onSave, onRetry, onR
       data: node.data,
     })), [flow]);
 
-  const updateNodeData = React.useCallback((id: string, patch: Record<string, unknown>) => {
+  const applyNodeData = React.useCallback((id: string, patch: Record<string, unknown>) => {
     setNodes((current) => current.map((node) => (
       node.id === id ? { ...node, data: { ...node.data, ...patch } } : node
     )));
   }, [setNodes]);
 
+  const updateNodeData = React.useCallback((id: string, patch: Record<string, unknown>) => {
+    pushHistory();
+    applyNodeData(id, patch);
+  }, [applyNodeData, pushHistory]);
+
   const renameNode = React.useCallback((id: string, label: string) => {
     pushHistory();
-    updateNodeData(id, { label });
-  }, [pushHistory, updateNodeData]);
+    applyNodeData(id, { label });
+  }, [applyNodeData, pushHistory]);
 
   const addNode = React.useCallback((type: AdvNodeType, position: { x: number; y: number }) => {
     pushHistory();
@@ -278,6 +286,72 @@ function AdvCanvasInner({ project, capabilities, saveState, onSave, onRetry, onR
       return [...current.map((item) => ({ ...item, selected: false })), copy];
     });
   }, [flow, pushHistory, setNodes]);
+
+  const disconnectNode = React.useCallback((id: string) => {
+    if (!flow.getEdges().some((edge) => edge.source === id || edge.target === id)) return;
+    pushHistory();
+    setEdges((current) => current.filter((edge) => edge.source !== id && edge.target !== id));
+  }, [flow, pushHistory, setEdges]);
+
+  const resizeNode = React.useCallback((id: string, preset: 'smaller' | 'default' | 'larger') => {
+    const source = flow.getNode(id);
+    if (!source) return;
+    const type = (source.type ?? 'text') as AdvNodeType;
+    const limits = nodeDefinition(type).geometry;
+    const currentWidth = source.width ?? limits.width;
+    const currentHeight = source.height ?? limits.height;
+    const factor = preset === 'smaller' ? 0.8 : preset === 'larger' ? 1.2 : 1;
+    const width = preset === 'default'
+      ? limits.width
+      : Math.min(limits.maxWidth, Math.max(limits.minWidth, Math.round(currentWidth * factor)));
+    const height = preset === 'default'
+      ? limits.height
+      : Math.min(limits.maxHeight, Math.max(limits.minHeight, Math.round(currentHeight * factor)));
+    pushHistory();
+    setNodes((current) => current.map((node) => node.id === id ? {
+      ...node,
+      width,
+      height,
+      style: { ...node.style, width, height },
+      data: { ...node.data, collapsed: false, expandedWidth: width, expandedHeight: height },
+    } : node));
+  }, [flow, pushHistory, setNodes]);
+
+  const toggleNodeCollapse = React.useCallback((id: string) => {
+    const source = flow.getNode(id);
+    if (!source || source.type === 'group') return;
+    const type = (source.type ?? 'text') as AdvNodeType;
+    const limits = nodeDefinition(type).geometry;
+    const collapsed = source.data.collapsed === true;
+    const currentWidth = source.width ?? limits.width;
+    const currentHeight = source.height ?? limits.height;
+    const width = collapsed
+      ? Number(source.data.expandedWidth) || limits.width
+      : Math.max(limits.minWidth, Math.min(currentWidth, 360));
+    const height = collapsed ? Number(source.data.expandedHeight) || limits.height : 68;
+    pushHistory();
+    setNodes((current) => current.map((node) => node.id === id ? {
+      ...node,
+      width,
+      height,
+      style: { ...node.style, width, height },
+      data: {
+        ...node.data,
+        collapsed: !collapsed,
+        ...(!collapsed ? { expandedWidth: currentWidth, expandedHeight: currentHeight } : {}),
+      },
+    } : node));
+  }, [flow, pushHistory, setNodes]);
+
+  const toggleImageFit = React.useCallback((id: string) => {
+    const source = flow.getNode(id);
+    if (source?.type !== 'imageInput') return;
+    updateNodeData(id, { imageFit: source.data.imageFit === 'fit' ? 'fill' : 'fit' });
+  }, [flow, updateNodeData]);
+
+  const connectionCountFor = React.useCallback((id: string) => (
+    flow.getEdges().filter((edge) => edge.source === id || edge.target === id).length
+  ), [flow]);
 
   /* ---------------------------------------------------------- connections */
 
@@ -395,18 +469,37 @@ function AdvCanvasInner({ project, capabilities, saveState, onSave, onRetry, onR
   const uploadImage = React.useCallback(async (id: string, file: File) => {
     const asset = await api.advancedStudio.uploadAsset(project.id, file);
     pushHistory();
-    updateNodeData(id, {
+    applyNodeData(id, {
       imageUrl: asset.url,
+      characterId: undefined,
       fileName: asset.fileName,
       naturalWidth: asset.width ?? undefined,
       naturalHeight: asset.height ?? undefined,
     });
-  }, [project.id, pushHistory, updateNodeData]);
+  }, [applyNodeData, project.id, pushHistory]);
 
   const clearImage = React.useCallback((id: string) => {
     pushHistory();
-    updateNodeData(id, { imageUrl: undefined, fileName: undefined, naturalWidth: undefined, naturalHeight: undefined });
-  }, [pushHistory, updateNodeData]);
+    applyNodeData(id, {
+      imageUrl: undefined,
+      characterId: undefined,
+      fileName: undefined,
+      naturalWidth: undefined,
+      naturalHeight: undefined,
+    });
+  }, [applyNodeData, pushHistory]);
+
+  const selectCharacter = React.useCallback((id: string, character: CharacterSummary) => {
+    if (!character.primaryPhotoUrl) return;
+    pushHistory();
+    applyNodeData(id, {
+      imageUrl: character.primaryPhotoUrl,
+      characterId: character.id,
+      fileName: character.name,
+      naturalWidth: undefined,
+      naturalHeight: undefined,
+    });
+  }, [applyNodeData, pushHistory]);
 
   const generate = React.useCallback(async (id: string) => {
     // Client-side half of the double-submit guard; the server refuses a second
@@ -418,7 +511,7 @@ function AdvCanvasInner({ project, capabilities, saveState, onSave, onRetry, onR
     // Writing it would queue an autosave during the generation, and the server
     // would then be racing its own client for the project's revision.
     if ((flow.getNode(id)?.data as { status?: string } | undefined)?.status === 'error') {
-      updateNodeData(id, { status: 'idle', error: undefined });
+      applyNodeData(id, { status: 'idle', error: undefined });
     }
     try {
       const updated = await onRunNode(id);
@@ -426,10 +519,10 @@ function AdvCanvasInner({ project, capabilities, saveState, onSave, onRetry, onR
       // Adopt the server's version of this node (results, status, metadata).
       // If the run returned nothing to adopt, clear the running state anyway so
       // the node never sticks on a spinner.
-      updateNodeData(id, node ? (node.data as Record<string, unknown>) : { status: 'idle' });
+      applyNodeData(id, node ? (node.data as Record<string, unknown>) : { status: 'idle' });
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'That generation failed.';
-      updateNodeData(id, { status: 'error', error: message });
+      applyNodeData(id, { status: 'error', error: message });
       toast.error(message);
     } finally {
       setRunningNodeIds((current) => {
@@ -438,7 +531,7 @@ function AdvCanvasInner({ project, capabilities, saveState, onSave, onRetry, onR
         return next;
       });
     }
-  }, [flow, onRunNode, runningNodeIds, toast, updateNodeData]);
+  }, [applyNodeData, flow, onRunNode, runningNodeIds, toast]);
 
   const resolveInputsFor = React.useCallback((id: string) => resolveInputs(
     id,
@@ -458,18 +551,27 @@ function AdvCanvasInner({ project, capabilities, saveState, onSave, onRetry, onR
     capabilities,
     capabilityFor: (engine?: string) => (engine ? capabilityMap.get(engine) : undefined),
     runningNodeIds,
+    characters,
     updateNodeData,
     renameNode,
     duplicateNode,
     removeNode,
+    disconnectNode,
+    resizeNode,
+    toggleNodeCollapse,
+    toggleImageFit,
+    connectionCountFor,
+    beginResize: pushHistory,
     generate: (id: string) => { void generate(id); },
     uploadImage,
+    selectCharacter,
     clearImage,
-    openPreview: setPreview,
+    openPreview: (url, mediaKind = 'image') => setPreview({ url, mediaKind }),
     resolveInputsFor,
   }), [
-    capabilities, capabilityMap, clearImage, duplicateNode, generate, locked,
-    project.id, removeNode, renameNode, resolveInputsFor, runningNodeIds, updateNodeData, uploadImage,
+    capabilities, capabilityMap, characters, clearImage, connectionCountFor, disconnectNode, duplicateNode, generate, locked,
+    project.id, pushHistory, removeNode, renameNode, resizeNode, resolveInputsFor, runningNodeIds, selectCharacter,
+    toggleImageFit, toggleNodeCollapse, updateNodeData, uploadImage,
   ]);
 
   /* ------------------------------------------------------------- shortcuts */
@@ -516,9 +618,10 @@ function AdvCanvasInner({ project, capabilities, saveState, onSave, onRetry, onR
   }, [pushHistory, setEdges, setNodes]);
 
   const deleteSelection = React.useCallback(() => {
-    const selected = flow.getNodes().filter((node) => node.selected);
-    if (!selected.length) return;
-    const groupWithMembers = selected.find((node) =>
+    const selectedNodes = flow.getNodes().filter((node) => node.selected);
+    const selectedEdges = flow.getEdges().filter((edge) => edge.selected);
+    if (!selectedNodes.length && !selectedEdges.length) return;
+    const groupWithMembers = selectedNodes.find((node) =>
       node.type === 'group' && ((node.data as { memberIds?: string[] }).memberIds?.length ?? 0) > 0);
     if (groupWithMembers) {
       setPendingDelete({
@@ -529,9 +632,11 @@ function AdvCanvasInner({ project, capabilities, saveState, onSave, onRetry, onR
       return;
     }
     pushHistory();
-    const ids = new Set(selected.map((node) => node.id));
-    setNodes((current) => current.filter((node) => !ids.has(node.id)));
-    setEdges((current) => current.filter((edge) => !ids.has(edge.source) && !ids.has(edge.target)));
+    const nodeIds = new Set(selectedNodes.map((node) => node.id));
+    const edgeIds = new Set(selectedEdges.map((edge) => edge.id));
+    setNodes((current) => current.filter((node) => !nodeIds.has(node.id)));
+    setEdges((current) => current.filter((edge) =>
+      !edgeIds.has(edge.id) && !nodeIds.has(edge.source) && !nodeIds.has(edge.target)));
   }, [flow, pushHistory, setEdges, setNodes]);
 
   /** Packs nodes into a grid around the centre they already occupy, so an
@@ -633,6 +738,7 @@ function AdvCanvasInner({ project, capabilities, saveState, onSave, onRetry, onR
       // back out of a prompt editor and close whatever is open.
       if (event.key === 'Escape') {
         setAddMenu(null);
+        setPreview(null);
         if (typing) (target as HTMLElement | null)?.blur();
         else clearSelection();
         return;
@@ -659,12 +765,19 @@ function AdvCanvasInner({ project, capabilities, saveState, onSave, onRetry, onR
         if (event.shiftKey) redo(); else undo();
         return;
       }
+      if (meta && event.key.toLowerCase() === 'y') { event.preventDefault(); redo(); return; }
       if (meta && event.key.toLowerCase() === 'c') { copySelection(); return; }
 
       // Everything below edits the graph, so it stops at the lock.
       if (locked) return;
 
       if (meta && event.key.toLowerCase() === 'v') { pasteSelection(); return; }
+      if (meta && event.key.toLowerCase() === 'x') {
+        event.preventDefault();
+        copySelection();
+        deleteSelection();
+        return;
+      }
       if (meta && event.key.toLowerCase() === 'd') { event.preventDefault(); copySelection(); pasteSelection(); return; }
       if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); deleteSelection(); return; }
       if (event.key === 'A' && event.shiftKey && !meta) { event.preventDefault(); arrangeNodes(); return; }
@@ -852,13 +965,24 @@ function AdvCanvasInner({ project, capabilities, saveState, onSave, onRetry, onR
           className="adv-lightbox"
           role="dialog"
           aria-modal="true"
-          aria-label="Image preview"
+          aria-label={preview.mediaKind === 'video' ? 'Video preview' : 'Image preview'}
           tabIndex={-1}
           onClick={() => setPreview(null)}
           onKeyDown={(event) => { if (event.key === 'Escape') setPreview(null); }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element -- local /storage asset */}
-          <img src={preview} alt="Generated result" />
+          <div className="adv-lightbox-media" onClick={(event) => event.stopPropagation()}>
+            <button type="button" className="adv-lightbox-close" aria-label="Close preview" onClick={() => setPreview(null)}>
+              <X aria-hidden size={18} />
+            </button>
+            {preview.mediaKind === 'video' ? (
+              <video src={preview.url} controls autoPlay playsInline>
+                Your browser does not support video playback.
+              </video>
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element -- local /storage asset
+              <img src={preview.url} alt="Full-size preview" />
+            )}
+          </div>
         </div>
       ) : null}
     </div>

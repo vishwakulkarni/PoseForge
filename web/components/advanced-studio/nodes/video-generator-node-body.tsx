@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { AlertCircle, Clapperboard, Download, Loader2, Send } from 'lucide-react';
+import { AlertCircle, Clapperboard, Download, Loader2, Maximize, Send } from 'lucide-react';
 import type { AdvVideoGeneratorNodeData } from '@/lib/advanced-studio/types';
 import { coerceVideoSettings, selectedVideoModel } from '@/lib/advanced-studio/registry/video-generator-node';
 import type { AdvNodeBodyProps } from '../node-context';
@@ -62,7 +62,16 @@ export const VideoGeneratorNodeBody = React.memo(function VideoGeneratorNodeBody
 
   return (
     <div className="adv-node-body adv-generator-body">
-      <div className={cn('adv-preview', running && 'is-running')} data-aspect={data.aspectRatio ?? '16:9'}>
+      <div
+        className={cn('adv-preview', running && 'is-running')}
+        data-aspect={data.aspectRatio ?? '16:9'}
+        onDoubleClick={(event) => {
+          if (!active?.videoUrl || running) return;
+          event.preventDefault();
+          event.stopPropagation();
+          actions.openPreview(active.videoUrl, 'video');
+        }}
+      >
         {running ? (
           <span className="adv-state"><Loader2 aria-hidden className="adv-spin" size={20} /> Generating video…</span>
         ) : active?.videoUrl ? (
@@ -127,9 +136,20 @@ export const VideoGeneratorNodeBody = React.memo(function VideoGeneratorNodeBody
       <div className="adv-generator-footer nodrag nopan">
         <span className="adv-icon-row">
           {active?.videoUrl ? (
-            <a className="adv-icon-button" href={active.videoUrl} download title="Download video" aria-label="Download video">
-              <Download aria-hidden size={14} />
-            </a>
+            <>
+              <button
+                type="button"
+                className="adv-icon-button"
+                title="Open full size"
+                aria-label="Open full size"
+                onClick={() => actions.openPreview(active.videoUrl!, 'video')}
+              >
+                <Maximize aria-hidden size={14} />
+              </button>
+              <a className="adv-icon-button" href={active.videoUrl} download title="Download video" aria-label="Download video">
+                <Download aria-hidden size={14} />
+              </a>
+            </>
           ) : null}
         </span>
         <button

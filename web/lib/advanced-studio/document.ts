@@ -21,7 +21,12 @@ export const ADV_SCHEMA_VERSION = 2;
 /** React Flow node data: the persisted node data plus its display label.
  * React Flow constrains node data to Record<string, unknown>; the intersection
  * satisfies that while keeping every named field type-checked at call sites. */
-export type AdvFlowNodeData = AdvNodeData & { label: string } & Record<string, unknown>;
+export type AdvFlowNodeData = AdvNodeData & {
+  label: string;
+  collapsed?: boolean;
+  expandedWidth?: number;
+  expandedHeight?: number;
+} & Record<string, unknown>;
 export type AdvFlowNode = Node<AdvFlowNodeData, AdvNodeType>;
 export type AdvFlowEdge = Edge;
 
@@ -43,7 +48,13 @@ export function documentToFlow(document: AdvDocument): { nodes: AdvFlowNode[]; e
       // Groups sit behind their members so a frame never swallows a click
       // meant for a node inside it.
       zIndex: node.type === 'group' ? -1 : 0,
-      data: { ...(node.data as AdvNodeData), label: node.label ?? definition.defaultLabel(1) } as AdvFlowNodeData,
+      data: {
+        ...(node.data as AdvNodeData),
+        label: node.label ?? definition.defaultLabel(1),
+        ...(node.collapsed ? { collapsed: true } : {}),
+        ...(node.expandedWidth ? { expandedWidth: node.expandedWidth } : {}),
+        ...(node.expandedHeight ? { expandedHeight: node.expandedHeight } : {}),
+      } as AdvFlowNodeData,
     });
   }
 
@@ -71,7 +82,7 @@ export function flowToDocument(
   locked = false,
 ): AdvDocument {
   const documentNodes: AdvDocumentNode[] = nodes.map((node) => {
-    const { label, ...data } = node.data;
+    const { label, collapsed, expandedWidth, expandedHeight, ...data } = node.data;
     const type = (node.type ?? 'text') as AdvNodeType;
     const definition = nodeDefinition(type);
     return {
@@ -81,6 +92,9 @@ export function flowToDocument(
       width: Math.round(node.width ?? definition.geometry.width),
       height: Math.round(node.height ?? definition.geometry.height),
       label,
+      ...(collapsed === true ? { collapsed: true } : {}),
+      ...(typeof expandedWidth === 'number' ? { expandedWidth: Math.round(expandedWidth) } : {}),
+      ...(typeof expandedHeight === 'number' ? { expandedHeight: Math.round(expandedHeight) } : {}),
       data: data as AdvNodeData,
     };
   });
