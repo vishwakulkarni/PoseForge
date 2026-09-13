@@ -58,6 +58,50 @@ describe('Advanced Studio autosave', () => {
     expect(result.current.saveState).toBe('saved');
   });
 
+  it.each([
+    ['imageGenerator', { imageUrl: '/storage/generations/reopened/output.png', generationId: 'image-reopened' }],
+    ['videoGenerator', { videoUrl: '/storage/generations/reopened/output.mp4', generationId: 'video-reopened' }],
+  ] as const)('refreshes a cached %s workflow when it is reopened', async (type, generated) => {
+    const local = document({
+      nodes: [{
+        id: 'generator-1',
+        type,
+        position: { x: 0, y: 0 },
+        data: type === 'videoGenerator'
+          ? { outputs: 1, activeResultIndex: 0, duration: 5 }
+          : { outputs: 1, activeResultIndex: 0 },
+      }],
+    });
+    const completed = document({
+      nodes: [{
+        ...local.nodes[0],
+        data: { ...local.nodes[0].data, status: 'done', results: [generated], activeResultIndex: 0 },
+      }],
+    });
+    const queryClient = makeTestQueryClient();
+    const sharedWrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+    let response = projectResponse(2, local);
+    let gets = 0;
+    server.use(http.get(`/api/advanced-studio-projects/${PROJECT_ID}`, () => {
+      gets += 1;
+      return HttpResponse.json(response);
+    }));
+
+    const opened = renderHook(() => useAdvancedWorkspace(PROJECT_ID, 10), { wrapper: sharedWrapper });
+    await waitFor(() => expect(opened.result.current.project?.revision).toBe(2));
+    opened.unmount();
+
+    response = projectResponse(3, completed);
+    const reopened = renderHook(() => useAdvancedWorkspace(PROJECT_ID, 10), { wrapper: sharedWrapper });
+    await waitFor(() => expect(reopened.result.current.project?.revision).toBe(3));
+    expect(reopened.result.current.project?.document.nodes[0].data)
+      .toMatchObject({ status: 'done', results: [generated] });
+    expect(gets).toBe(2);
+    reopened.unmount();
+  });
+
   it('debounces edits into a single revision-checked save', async () => {
     serveProject(2);
     const bodies: Record<string, unknown>[] = [];

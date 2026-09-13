@@ -280,7 +280,9 @@ export function useStudioProjectWorkspace({
       const project = await queryClient.fetchQuery({
         queryKey: queryKeys.studioProject(id),
         queryFn: () => api.studioProjects.get(id),
-        staleTime: Infinity,
+        // Switching back to a cached workflow must still observe a generation
+        // that completed while another workflow was open.
+        staleTime: 0,
       });
       activateProject(project);
     } catch (cause) {
@@ -333,7 +335,7 @@ export function useStudioProjectWorkspace({
         const fallback = await queryClient.fetchQuery({
           queryKey: queryKeys.studioProjectDefault,
           queryFn: api.studioProjects.getDefault,
-          staleTime: Infinity,
+          staleTime: 0,
         });
         activateProject(fallback);
       }
@@ -399,11 +401,15 @@ export function useStudioProjectWorkspace({
   }, [cacheProject, syncBeforeRun]);
 
   return {
-    project: query.data ?? null,
+    // Do not mount the canvas from a cached pre-generation document while the
+    // mandatory on-mount refresh is still in flight.
+    project: query.isFetching ? null : query.data ?? null,
     projectMissing: Boolean(projectId) && selectedProjectMissing,
     saveState: query.error instanceof ApiError && query.error.isNotFound
       ? undefined
-      : query.data
+      : query.isFetching
+        ? 'loading'
+        : query.data
         ? saveState
         : query.isError
           ? 'error'

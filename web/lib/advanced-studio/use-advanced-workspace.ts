@@ -215,8 +215,12 @@ export function useAdvancedWorkspace(projectId: string, saveDelayMs = ADV_SAVE_D
   }, [cacheProject]);
 
   return {
-    project: query.data ?? null,
-    isLoading: query.isLoading,
+    // Cached data may predate a generation that completed while this route
+    // was unmounted. Keep the canvas unmounted until the on-mount refresh
+    // finishes; otherwise it hydrates that stale document and intentionally
+    // ignores the same project's later prop update.
+    project: query.isFetching ? null : query.data ?? null,
+    isLoading: query.isLoading || query.isFetching,
     projectMissing: query.error instanceof ApiError && query.error.isNotFound,
     // 'loading' is derived, not stored: once the project has arrived the
     // initial state is simply "saved".

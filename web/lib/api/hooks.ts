@@ -337,6 +337,10 @@ export function useDefaultStudioProject(enabled = true) {
     queryFn: api.studioProjects.getDefault,
     enabled,
     staleTime: Infinity,
+    // A generation can finish after its workflow page unmounts. Always read
+    // the persisted document again when the workflow is opened so an old
+    // in-memory snapshot cannot hide the completed output.
+    refetchOnMount: 'always',
     retry: (failureCount, error) =>
       error instanceof ApiError && error.isNotFound ? false : failureCount < 3,
   });
@@ -348,6 +352,7 @@ export function useStudioProject(id: string | null) {
     queryFn: () => api.studioProjects.get(id!),
     enabled: Boolean(id),
     staleTime: Infinity,
+    refetchOnMount: 'always',
     retry: (failureCount, error) =>
       error instanceof ApiError && error.isNotFound ? false : failureCount < 3,
   });
@@ -498,6 +503,7 @@ export function useAdvancedProject(id: string | null) {
     queryFn: () => api.advancedStudio.get(id!),
     enabled: Boolean(id),
     staleTime: Infinity,
+    refetchOnMount: 'always',
     retry: (failureCount, error) =>
       error instanceof ApiError && error.isNotFound ? false : failureCount < 3,
   });

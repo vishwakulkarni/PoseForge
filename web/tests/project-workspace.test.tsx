@@ -58,6 +58,54 @@ describe('Studio project save queue', () => {
     expect(STUDIO_PROJECT_SAVE_DELAY_MS).toBe(5_000);
   });
 
+  it('refreshes a cached workflow when it is reopened after generation completes', async () => {
+    const initial = projectDocument();
+    const completed = projectDocument({
+      nodes: [{
+        id: 'generate',
+        kind: 'generate',
+        position: { x: 100, y: 200 },
+        status: 'done',
+        generationId: 'generated-while-away',
+        imageUrl: '/storage/generations/generated-while-away/output.png',
+      }],
+    });
+    const queryClient = makeTestQueryClient();
+    function SharedWrapper({ children }: { children: React.ReactNode }) {
+      return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    }
+    let response = projectResponse(2, initial);
+    let gets = 0;
+    server.use(
+      http.get(`/api/studio-projects/${projectId}`, () => {
+        gets += 1;
+        return HttpResponse.json(response);
+      }),
+      http.get('/api/studio-projects', () => HttpResponse.json({ projects: [] })),
+    );
+
+    const opened = renderHook(
+      () => useStudioProjectWorkspace({ projectId, saveDelayMs: 25 }),
+      { wrapper: SharedWrapper },
+    );
+    await waitFor(() => expect(opened.result.current.project?.revision).toBe(2));
+    opened.unmount();
+
+    response = projectResponse(3, completed);
+    const reopened = renderHook(
+      () => useStudioProjectWorkspace({ projectId, saveDelayMs: 25 }),
+      { wrapper: SharedWrapper },
+    );
+    await waitFor(() => expect(reopened.result.current.project?.revision).toBe(3));
+    expect(reopened.result.current.project?.document.nodes[0]).toMatchObject({
+      status: 'done',
+      generationId: 'generated-while-away',
+      imageUrl: '/storage/generations/generated-while-away/output.png',
+    });
+    expect(gets).toBe(2);
+    reopened.unmount();
+  });
+
   it('does not write a snapshot that is already acknowledged', async () => {
     const document = projectDocument();
     let updates = 0;
