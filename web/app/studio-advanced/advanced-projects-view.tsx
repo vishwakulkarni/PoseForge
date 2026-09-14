@@ -92,8 +92,8 @@ export function AdvancedProjectsView() {
 
       <LoadingRegion label="Loading workflows">
         {projects.isLoading ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[0, 1, 2].map((key) => <Skeleton key={key} className="h-52" />)}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {[0, 1, 2, 3].map((key) => <Skeleton key={key} className="aspect-[4/3] w-full rounded-[18px]" />)}
           </div>
         ) : projects.isError ? (
           <ErrorState
@@ -108,25 +108,18 @@ export function AdvancedProjectsView() {
             action={<Button onClick={() => setDialogOpen(true)}><Plus className="size-4" /> New project</Button>}
           />
         ) : (
-          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {projects.data?.map((project) => (
-              <li key={project.id} className="group relative">
+              <li
+                key={project.id}
+                className="group relative overflow-hidden rounded-[18px] border border-[var(--pf-border)] bg-[var(--pf-surface)] transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[var(--pf-shadow-md)]"
+              >
                 <Link
                   href={`/studio-advanced/${project.id}`}
-                  className="flex h-full flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--pf-border)] bg-[var(--pf-surface)] transition hover:border-[var(--pf-accent)]"
+                  className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-2 overflow-hidden bg-[var(--pf-surface-muted)] text-[var(--pf-text-tertiary)]"
+                  aria-label={`Open ${project.name}`}
                 >
-                  <span className="flex h-36 items-center justify-center overflow-hidden bg-[var(--pf-surface-muted)] text-[var(--pf-text-tertiary)]">
-                    <ProjectPreview project={project} />
-                  </span>
-                  <span className="flex flex-1 flex-col gap-1 p-4">
-                    <span className="flex items-center gap-2">
-                      <strong className="truncate text-sm">{project.name}</strong>
-                      <Badge>{TEMPLATE_LABEL[project.template] ?? 'Blank'}</Badge>
-                    </span>
-                    <small className="text-xs text-[var(--pf-text-tertiary)]">
-                      {project.nodeCount} node{project.nodeCount === 1 ? '' : 's'} · edited {relativeTime(project.updatedAt)}
-                    </small>
-                  </span>
+                  <ProjectPreview project={project} />
                 </Link>
                 <button
                   type="button"
@@ -136,6 +129,20 @@ export function AdvancedProjectsView() {
                 >
                   <Trash2 className="size-4" />
                 </button>
+                <div className="flex items-center justify-between gap-3 p-4">
+                  <div className="min-w-0">
+                    <Link
+                      href={`/studio-advanced/${project.id}`}
+                      className="flex items-center gap-2 truncate text-left text-[14px] font-bold hover:underline"
+                    >
+                      <span className="truncate">{project.name}</span>
+                      <Badge>{TEMPLATE_LABEL[project.template] ?? 'Blank'}</Badge>
+                    </Link>
+                    <p className="text-[11px] text-[var(--pf-text-tertiary)]">
+                      {project.nodeCount} node{project.nodeCount === 1 ? '' : 's'} · edited {relativeTime(project.updatedAt)}
+                    </p>
+                  </div>
+                </div>
               </li>
             ))}
           </ul>

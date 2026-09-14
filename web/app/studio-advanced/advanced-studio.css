@@ -458,34 +458,47 @@
 .adv-pill {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   max-width: 100%;
-  padding: 5px 9px;
+  padding: 6px 10px;
   border: 1px solid var(--pf-adv-border);
-  border-radius: 999px;
+  border-radius: var(--radius-xs);
   background: var(--pf-adv-node-subtle);
   color: var(--pf-adv-text);
   font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
+  transition: border-color 140ms var(--ease-soft), box-shadow 140ms var(--ease-soft), background 140ms var(--ease-soft);
+}
+
+.adv-pill:hover:not(:disabled) { border-color: color-mix(in srgb, var(--pf-accent) 45%, var(--pf-adv-border)); }
+
+.adv-pill[aria-expanded='true'] {
+  border-color: color-mix(in srgb, var(--pf-accent) 65%, var(--pf-adv-border));
+  background: var(--pf-adv-node);
+  box-shadow: 0 0 0 3px var(--pf-accent-soft);
 }
 
 .adv-pill:disabled { color: var(--pf-adv-disabled); cursor: not-allowed; }
 .adv-pill-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.adv-pill-chevron { transition: transform 140ms var(--ease-soft); }
-.adv-pill-chevron.is-open { transform: rotate(180deg); }
+.adv-pill-chevron { color: var(--pf-adv-text-tertiary); transition: transform 140ms var(--ease-soft); }
+.adv-pill-chevron.is-open { color: var(--pf-accent); transform: rotate(180deg); }
 .adv-pill-wide { flex: 1 1 100%; }
 .adv-pill-wide .adv-pill { width: 100%; }
 
 .adv-pill-menu {
-  bottom: calc(100% + 5px);
+  bottom: calc(100% + 6px);
   left: 0;
+  min-width: 200px;
   max-height: 260px;
+  padding: 6px;
+  border-radius: var(--radius-sm);
   overflow-y: auto;
 }
 
 .adv-pill-group,
 .adv-add-group {
-  padding: 6px 9px 3px;
+  padding: 7px 9px 4px;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -501,14 +514,27 @@
 }
 
 /* Stack the label above its note so a provider with an explanation (the
- * Codex CLI) does not wrap its name onto two lines. */
+ * Codex CLI) does not wrap its name onto two lines. Indented to leave room
+ * for the selected checkmark, matching the app-wide Select component. */
 .adv-pill-option {
+  position: relative;
   flex-direction: column;
   align-items: flex-start;
   gap: 2px;
+  padding: 7px 9px 7px 26px;
+  border-radius: var(--radius-xs);
+}
+
+.adv-pill-option-check {
+  position: absolute;
+  left: 8px;
+  top: 9px;
+  color: var(--pf-accent);
+  opacity: 0;
 }
 
 .adv-pill-option.is-selected { background: var(--pf-accent-soft); font-weight: 600; }
+.adv-pill-option.is-selected .adv-pill-option-check { opacity: 1; }
 .adv-pill-option:disabled { color: var(--pf-adv-disabled); cursor: not-allowed; }
 
 .adv-controls {
@@ -627,6 +653,7 @@
 
 .adv-textarea:focus-visible { outline: 2px solid var(--pf-accent); outline-offset: -1px; }
 .adv-textarea.is-invalid { border-color: var(--pf-warning); }
+
 /* Structured mode: the highlighted <pre> is the visible layer (background,
    border, colored tokens); the textarea sits on top of it with a fully
    transparent background and text so it never paints over the highlight,
@@ -645,7 +672,6 @@
 .adv-textarea.is-code.is-invalid { border-color: var(--pf-warning); }
 
 .adv-textarea.is-code::selection { background: color-mix(in srgb, var(--pf-accent) 35%, transparent); }
-
 
 .adv-text-footer {
   display: flex;

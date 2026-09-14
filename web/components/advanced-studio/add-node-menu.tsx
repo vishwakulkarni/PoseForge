@@ -21,12 +21,16 @@ export function AddNodeMenu({
   anchor,
   onClose,
   onSelect,
+  restrictToTypes,
 }: {
   open: boolean;
   /** Canvas-relative anchor point, or null to render docked under the toolbar. */
   anchor: { x: number; y: number } | null;
   onClose: () => void;
   onSelect: (type: AdvNodeType) => void;
+  /** Narrows the list to node types compatible with a dragged connection.
+   * Ignored (falls back to the full list) when it matches nothing. */
+  restrictToTypes?: AdvNodeType[] | null;
 }) {
   const [search, setSearch] = React.useState('');
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -57,12 +61,15 @@ export function AddNodeMenu({
 
   const matches = React.useMemo(() => {
     const term = search.trim().toLowerCase();
-    return nodeListings()
-      .filter((definition) => definition.addable)
-      .filter((definition) => !term
-        || definition.label.toLowerCase().includes(term)
-        || definition.description.toLowerCase().includes(term));
-  }, [search]);
+    let listings = nodeListings().filter((definition) => definition.addable);
+    if (restrictToTypes?.length) {
+      const narrowed = listings.filter((definition) => restrictToTypes.includes(definition.type));
+      if (narrowed.length) listings = narrowed;
+    }
+    return listings.filter((definition) => !term
+      || definition.label.toLowerCase().includes(term)
+      || definition.description.toLowerCase().includes(term));
+  }, [restrictToTypes, search]);
 
   if (!open) return null;
 

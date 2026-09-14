@@ -14,6 +14,7 @@ import {
   type Connection,
   type Edge,
   type EdgeChange,
+  type FinalConnectionState,
   type NodeChange,
   type Viewport,
 } from '@xyflow/react';
@@ -22,7 +23,7 @@ import { X } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { api } from '@/lib/api/client';
-import { nodeDefinition } from '@/lib/advanced-studio/registry';
+import { nodeDefinition, nodeTypesAcceptingInput } from '@/lib/advanced-studio/registry';
 import { connectionProblem, edgeDataType, type GraphNodeLike } from '@/lib/advanced-studio/validation';
 import { resolveInputs } from '@/lib/advanced-studio/resolve-inputs';
 import {
@@ -33,6 +34,7 @@ import {
   type AdvFlowNode,
 } from '@/lib/advanced-studio/document';
 import type {
+  AdvDataType,
   AdvEngineCapability,
   AdvNodeType,
   AdvProject,
@@ -83,6 +85,14 @@ function AdvCanvasInner({ project, capabilities, characters = [], saveState, onS
   const [name, setName] = React.useState(project.name);
   const [addMenu, setAddMenu] = React.useState<{ x: number; y: number; flowX: number; flowY: number } | null>(null);
   const [addMenuDocked, setAddMenuDocked] = React.useState(false);
+  // Set when the add-node menu was opened by dropping a dragged connection on
+  // empty canvas, so picking a type both creates the node and completes the
+  // connection instead of leaving it disconnected.
+  const [pendingConnection, setPendingConnection] = React.useState<{
+    nodeId: string;
+    handleId: string;
+    dataType: AdvDataType;
+  } | null>(null);
   const [minimap, setMinimap] = React.useState(false);
   const [tool, setTool] = React.useState<AdvCanvasTool>('select');
   const [spacePanning, setSpacePanning] = React.useState(false);
@@ -399,9 +409,72 @@ function AdvCanvasInner({ project, capabilities, characters = [], saveState, onS
     if (handle) wrapperRef.current?.setAttribute('data-connecting-type', handle.dataType);
   }, [capabilityMap, flow]);
 
-  const onConnectEnd = React.useCallback(() => {
+  // Dropping a dragged connection on empty canvas creates a node instead of
+  // just cancelling. From an unconnected *input* the target type is implied
+  // by its data type (text -> Prompt, image -> Image), so the node is created
+  // and wired immediately. From an *output*, several node types could be a
+  // legal target, so the add-node menu opens (filtered to compatible types)
+  // and the connection completes once one is chosen.
+  const onConnectEnd = React.useCallback((event: MouseEvent | TouchEvent, state: FinalConnectionState) => {
     wrapperRef.current?.removeAttribute('data-connecting-type');
-  }, []);
+    if (locked || state.toNode || !state.fromNode || !state.fromHandle) return;
+    const point = 'changedTouches' in event ? event.changedTouches[0] : event;
+    if (!point) return;
+    const bounds = wrapperRef.current?.getBoundingClientRect();
+    const flowPosition = flow.screenToFlowPosition({ x: point.clientX, y: point.clientY });
+    const fromNode = state.fromNode;
+    const fromHandle = state.fromHandle;
+    const definition = nodeDefinition((fromNode.type ?? 'text') as AdvNodeType);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handles = definition.handles(fromNode.data as any, capabilityMap.get((fromNode.data as { engine?: string }).engine ?? ''));
+
+    if (fromHandle.type === 'target') {
+      const handle = handles.inputs.find((item) => item.id === fromHandle.id) ?? handles.inputs[0];
+      const newType: AdvNodeType | null = handle?.dataType === 'text' ? 'text' : handle?.dataType === 'image' ? 'imageInput' : null;
+      if (!handle || !newType) return;
+      const geometry = nodeDefinition(newType).geometry;
+      pushHistory();
+      const newId = `${newType}-${crypto.randomUUID().slice(0, 8)}`;
+      const newDefinition = nodeDefinition(newType);
+      const label = newDefinition.defaultLabel(nextLabelIndex(flow.getNodes(), newType));
+      const outputHandleId = newDefinition.handles(newDefinition.defaultData(), undefined).outputs[0]?.id;
+      setNodes((current) => [
+        ...current.map((item) => ({ ...item, selected: false })),
+        {
+          id: newId,
+          type: newType,
+          position: { x: flowPosition.x - geometry.width - 64, y: flowPosition.y - geometry.height / 2 },
+          width: geometry.width,
+          height: geometry.height,
+          selected: true,
+          data: { ...newDefinition.defaultData(), label },
+        } as AdvFlowNode,
+      ]);
+      if (outputHandleId) {
+        setEdges((current) => addEdge({
+          source: newId,
+          sourceHandle: outputHandleId,
+          target: fromNode.id,
+          targetHandle: fromHandle.id,
+          id: `e-${newId}-${outputHandleId}-${fromNode.id}-${fromHandle.id}`,
+          data: { dataType: handle.dataType },
+          className: `adv-edge adv-edge-${handle.dataType}`,
+        }, current));
+      }
+      return;
+    }
+
+    const handle = handles.outputs.find((item) => item.id === fromHandle.id) ?? handles.outputs[0];
+    if (!handle) return;
+    setAddMenuDocked(false);
+    setPendingConnection({ nodeId: fromNode.id, handleId: handle.id, dataType: handle.dataType });
+    setAddMenu({
+      x: point.clientX - (bounds?.left ?? 0),
+      y: point.clientY - (bounds?.top ?? 0),
+      flowX: flowPosition.x,
+      flowY: flowPosition.y,
+    });
+  }, [capabilityMap, flow, locked, pushHistory, setEdges, setNodes]);
 
   /* --------------------------------------------------- group drag handling */
 
@@ -922,11 +995,28 @@ function AdvCanvasInner({ project, capabilities, characters = [], saveState, onS
           key={addMenu ? 'add-menu-open' : 'add-menu-closed'}
           open={Boolean(addMenu)}
           anchor={addMenuDocked || !addMenu ? null : { x: addMenu.x, y: addMenu.y }}
-          onClose={() => setAddMenu(null)}
+          restrictToTypes={pendingConnection ? nodeTypesAcceptingInput(pendingConnection.dataType) : null}
+          onClose={() => { setAddMenu(null); setPendingConnection(null); }}
           onSelect={(type) => {
             const position = addMenuDocked ? centerOfViewport() : { x: addMenu!.flowX, y: addMenu!.flowY };
-            addNode(type, position);
+            const newId = addNode(type, position);
+            if (pendingConnection) {
+              const newHandles = nodeDefinition(type).handles(nodeDefinition(type).defaultData(), undefined);
+              const targetHandle = newHandles.inputs.find((input) => input.dataType === pendingConnection.dataType);
+              if (targetHandle) {
+                setEdges((current) => addEdge({
+                  source: pendingConnection.nodeId,
+                  sourceHandle: pendingConnection.handleId,
+                  target: newId,
+                  targetHandle: targetHandle.id,
+                  id: `e-${pendingConnection.nodeId}-${pendingConnection.handleId}-${newId}-${targetHandle.id}`,
+                  data: { dataType: pendingConnection.dataType },
+                  className: `adv-edge adv-edge-${pendingConnection.dataType}`,
+                }, current));
+              }
+            }
             setAddMenu(null);
+            setPendingConnection(null);
           }}
         />
 

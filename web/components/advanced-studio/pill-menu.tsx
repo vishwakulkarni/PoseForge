@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { ChevronDown } from 'lucide-react';
+import { Check, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface PillOption<T extends string> {
@@ -107,6 +107,7 @@ export function PillMenu<T extends string>({
                     setOpen(false);
                   }}
                 >
+                  <Check aria-hidden size={13} className="adv-pill-option-check" />
                   <span>{option.label}</span>
                   {option.note ? <small>{option.note}</small> : null}
                 </button>
