@@ -58,7 +58,14 @@ export const VideoGeneratorNodeBody = React.memo(function VideoGeneratorNodeBody
     if (!capability.ready) return capability.reason ?? `Set up ${capability.label} in Settings to generate video.`;
     if (!resolved.prompt.trim()) return 'Connect a prompt with some text.';
     if (model.inputs.includes('startFrame') && resolved.startFrameUrls.length === 0) return 'Connect a start frame for this model.';
-    if (model.inputs.includes('reference') && resolved.referenceImageUrls.length === 0) return 'Connect a reference image for this model.';
+    if (model.inputs.includes('referenceVideo')) {
+      const visual = resolved.referenceImageUrls.length + resolved.videoUrls.length;
+      if (!visual && !(model.audioOnlyReferences && resolved.audioUrls.length)) {
+        return `Connect a reference image or video${model.audioOnlyReferences ? ' (or audio)' : ''} for this model.`;
+      }
+    } else if (model.inputs.includes('reference') && resolved.referenceImageUrls.length === 0) {
+      return 'Connect a reference image for this model.';
+    }
     return null;
   })();
 

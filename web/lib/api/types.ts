@@ -294,6 +294,11 @@ export interface Settings {
   /** Dollar limits; null means no limit. */
   higgsfieldMaxUsdPerGeneration: number | null;
   higgsfieldMonthlyBudgetUsd: number | null;
+  /** Dreamina credit limits; null means unset. A per-video limit is required
+   * before Dreamina runs. */
+  dreaminaCreditCeiling: number | null;
+  dreaminaImageCreditCeiling: number | null;
+  dreaminaMonthlyCreditBudget: number | null;
   geminiApiKey: Credential;
   geminiModel: string;
   antigravityModel: string;
@@ -466,6 +471,27 @@ export interface MetricsResponse {
     mostUsedPose: { id: string; title: string | null; runs: number } | null;
   };
 }
+
+/* ---------------------------------------------------------------- Dreamina */
+
+export interface DreaminaStatus {
+  installed: boolean;
+  version?: string | null;
+  loggedIn: boolean;
+  expiresAt?: string | null;
+  region?: string | null;
+  membership?: { isVip: boolean; vipLevel: string | null } | null;
+  /** The dedicated PoseForge canvas; null until created from Settings. */
+  canvas: { projectId: string; webUrl: string | null } | null;
+  limits: { creditCeiling: number | null; imageCreditCeiling: number | null; monthlyCreditBudget: number | null };
+  /** Credits committed this month; running videos count at their limit. */
+  monthToDate: { credits: number; runs: number };
+  error?: string;
+}
+
+export type DreaminaLogin =
+  | { status: 'signed-in' }
+  | { status: 'pending'; userCode?: string; verificationUri?: string; pollSeconds?: number; expiresAt?: string | null };
 
 /* -------------------------------------------------------------- Higgsfield */
 

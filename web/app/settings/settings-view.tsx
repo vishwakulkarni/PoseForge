@@ -3,13 +3,17 @@
 import * as React from 'react';
 import { CheckCircle2, ExternalLink, Lock, PlugZap, Save, XCircle } from 'lucide-react';
 import {
+  useCreateDreaminaCanvas,
+  useDreaminaLogin,
+  useDreaminaLoginWait,
+  useDreaminaStatus,
   useEngines,
   useHiggsfieldStatus,
   useSettings,
   useUpdateSettings,
   useVerifyHiggsfield,
 } from '@/lib/api/hooks';
-import type { Credential, HiggsfieldVerifyResult, Settings } from '@/lib/api/types';
+import type { Credential, DreaminaLogin, HiggsfieldVerifyResult, Settings } from '@/lib/api/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, PanelTitle } from '@/components/ui/card';
@@ -280,6 +284,246 @@ function HiggsfieldCard({
               Balance and top-up
               <ExternalLink className="size-3" />
             </a>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+/**
+ * Dreamina Canvas CLI connection. Every PoseForge Dreamina image and video
+ * runs on one dedicated canvas, created here on request. Dreamina prices each
+ * run when it starts; the per-image or per-video limit is passed as the
+ * credit ceiling, so anything priced above it is refused before it is charged.
+ */
+function DreaminaCard({
+  settings,
+  draft,
+  set,
+}: {
+  settings: Settings;
+  draft: Record<string, string>;
+  set: (key: string, value: string) => void;
+}) {
+  const { data: status, isError: statusFailed, refetch } = useDreaminaStatus();
+  const login = useDreaminaLogin();
+  const loginWait = useDreaminaLoginWait();
+  const createCanvas = useCreateDreaminaCanvas();
+  const [challenge, setChallenge] = React.useState<Extract<DreaminaLogin, { status: 'pending' }> | null>(null);
+  const [message, setMessage] = React.useState<string | null>(null);
+  const waitForLogin = loginWait.mutateAsync;
+
+  // Poll until the user finishes signing in on Dreamina's page.
+  React.useEffect(() => {
+    if (!challenge) return;
+    const timer = window.setInterval(async () => {
+      try {
+        const next = await waitForLogin();
+        if (next.status === 'signed-in') {
+          setChallenge(null);
+          setMessage('Signed in to Dreamina.');
+          void refetch();
+        }
+      } catch (cause) {
+        setChallenge(null);
+        setMessage(cause instanceof Error ? cause.message : 'Sign-in failed.');
+      }
+    }, Math.max(challenge.pollSeconds ?? 5, 3) * 1000);
+    return () => window.clearInterval(timer);
+  }, [challenge, waitForLogin, refetch]);
+
+  const startLogin = async () => {
+    setMessage(null);
+    try {
+      const next = await login.mutateAsync();
+      if (next.status === 'signed-in') setMessage('Already signed in to Dreamina.');
+      else setChallenge(next);
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : 'Could not start Dreamina sign-in.');
+    }
+  };
+
+  const makeCanvas = async () => {
+    setMessage(null);
+    try {
+      await createCanvas.mutateAsync();
+      setMessage('PoseForge canvas created.');
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : 'Could not create the canvas.');
+    }
+  };
+
+  const limit = (key: 'dreaminaCreditCeiling' | 'dreaminaImageCreditCeiling' | 'dreaminaMonthlyCreditBudget') =>
+    draft[key] ?? (settings[key] == null ? '' : String(settings[key]));
+  const ready = Boolean(
+    status?.installed &&
+      status.loggedIn &&
+      status.canvas &&
+      (status.limits.creditCeiling != null || status.limits.imageCreditCeiling != null),
+  );
+  const budget = status?.limits.monthlyCreditBudget;
+
+  return (
+    <Card>
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <PanelTitle className="mb-0">Dreamina</PanelTitle>
+        {status ? (
+          <Badge variant={ready ? 'ok' : 'neutral'} dot>
+            {ready ? 'Ready' : 'Not configured'}
+          </Badge>
+        ) : null}
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="flex flex-col gap-3">
+          <ul className="flex flex-col gap-2 text-[12px]">
+            <li className="flex items-center justify-between gap-2">
+              <span>Canvas CLI</span>
+              {status?.installed ? (
+                <Badge variant="ok" dot>Installed{status.version ? ` · v${status.version}` : ''}</Badge>
+              ) : (
+                <Badge variant="neutral" dot>{status ? 'Not installed' : statusFailed ? 'Unavailable' : 'Checking…'}</Badge>
+              )}
+            </li>
+            <li className="flex items-center justify-between gap-2">
+              <span>Account</span>
+              {status?.loggedIn ? (
+                <Badge variant="ok" dot>
+                  Signed in{status.membership?.isVip ? ` · ${status.membership.vipLevel ?? 'member'}` : ''}
+                </Badge>
+              ) : (
+                <Button type="button" variant="secondary" size="sm" onClick={startLogin} loading={login.isPending} disabled={!status?.installed || Boolean(challenge)}>
+                  Sign in
+                </Button>
+              )}
+            </li>
+            <li className="flex items-center justify-between gap-2">
+              <span>PoseForge canvas</span>
+              {status?.canvas ? (
+                status.canvas.webUrl ? (
+                  <a
+                    href={status.canvas.webUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--pf-accent)] underline underline-offset-2"
+                  >
+                    Open in Dreamina
+                    <ExternalLink className="size-3" />
+                  </a>
+                ) : (
+                  <Badge variant="ok" dot>Linked</Badge>
+                )
+              ) : (
+                <Button type="button" variant="secondary" size="sm" onClick={makeCanvas} loading={createCanvas.isPending} disabled={!status?.loggedIn}>
+                  Create canvas
+                </Button>
+              )}
+            </li>
+          </ul>
+          {challenge ? (
+            <div role="status" className="rounded-[12px] border border-[var(--pf-border)] bg-[var(--pf-surface-muted)] p-3 text-[11px]">
+              <p>
+                Enter code <span className="font-mono font-bold">{challenge.userCode}</span> on Dreamina&apos;s sign-in page.
+                This page updates when you finish.
+              </p>
+              {challenge.verificationUri ? (
+                <a
+                  href={challenge.verificationUri}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1 inline-flex items-center gap-1 font-medium text-[var(--pf-accent)] underline underline-offset-2"
+                >
+                  Open Dreamina sign-in
+                  <ExternalLink className="size-3" />
+                </a>
+              ) : null}
+            </div>
+          ) : null}
+          {message || status?.error ? (
+            <span role="status" className="text-[11px] text-[var(--pf-text-secondary)]">{message ?? status?.error}</span>
+          ) : null}
+          <p className="text-[11px] leading-relaxed text-[var(--pf-text-tertiary)]">
+            Powers Seedream and GPT Image image models and Seedance 2.5 and 2.0 video models in Advanced Studio.
+            Every run uses one PoseForge canvas on your Dreamina account, so you can review results there too.
+            Creating the canvas spends no credits.
+            {status && !status.installed ? (
+              <> Install the CLI with <code className="font-mono">curl -fsSL https://dreamina.capcut.com/canvas-cli/install.sh | bash</code>, then restart PoseForge.</>
+            ) : null}
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Field
+              label="Credit limit per image"
+              htmlFor="dreamina-image-credit-ceiling"
+              help="Required for image models."
+            >
+              <Input
+                id="dreamina-image-credit-ceiling"
+                type="number"
+                min={0}
+                step="1"
+                inputMode="numeric"
+                placeholder="Not set"
+                value={limit('dreaminaImageCreditCeiling')}
+                onChange={(event) => set('dreaminaImageCreditCeiling', event.target.value)}
+              />
+            </Field>
+            <Field
+              label="Credit limit per video"
+              htmlFor="dreamina-credit-ceiling"
+              help="Required for video models."
+            >
+              <Input
+                id="dreamina-credit-ceiling"
+                type="number"
+                min={0}
+                step="1"
+                inputMode="numeric"
+                placeholder="Not set"
+                value={limit('dreaminaCreditCeiling')}
+                onChange={(event) => set('dreaminaCreditCeiling', event.target.value)}
+              />
+            </Field>
+            <Field
+              label="Monthly credit budget"
+              htmlFor="dreamina-monthly-budget"
+              help="Refuse runs that could exceed it this month."
+            >
+              <Input
+                id="dreamina-monthly-budget"
+                type="number"
+                min={0}
+                step="1"
+                inputMode="numeric"
+                placeholder="No limit"
+                value={limit('dreaminaMonthlyCreditBudget')}
+                onChange={(event) => set('dreaminaMonthlyCreditBudget', event.target.value)}
+              />
+            </Field>
+          </div>
+          <div className="rounded-[12px] border border-[var(--pf-border)] bg-[var(--pf-surface-muted)] p-3">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--pf-text-tertiary)]">
+              This month in PoseForge
+            </p>
+            <p className="mt-1 text-[18px] font-bold tabular-nums">
+              {status ? `${status.monthToDate.credits.toLocaleString()} credits` : '—'}
+              {budget != null ? (
+                <span className="text-[12px] font-medium text-[var(--pf-text-tertiary)]"> of {budget.toLocaleString()}</span>
+              ) : null}
+            </p>
+            <p className="text-[11px] text-[var(--pf-text-tertiary)]">
+              {status
+                ? `${status.monthToDate.runs} ${status.monthToDate.runs === 1 ? 'run' : 'runs'}`
+                : statusFailed
+                  ? 'Unavailable — restart the PoseForge server to load the Dreamina API.'
+                  : 'Loading…'}
+            </p>
+            <p className="mt-2 text-[10px] leading-relaxed text-[var(--pf-text-tertiary)]">
+              Dreamina refuses any run priced above its limit, before charging. This total uses the credits Dreamina
+              reports for each run; a run still in progress counts at its limit. Your balance lives on Dreamina.
+            </p>
           </div>
         </div>
       </div>
@@ -559,6 +803,8 @@ export function SettingsView() {
       </div>
 
       <HiggsfieldCard settings={settings} draft={draft} set={set} />
+
+      <DreaminaCard settings={settings} draft={draft} set={set} />
 
       {/* Sticky action bar so Save is always reachable on long forms. */}
       <div className="sticky bottom-4 z-10 flex items-center justify-between gap-3 rounded-[16px] border border-[var(--pf-border)] bg-[color-mix(in_srgb,var(--pf-surface)_92%,transparent)] p-3 backdrop-blur-[12px] shadow-[var(--pf-shadow-md)]">

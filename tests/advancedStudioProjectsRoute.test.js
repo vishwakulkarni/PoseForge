@@ -541,6 +541,28 @@ test("connected image inputs are resolved in edge order and passed as references
   ]);
 });
 
+test("reference video and audio handles resolve media inputs and earlier video results", () => {
+  const { resolveNodeInputs } = require("../routes/advanced-studio-projects");
+  const document = {
+    nodes: [
+      { id: "v", type: "videoInput", data: { mediaUrl: "/storage/advanced/p/move.mp4" } },
+      { id: "a", type: "audioInput", data: { mediaUrl: "/storage/advanced/p/beat.mp3" } },
+      { id: "prev", type: "videoGenerator", data: { results: [{ videoUrl: "/storage/generations/prev/output.mp4" }], activeResultIndex: 0 } },
+      { id: "gen", type: "videoGenerator", data: {} },
+    ],
+    edges: [
+      { id: "e1", source: "v", target: "gen", targetHandle: "referenceVideo" },
+      { id: "e2", source: "prev", target: "gen", targetHandle: "referenceVideo" },
+      { id: "e3", source: "a", target: "gen", targetHandle: "referenceAudio" },
+      { id: "e4", source: "v", target: "gen", targetHandle: "referenceAudio" },
+    ],
+  };
+  const resolved = resolveNodeInputs(document, "gen");
+  assert.deepEqual(resolved.referenceVideoUrls, ["/storage/advanced/p/move.mp4", "/storage/generations/prev/output.mp4"]);
+  assert.deepEqual(resolved.referenceAudioUrls, ["/storage/advanced/p/beat.mp3"]);
+  assert.deepEqual(resolved.imageUrls, []);
+});
+
 test("running a video node coerces settings and attaches an MP4 result", async () => {
   const calls = [];
   const videoModel = {

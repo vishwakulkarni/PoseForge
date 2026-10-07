@@ -242,7 +242,9 @@
 .adv-node-text { --adv-node-accent: var(--pf-adv-type-text); }
 .adv-node-imageInput,
 .adv-node-imageGenerator { --adv-node-accent: var(--pf-adv-type-image); }
+.adv-node-videoInput,
 .adv-node-videoGenerator { --adv-node-accent: var(--pf-adv-type-video); }
+.adv-node-audioInput { --adv-node-accent: var(--pf-adv-type-audio); }
 .adv-node-group { --adv-node-accent: var(--pf-adv-text-tertiary); }
 
 .adv-canvas .react-flow__node:hover .adv-node {

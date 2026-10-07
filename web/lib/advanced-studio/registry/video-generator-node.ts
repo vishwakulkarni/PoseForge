@@ -55,7 +55,13 @@ export const videoGeneratorNodeDefinition: AdvNodeDefinition<'videoGenerator'> =
       inputs.push({ id: 'endFrame', dataType: 'image', label: 'End frame', maxConnections: 1 });
     }
     if (model?.inputs.includes('reference')) {
-      inputs.push({ id: 'reference', dataType: 'image', label: 'Reference image', maxConnections: 1 });
+      inputs.push({ id: 'reference', dataType: 'image', label: 'Reference image', maxConnections: model.maxReferences ?? 1 });
+    }
+    if (model?.inputs.includes('referenceVideo')) {
+      inputs.push({ id: 'referenceVideo', dataType: 'video', label: 'Reference video', maxConnections: model.maxReferenceVideos ?? 1 });
+    }
+    if (model?.inputs.includes('referenceAudio')) {
+      inputs.push({ id: 'referenceAudio', dataType: 'audio', label: 'Reference audio', maxConnections: model.maxReferenceAudios ?? 1 });
     }
     return { inputs, outputs: [{ id: 'video', dataType: 'video', label: 'Generated video' }] };
   },

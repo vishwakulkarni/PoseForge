@@ -14,7 +14,7 @@ import type { LucideIcon } from 'lucide-react';
  * accept — consistently, on every node. */
 export type AdvDataType = 'text' | 'image' | 'video' | 'audio';
 
-export type AdvNodeType = 'text' | 'imageInput' | 'imageGenerator' | 'videoGenerator' | 'group';
+export type AdvNodeType = 'text' | 'imageInput' | 'videoInput' | 'audioInput' | 'imageGenerator' | 'videoGenerator' | 'group';
 
 export type AdvNodeCategory = 'inputs' | 'generation' | 'media' | 'organization';
 
@@ -55,6 +55,12 @@ export interface AdvImageInputNodeData {
   imageFit?: 'fit' | 'fill';
 }
 
+/** Video Input and Audio Input: one uploaded clip, stored as-is. */
+export interface AdvMediaInputNodeData {
+  mediaUrl?: string;
+  fileName?: string;
+}
+
 export interface AdvGeneratorResult {
   imageUrl?: string;
   videoUrl?: string;
@@ -90,6 +96,8 @@ export interface AdvGroupNodeData {
 export type AdvNodeDataMap = {
   text: AdvTextNodeData;
   imageInput: AdvImageInputNodeData;
+  videoInput: AdvMediaInputNodeData;
+  audioInput: AdvMediaInputNodeData;
   imageGenerator: AdvImageGeneratorNodeData;
   videoGenerator: AdvVideoGeneratorNodeData;
   group: AdvGroupNodeData;
@@ -185,7 +193,7 @@ export interface AdvImageCapability {
 
 export interface AdvVideoModelCapability {
   id: string;
-  inputs: Array<'prompt' | 'startFrame' | 'endFrame' | 'reference'>;
+  inputs: Array<'prompt' | 'startFrame' | 'endFrame' | 'reference' | 'referenceVideo' | 'referenceAudio'>;
   durations: number[];
   defaultDuration: number;
   aspectRatios: string[];
@@ -193,6 +201,13 @@ export interface AdvVideoModelCapability {
   resolutions: string[];
   defaultResolution: string;
   sound: boolean;
+  /** Reference images the model accepts; one when absent. */
+  maxReferences?: number;
+  maxReferenceVideos?: number;
+  maxReferenceAudios?: number;
+  /** Audio alone satisfies the reference requirement (otherwise an image or
+   * video is needed too). */
+  audioOnlyReferences?: boolean;
 }
 
 export type AdvVideoCapability = {
@@ -218,6 +233,14 @@ export interface AdvAssetUploadResponse {
   fileName: string;
   width: number | null;
   height: number | null;
+}
+
+export interface AdvMediaUploadResponse {
+  assetId: string;
+  url: string;
+  fileName: string;
+  mediaKind: 'video' | 'audio';
+  size: number;
 }
 
 export interface AdvNodeRunResponse {

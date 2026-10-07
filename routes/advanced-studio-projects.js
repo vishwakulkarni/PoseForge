@@ -39,6 +39,12 @@ const MAX_DOCUMENT_BYTES = 2 * 1024 * 1024;
 const tempDir = path.join(__dirname, "..", "tmp", "advanced-studio");
 fs.mkdirSync(tempDir, { recursive: true });
 const upload = multer({ dest: tempDir, limits: { fileSize: 25 * 1024 * 1024 } });
+const MAX_MEDIA_BYTES = 200 * 1024 * 1024;
+const mediaUpload = multer({ dest: tempDir, limits: { fileSize: MAX_MEDIA_BYTES } });
+const MEDIA_EXTENSIONS = {
+  video: new Set([".mp4", ".mov", ".webm", ".m4v"]),
+  audio: new Set([".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac"]),
+};
 
 function enabled() {
   return process.env.FLUID_STUDIO_ENABLED !== "false";
@@ -137,12 +143,23 @@ function resolveNodeInputs(document, nodeId) {
   const startFrameUrls = [];
   const endFrameUrls = [];
   const referenceImageUrls = [];
+  const referenceVideoUrls = [];
+  const referenceAudioUrls = [];
   const outputImageUrl = (source) => {
     if (source.type === "imageInput") return source.data?.imageUrl || null;
     if (source.type === "imageGenerator") {
       const results = source.data?.results || [];
       const active = results[source.data?.activeResultIndex ?? 0] || results[results.length - 1];
       return active?.imageUrl || null;
+    }
+    return null;
+  };
+  const outputMediaUrl = (source, kind) => {
+    if (source.type === `${kind}Input`) return source.data?.mediaUrl || null;
+    if (kind === "video" && source.type === "videoGenerator") {
+      const results = source.data?.results || [];
+      const active = results[source.data?.activeResultIndex ?? 0] || results[results.length - 1];
+      return active?.videoUrl || null;
     }
     return null;
   };
@@ -154,6 +171,12 @@ function resolveNodeInputs(document, nodeId) {
       if (source.type === "text" && source.data?.text) prompts.push(source.data.text);
       continue;
     }
+    if (edge.targetHandle === "referenceVideo" || edge.targetHandle === "referenceAudio") {
+      const kind = edge.targetHandle === "referenceVideo" ? "video" : "audio";
+      const url = outputMediaUrl(source, kind);
+      if (url) (kind === "video" ? referenceVideoUrls : referenceAudioUrls).push(url);
+      continue;
+    }
     const imageUrl = outputImageUrl(source);
     if (!imageUrl) continue;
     if (edge.targetHandle === "image") imageUrls.push(imageUrl);
@@ -161,7 +184,7 @@ function resolveNodeInputs(document, nodeId) {
     else if (edge.targetHandle === "endFrame") endFrameUrls.push(imageUrl);
     else if (edge.targetHandle === "reference") referenceImageUrls.push(imageUrl);
     }
-  return { prompt: prompts.join("\n\n"), imageUrls, startFrameUrls, endFrameUrls, referenceImageUrls };
+  return { prompt: prompts.join("\n\n"), imageUrls, startFrameUrls, endFrameUrls, referenceImageUrls, referenceVideoUrls, referenceAudioUrls };
 }
 
 /** Runs one image generator node in place, mutating only that node. Returns
@@ -259,6 +282,11 @@ async function runVideoGeneratorNode(document, nodeId, requestId) {
   const urls = [resolved.startFrameUrls[0], resolved.endFrameUrls[0], ...resolved.referenceImageUrls].filter(Boolean);
   const paths = urls.map((url) => storage.absolutePathFromPublicUrl(url));
   if (paths.some((inputPath) => !inputPath)) return fail("One of the connected frames could not be resolved.");
+  const referenceVideoPaths = resolved.referenceVideoUrls.map((url) => storage.absolutePathFromPublicUrl(url));
+  const referenceAudioPaths = resolved.referenceAudioUrls.map((url) => storage.absolutePathFromPublicUrl(url));
+  if ([...referenceVideoPaths, ...referenceAudioPaths].some((inputPath) => !inputPath)) {
+    return fail("One of the connected video or audio clips could not be resolved.");
+  }
 
   node.data.status = "running";
   delete node.data.error;
@@ -271,6 +299,8 @@ async function runVideoGeneratorNode(document, nodeId, requestId) {
       startFramePath: resolved.startFrameUrls[0] ? paths[0] : undefined,
       endFramePath: resolved.endFrameUrls[0] ? paths[resolved.startFrameUrls[0] ? 1 : 0] : undefined,
       referencePaths: paths.slice((resolved.startFrameUrls[0] ? 1 : 0) + (resolved.endFrameUrls[0] ? 1 : 0)),
+      referenceVideoPaths,
+      referenceAudioPaths,
       duration: definition.durations.includes(Number(node.data.duration)) ? Number(node.data.duration) : definition.defaultDuration,
       aspectRatio: definition.aspectRatios.includes(node.data.aspectRatio) ? node.data.aspectRatio : definition.defaultAspectRatio,
       resolution: definition.resolutions.includes(node.data.resolution) ? node.data.resolution : definition.defaultResolution,
@@ -401,6 +431,34 @@ router.post("/:id/assets", upload.single("image"), asyncHandler(async (req, res)
   }
 }));
 
+/** Stores a Video Input or Audio Input node's clip as-is (no transcoding) and
+ * returns its public URL. The kind is checked by MIME type and extension. */
+router.post("/:id/media", mediaUpload.single("file"), asyncHandler(async (req, res) => {
+  try {
+    const row = await loadProject(req.params.id);
+    if (!row) return res.status(404).json({ error: "Advanced Studio project not found." });
+    if (!req.file) return res.status(400).json({ error: "A video or audio file is required." });
+    const kind = String(req.file.mimetype || "").split("/")[0];
+    const extension = path.extname(req.file.originalname || "").toLowerCase();
+    if (!MEDIA_EXTENSIONS[kind]?.has(extension)) {
+      return res.status(400).json({ error: "Upload an MP4, MOV, WebM or M4V video, or an MP3, WAV, M4A, AAC, OGG or FLAC audio file." });
+    }
+    const assetId = crypto.randomUUID();
+    const relativePath = storage.getAdvancedAssetPath(req.params.id, assetId, extension);
+    await fs.promises.mkdir(path.dirname(storage.absolutePath(relativePath)), { recursive: true });
+    await fs.promises.copyFile(req.file.path, storage.absolutePath(relativePath));
+    res.status(201).json({
+      assetId,
+      url: storage.publicUrl(relativePath),
+      fileName: String(req.file.originalname || `${kind}${extension}`).slice(0, 200),
+      mediaKind: kind,
+      size: req.file.size,
+    });
+  } finally {
+    await cleanup(req.file);
+  }
+}));
+
 /** The fields a run owns on its node. Everything else in the document — other
  * nodes, edges, positions, the viewport — belongs to whoever edited it while
  * the generation was running, so only these are written back. */
@@ -467,7 +525,8 @@ router.post("/:id/nodes/:nodeId/run", asyncHandler(async (req, res) => {
 
 router.use((err, req, res, next) => {
   if (err instanceof multer.MulterError) {
-    return res.status(400).json({ error: err.code === "LIMIT_FILE_SIZE" ? "That file is too large (25MB max)." : err.message });
+    const max = req.path.endsWith("/media") ? "200MB" : "25MB";
+    return res.status(400).json({ error: err.code === "LIMIT_FILE_SIZE" ? `That file is too large (${max} max).` : err.message });
   }
   next(err);
 });

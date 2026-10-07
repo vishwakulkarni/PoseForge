@@ -27,8 +27,12 @@ function activeResult(data: Record<string, unknown>): AdvGeneratorResult | undef
 }
 
 /** The public URL a node offers on its output handle, if any. */
-export function nodeOutputUrl(node: ResolvableNode, dataType: 'image' | 'video'): string | undefined {
+export function nodeOutputUrl(node: ResolvableNode, dataType: 'image' | 'video' | 'audio'): string | undefined {
   if (node.type === 'imageInput') return dataType === 'image' ? (fields(node).imageUrl as string | undefined) : undefined;
+  if (node.type === 'videoInput' || node.type === 'audioInput') {
+    return node.type === `${dataType}Input` ? (fields(node).mediaUrl as string | undefined) : undefined;
+  }
+  if (dataType === 'audio') return undefined;
   const result = activeResult(fields(node));
   if (!result) return undefined;
   return dataType === 'image' ? result.imageUrl : result.videoUrl;
@@ -68,9 +72,14 @@ export function resolveInputs(
       }
       continue;
     }
-    if (handle === 'video') {
+    if (handle === 'video' || handle === 'referenceVideo') {
       const url = nodeOutputUrl(source, 'video');
       if (url) videoUrls.push(url);
+      continue;
+    }
+    if (handle === 'referenceAudio') {
+      const url = nodeOutputUrl(source, 'audio');
+      if (url) audioUrls.push(url);
     }
   }
 

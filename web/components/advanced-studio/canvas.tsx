@@ -53,6 +53,8 @@ import type { AdvSaveState } from '@/lib/advanced-studio/use-advanced-workspace'
 const NODE_TYPES = {
   text: AdvNodeShell,
   imageInput: AdvNodeShell,
+  videoInput: AdvNodeShell,
+  audioInput: AdvNodeShell,
   imageGenerator: AdvNodeShell,
   videoGenerator: AdvNodeShell,
   group: AdvNodeShell,
@@ -435,7 +437,8 @@ function AdvCanvasInner({
 
     if (fromHandle.type === 'target') {
       const handle = handles.inputs.find((item) => item.id === fromHandle.id) ?? handles.inputs[0];
-      const newType: AdvNodeType | null = handle?.dataType === 'text' ? 'text' : handle?.dataType === 'image' ? 'imageInput' : null;
+      const inputNodeFor: Record<AdvDataType, AdvNodeType> = { text: 'text', image: 'imageInput', video: 'videoInput', audio: 'audioInput' };
+      const newType: AdvNodeType | null = handle ? inputNodeFor[handle.dataType] : null;
       if (!handle || !newType) return;
       const geometry = nodeDefinition(newType).geometry;
       pushHistory();
@@ -567,6 +570,17 @@ function AdvCanvasInner({
     });
   }, [applyNodeData, pushHistory]);
 
+  const uploadMedia = React.useCallback(async (id: string, file: File) => {
+    const asset = await api.advancedStudio.uploadMedia(project.id, file);
+    pushHistory();
+    applyNodeData(id, { mediaUrl: asset.url, fileName: asset.fileName });
+  }, [applyNodeData, project.id, pushHistory]);
+
+  const clearMedia = React.useCallback((id: string) => {
+    pushHistory();
+    applyNodeData(id, { mediaUrl: undefined, fileName: undefined });
+  }, [applyNodeData, pushHistory]);
+
   const selectCharacter = React.useCallback((id: string, character: CharacterSummary) => {
     if (!character.primaryPhotoUrl) return;
     pushHistory();
@@ -644,13 +658,15 @@ function AdvCanvasInner({
     uploadImage,
     selectCharacter,
     clearImage,
+    uploadMedia,
+    clearMedia,
     openPreview: (url, mediaKind = 'image') => setPreview({ url, mediaKind }),
     resolveInputsFor,
     estimateCost: onEstimateCost,
   }), [
-    capabilities, capabilityMap, characters, clearImage, connectionCountFor, disconnectNode, duplicateNode, generate, locked,
+    capabilities, capabilityMap, characters, clearImage, clearMedia, connectionCountFor, disconnectNode, duplicateNode, generate, locked,
     onEstimateCost, project.id, pushHistory, removeNode, renameNode, resizeNode, resolveInputsFor, runningNodeIds, selectCharacter,
-    toggleImageFit, toggleNodeCollapse, updateNodeData, uploadImage,
+    toggleImageFit, toggleNodeCollapse, updateNodeData, uploadImage, uploadMedia,
   ]);
 
   /* ------------------------------------------------------------- shortcuts */

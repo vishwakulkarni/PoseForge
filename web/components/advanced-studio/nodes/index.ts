@@ -10,6 +10,7 @@ import type { AdvNodeType } from '@/lib/advanced-studio/types';
 import type { AdvNodeBodyProps } from '../node-context';
 import { TextNodeBody } from './text-node-body';
 import { ImageInputNodeBody } from './image-input-node-body';
+import { MediaInputNodeBody } from './media-input-node-body';
 import { ImageGeneratorNodeBody } from './image-generator-node-body';
 import { VideoGeneratorNodeBody } from './video-generator-node-body';
 import { GroupNodeBody } from './group-node-body';
@@ -19,9 +20,11 @@ import { GroupNodeBody } from './group-node-body';
 export const ADV_NODE_BODIES: Record<AdvNodeType, React.ComponentType<AdvNodeBodyProps<any>>> = {
   text: TextNodeBody,
   imageInput: ImageInputNodeBody,
+  videoInput: MediaInputNodeBody,
+  audioInput: MediaInputNodeBody,
   imageGenerator: ImageGeneratorNodeBody,
   videoGenerator: VideoGeneratorNodeBody,
   group: GroupNodeBody,
 };
 
-export { TextNodeBody, ImageInputNodeBody, ImageGeneratorNodeBody, VideoGeneratorNodeBody, GroupNodeBody };
+export { TextNodeBody, ImageInputNodeBody, MediaInputNodeBody, ImageGeneratorNodeBody, VideoGeneratorNodeBody, GroupNodeBody };

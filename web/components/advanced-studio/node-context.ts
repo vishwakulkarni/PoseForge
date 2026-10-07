@@ -36,6 +36,9 @@ export interface AdvNodeActions {
   uploadImage: (id: string, file: File) => Promise<void>;
   selectCharacter: (id: string, character: CharacterSummary) => void;
   clearImage: (id: string) => void;
+  /** Video Input / Audio Input clip. */
+  uploadMedia: (id: string, file: File) => Promise<void>;
+  clearMedia: (id: string) => void;
   openPreview: (url: string, mediaKind?: 'image' | 'video') => void;
   resolveInputsFor: (id: string) => AdvResolvedInputs;
   /** Free pre-run price for a Higgsfield node; resolves null when the host
@@ -66,6 +69,8 @@ export const AdvNodeActionsContext = React.createContext<AdvNodeActions>({
   uploadImage: async () => {},
   selectCharacter: noop,
   clearImage: noop,
+  uploadMedia: async () => {},
+  clearMedia: noop,
   openPreview: noop,
   resolveInputsFor: () => ({ prompt: '', imageUrls: [], startFrameUrls: [], endFrameUrls: [], referenceImageUrls: [], videoUrls: [], audioUrls: [] }),
   estimateCost: async () => null,

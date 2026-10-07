@@ -3,6 +3,7 @@ const { pool } = require("../db/pool");
 const { registry } = require("../engines");
 const higgsfield = require("../engines/higgsfield/client");
 const higgsfieldBilling = require("../engines/higgsfield/billing");
+const dreamina = require("../engines/dreamina/account");
 const { normalizeComfyEndpoint, validateWorkflowContract } = require("../lib/comfyWorkflow");
 const { asyncHandler } = require("./helpers");
 const router = express.Router();
@@ -25,6 +26,9 @@ async function getSettings() {
     higgsfieldApiKey: credential(values.higgsfield_api_key, process.env.HF_CREDENTIALS),
     higgsfieldMaxUsdPerGeneration: higgsfieldBilling.parseLimit(values.higgsfield_max_usd_per_generation),
     higgsfieldMonthlyBudgetUsd: higgsfieldBilling.parseLimit(values.higgsfield_monthly_budget_usd),
+    dreaminaCreditCeiling: dreamina.parseCredits(values.dreamina_credit_ceiling),
+    dreaminaImageCreditCeiling: dreamina.parseCredits(values.dreamina_image_credit_ceiling),
+    dreaminaMonthlyCreditBudget: dreamina.parseCredits(values.dreamina_monthly_credit_budget),
     geminiApiKey: credential(values.gemini_api_key, process.env.GEMINI_API_KEY),
     geminiModel: modelAllowed("gemini", process.env.GEMINI_IMAGE_MODEL || values.gemini_model) ? process.env.GEMINI_IMAGE_MODEL || values.gemini_model : registry.gemini.models[0].id,
     antigravityModel: modelAllowed("antigravity", process.env.ANTIGRAVITY_MODEL || values.antigravity_model) ? process.env.ANTIGRAVITY_MODEL || values.antigravity_model : registry.antigravity.models[0].id,
@@ -58,6 +62,12 @@ router.put("/", asyncHandler(async (req, res) => {
     if (raw && higgsfieldBilling.parseLimit(raw) == null) return res.status(400).json({ error: "Higgsfield spending limits must be a dollar amount of 0 or more." });
     body[field] = raw;
   }
+  for (const field of ["dreaminaCreditCeiling", "dreaminaImageCreditCeiling", "dreaminaMonthlyCreditBudget"]) {
+    if (!Object.prototype.hasOwnProperty.call(body, field)) continue;
+    const raw = body[field] == null ? "" : String(body[field]).trim();
+    if (raw && dreamina.parseCredits(raw) == null) return res.status(400).json({ error: "Dreamina credit limits must be a whole number of credits, 0 or more." });
+    body[field] = raw;
+  }
   if (Object.prototype.hasOwnProperty.call(body, "comfyEndpoint")) {
     try { body.comfyEndpoint = normalizeComfyEndpoint(body.comfyEndpoint, { allowRemote: process.env.COMFYUI_ALLOW_REMOTE === "true" }); }
     catch (error) { return res.status(400).json({ error: error.message }); }
@@ -79,6 +89,9 @@ router.put("/", asyncHandler(async (req, res) => {
     higgsfieldApiKey: "higgsfield_api_key",
     higgsfieldMaxUsdPerGeneration: "higgsfield_max_usd_per_generation",
     higgsfieldMonthlyBudgetUsd: "higgsfield_monthly_budget_usd",
+    dreaminaCreditCeiling: "dreamina_credit_ceiling",
+    dreaminaImageCreditCeiling: "dreamina_image_credit_ceiling",
+    dreaminaMonthlyCreditBudget: "dreamina_monthly_credit_budget",
     geminiApiKey: "gemini_api_key",
     geminiModel: "gemini_model",
     antigravityModel: "antigravity_model",
@@ -91,6 +104,7 @@ router.put("/", asyncHandler(async (req, res) => {
       await pool.query("INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [key, String(body[field] ?? "")]);
     }
   }
+  dreamina.clearReadiness();
   res.json(await getSettings());
 }));
 

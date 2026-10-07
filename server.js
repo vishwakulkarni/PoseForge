@@ -47,6 +47,7 @@ function createApplication(nextHandler) {
   app.use("/api/engines", require("./routes/engines"));
   app.use("/api/settings", require("./routes/settings"));
   app.use("/api/higgsfield", require("./routes/higgsfield"));
+  app.use("/api/dreamina", require("./routes/dreamina"));
   app.use("/api/generations", require("./routes/generations"));
   app.use("/api/pose-references", require("./routes/pose-references"));
   app.use("/api/recipes", require("./routes/recipes"));

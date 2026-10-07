@@ -34,6 +34,18 @@ test("sanitizer keeps known node types and drops unknown ones", () => {
   assert.equal(document.nodes[1].data.outputs, 2);
 });
 
+test("sanitizer keeps a media input's clip URL and file name only", () => {
+  const document = sanitizeAdvancedDocument({
+    schemaVersion: 2,
+    nodes: [
+      { id: "v", type: "videoInput", position: { x: 0, y: 0 }, data: { mediaUrl: "/storage/advanced/p/clip.mp4", fileName: "clip.mp4", extra: 1 } },
+      { id: "a", type: "audioInput", position: { x: 0, y: 0 }, data: {} },
+    ],
+    edges: [],
+  });
+  assert.deepEqual(document.nodes.map((node) => node.data), [{ mediaUrl: "/storage/advanced/p/clip.mp4", fileName: "clip.mp4" }, {}]);
+});
+
 test("sanitizer drops edges pointing at missing nodes and keeps typed edges", () => {
   const document = sanitizeAdvancedDocument({
     schemaVersion: 2,

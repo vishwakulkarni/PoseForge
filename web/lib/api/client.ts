@@ -1,5 +1,6 @@
 import type {
   AdvAssetUploadResponse,
+  AdvMediaUploadResponse,
   AdvDocument,
   AdvEngineCapability,
   AdvNodeRunResponse,
@@ -17,6 +18,8 @@ import type {
   GenerationAccepted,
   GenerationListResponse,
   GenerationStatus,
+  DreaminaLogin,
+  DreaminaStatus,
   HiggsfieldEstimate,
   HiggsfieldEstimateRequest,
   HiggsfieldStatus,
@@ -264,6 +267,14 @@ export const api = {
         body: form,
       });
     },
+    uploadMedia: (id: string, file: File) => {
+      const form = new FormData();
+      form.append('file', file);
+      return request<AdvMediaUploadResponse>(`/api/advanced-studio-projects/${id}/media`, {
+        method: 'POST',
+        body: form,
+      });
+    },
     runNode: (id: string, nodeId: string) =>
       request<AdvNodeRunResponse>(`/api/advanced-studio-projects/${id}/nodes/${nodeId}/run`, {
         method: 'POST',
@@ -285,6 +296,14 @@ export const api = {
       }),
     estimate: (input: HiggsfieldEstimateRequest) =>
       request<HiggsfieldEstimate>('/api/higgsfield/estimate', { method: 'POST', body: JSON.stringify(input) }),
+  },
+
+  dreamina: {
+    status: () => request<DreaminaStatus>('/api/dreamina/status'),
+    login: () => request<DreaminaLogin>('/api/dreamina/login', { method: 'POST' }),
+    loginWait: () => request<DreaminaLogin>('/api/dreamina/login/wait', { method: 'POST' }),
+    createCanvas: () =>
+      request<NonNullable<DreaminaStatus['canvas']>>('/api/dreamina/canvas', { method: 'POST' }),
   },
 
   passport: {

@@ -43,6 +43,7 @@ export const queryKeys = {
   recipes: ['recipes'] as const,
   settings: ['settings'] as const,
   higgsfieldStatus: ['higgsfield', 'status'] as const,
+  dreaminaStatus: ['dreamina', 'status'] as const,
   higgsfieldEstimate: (input: HiggsfieldEstimateRequest) => ['higgsfield', 'estimate', input] as const,
   metrics: (scope: MetricsScope) => ['metrics', scope] as const,
 };
@@ -439,6 +440,7 @@ export function useUpdateSettings() {
       client.invalidateQueries({ queryKey: queryKeys.engines });
       client.invalidateQueries({ queryKey: queryKeys.advancedCapabilities });
       client.invalidateQueries({ queryKey: ['higgsfield'] });
+      client.invalidateQueries({ queryKey: ['dreamina'] });
     },
   });
 }
@@ -451,6 +453,36 @@ export function useHiggsfieldStatus() {
 
 export function useVerifyHiggsfield() {
   return useMutation({ mutationFn: (credentials?: string) => api.higgsfield.verify(credentials) });
+}
+
+/* --------------------------------------------------------------- Dreamina */
+
+export function useDreaminaStatus() {
+  return useQuery({ queryKey: queryKeys.dreaminaStatus, queryFn: api.dreamina.status });
+}
+
+/** Sign-in and canvas creation both change engine readiness. */
+function useDreaminaMutation<T>(mutationFn: () => Promise<T>) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ['dreamina'] });
+      client.invalidateQueries({ queryKey: queryKeys.advancedCapabilities });
+    },
+  });
+}
+
+export function useDreaminaLogin() {
+  return useDreaminaMutation(api.dreamina.login);
+}
+
+export function useDreaminaLoginWait() {
+  return useDreaminaMutation(api.dreamina.loginWait);
+}
+
+export function useCreateDreaminaCanvas() {
+  return useDreaminaMutation(api.dreamina.createCanvas);
 }
 
 /* --------------------------------------------------------------- Passport */

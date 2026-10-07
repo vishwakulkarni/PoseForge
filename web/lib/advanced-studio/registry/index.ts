@@ -10,6 +10,7 @@
 import type { AdvDataType, AdvNodeCategory, AdvNodeDefinition, AdvNodeType } from '../types';
 import { textNodeDefinition } from './text-node';
 import { imageInputNodeDefinition } from './image-input-node';
+import { audioInputNodeDefinition, videoInputNodeDefinition } from './media-input-nodes';
 import { imageGeneratorNodeDefinition } from './image-generator-node';
 import { videoGeneratorNodeDefinition } from './video-generator-node';
 import { groupNodeDefinition } from './group-node';
@@ -21,6 +22,8 @@ type AdvNodeRegistry = { [K in AdvNodeType]: AdvNodeDefinition<K> };
 export const ADV_NODE_REGISTRY: AdvNodeRegistry = {
   text: textNodeDefinition,
   imageInput: imageInputNodeDefinition,
+  videoInput: videoInputNodeDefinition,
+  audioInput: audioInputNodeDefinition,
   imageGenerator: imageGeneratorNodeDefinition,
   videoGenerator: videoGeneratorNodeDefinition,
   group: groupNodeDefinition,
