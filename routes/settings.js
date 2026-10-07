@@ -1,6 +1,8 @@
 const express = require("express");
 const { pool } = require("../db/pool");
 const { registry } = require("../engines");
+const higgsfield = require("../engines/higgsfield/client");
+const higgsfieldBilling = require("../engines/higgsfield/billing");
 const { normalizeComfyEndpoint, validateWorkflowContract } = require("../lib/comfyWorkflow");
 const { asyncHandler } = require("./helpers");
 const router = express.Router();
@@ -20,6 +22,9 @@ async function getSettings() {
     openaiApiKey: credential(values.openai_api_key, process.env.OPENAI_API_KEY),
     replicateApiKey: credential(values.replicate_api_key, process.env.REPLICATE_API_TOKEN),
     falApiKey: credential(values.fal_api_key, process.env.FAL_KEY),
+    higgsfieldApiKey: credential(values.higgsfield_api_key, process.env.HF_CREDENTIALS),
+    higgsfieldMaxUsdPerGeneration: higgsfieldBilling.parseLimit(values.higgsfield_max_usd_per_generation),
+    higgsfieldMonthlyBudgetUsd: higgsfieldBilling.parseLimit(values.higgsfield_monthly_budget_usd),
     geminiApiKey: credential(values.gemini_api_key, process.env.GEMINI_API_KEY),
     geminiModel: modelAllowed("gemini", process.env.GEMINI_IMAGE_MODEL || values.gemini_model) ? process.env.GEMINI_IMAGE_MODEL || values.gemini_model : registry.gemini.models[0].id,
     antigravityModel: modelAllowed("antigravity", process.env.ANTIGRAVITY_MODEL || values.antigravity_model) ? process.env.ANTIGRAVITY_MODEL || values.antigravity_model : registry.antigravity.models[0].id,
@@ -41,6 +46,18 @@ router.put("/", asyncHandler(async (req, res) => {
   if (Object.prototype.hasOwnProperty.call(body, "geminiModel") && !modelAllowed("gemini", body.geminiModel)) return res.status(400).json({ error: "Unknown Gemini image model." });
   if (Object.prototype.hasOwnProperty.call(body, "antigravityModel") && !modelAllowed("antigravity", body.antigravityModel)) return res.status(400).json({ error: "Unknown Antigravity model." });
   if (Object.prototype.hasOwnProperty.call(body, "comfyModel") && !modelAllowed("comfy", body.comfyModel)) return res.status(400).json({ error: "Unknown ComfyUI model profile." });
+  if (Object.prototype.hasOwnProperty.call(body, "higgsfieldApiKey")) {
+    body.higgsfieldApiKey = String(body.higgsfieldApiKey || "").trim();
+    if (body.higgsfieldApiKey && !higgsfield.validCredentials(body.higgsfieldApiKey)) {
+      return res.status(400).json({ error: "Higgsfield credentials must be in key-id:key-secret format." });
+    }
+  }
+  for (const field of ["higgsfieldMaxUsdPerGeneration", "higgsfieldMonthlyBudgetUsd"]) {
+    if (!Object.prototype.hasOwnProperty.call(body, field)) continue;
+    const raw = body[field] == null ? "" : String(body[field]).trim();
+    if (raw && higgsfieldBilling.parseLimit(raw) == null) return res.status(400).json({ error: "Higgsfield spending limits must be a dollar amount of 0 or more." });
+    body[field] = raw;
+  }
   if (Object.prototype.hasOwnProperty.call(body, "comfyEndpoint")) {
     try { body.comfyEndpoint = normalizeComfyEndpoint(body.comfyEndpoint, { allowRemote: process.env.COMFYUI_ALLOW_REMOTE === "true" }); }
     catch (error) { return res.status(400).json({ error: error.message }); }
@@ -59,6 +76,9 @@ router.put("/", asyncHandler(async (req, res) => {
     openaiApiKey: "openai_api_key",
     replicateApiKey: "replicate_api_key",
     falApiKey: "fal_api_key",
+    higgsfieldApiKey: "higgsfield_api_key",
+    higgsfieldMaxUsdPerGeneration: "higgsfield_max_usd_per_generation",
+    higgsfieldMonthlyBudgetUsd: "higgsfield_monthly_budget_usd",
     geminiApiKey: "gemini_api_key",
     geminiModel: "gemini_model",
     antigravityModel: "antigravity_model",

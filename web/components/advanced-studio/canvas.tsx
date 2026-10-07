@@ -39,7 +39,7 @@ import type {
   AdvNodeType,
   AdvProject,
 } from '@/lib/advanced-studio/types';
-import type { CharacterSummary } from '@/lib/api/types';
+import type { CharacterSummary, HiggsfieldEstimate, HiggsfieldEstimateRequest } from '@/lib/api/types';
 import { AdvNodeActionsContext, type AdvNodeActions } from './node-context';
 import { AdvNodeShell } from './node-shell';
 import { AddNodeMenu } from './add-node-menu';
@@ -69,6 +69,7 @@ interface CanvasProps {
   onSave: (document: ReturnType<typeof flowToDocument>, name?: string) => void;
   onRetry: () => void;
   onRunNode: (nodeId: string) => Promise<AdvProject | null>;
+  onEstimateCost?: (request: HiggsfieldEstimateRequest) => Promise<HiggsfieldEstimate | null>;
 }
 
 interface HistoryEntry {
@@ -76,7 +77,11 @@ interface HistoryEntry {
   edges: AdvFlowEdge[];
 }
 
-function AdvCanvasInner({ project, capabilities, characters = [], saveState, onSave, onRetry, onRunNode }: CanvasProps) {
+const noEstimate = async () => null;
+
+function AdvCanvasInner({
+  project, capabilities, characters = [], saveState, onSave, onRetry, onRunNode, onEstimateCost = noEstimate,
+}: CanvasProps) {
   const flow = useReactFlow<AdvFlowNode, AdvFlowEdge>();
   const { resolvedTheme } = useTheme();
   const toast = useToast();
@@ -641,9 +646,10 @@ function AdvCanvasInner({ project, capabilities, characters = [], saveState, onS
     clearImage,
     openPreview: (url, mediaKind = 'image') => setPreview({ url, mediaKind }),
     resolveInputsFor,
+    estimateCost: onEstimateCost,
   }), [
     capabilities, capabilityMap, characters, clearImage, connectionCountFor, disconnectNode, duplicateNode, generate, locked,
-    project.id, pushHistory, removeNode, renameNode, resizeNode, resolveInputsFor, runningNodeIds, selectCharacter,
+    onEstimateCost, project.id, pushHistory, removeNode, renameNode, resizeNode, resolveInputsFor, runningNodeIds, selectCharacter,
     toggleImageFit, toggleNodeCollapse, updateNodeData, uploadImage,
   ]);
 

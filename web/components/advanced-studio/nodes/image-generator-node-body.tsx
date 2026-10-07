@@ -15,6 +15,7 @@ import {
 import type { AdvEngineCapability, AdvImageGeneratorNodeData } from '@/lib/advanced-studio/types';
 import type { AdvNodeBodyProps } from '../node-context';
 import { PillMenu, type PillOption } from '../pill-menu';
+import { HIGGSFIELD_ENGINES, HiggsfieldCostHint, useHiggsfieldCost } from './higgsfield-cost';
 import { cn } from '@/lib/utils';
 
 /**
@@ -82,7 +83,24 @@ export const ImageGeneratorNodeBody = React.memo(function ImageGeneratorNodeBody
   };
 
   const missingPrompt = !resolved.prompt.trim();
-  const blockedReason = blockingReason(data, capability, resolved.imageUrls.length, missingPrompt);
+  const inputReason = blockingReason(data, capability, resolved.imageUrls.length, missingPrompt);
+  const resolution = capability?.image.resolutions.find(
+    (entry) => entry.id === (data.resolution ?? capability.image.defaultResolution),
+  );
+  const cost = useHiggsfieldCost(
+    actions.estimateCost,
+    !inputReason && capability && HIGGSFIELD_ENGINES.has(capability.key)
+      ? {
+          engine: 'higgsfield',
+          model: data.model ?? capability.models[0]?.id ?? '',
+          aspectRatio: data.aspectRatio ?? capability.image.defaultAspectRatio,
+          quality: resolution?.quality,
+          referenceCount: resolved.imageUrls.length,
+        }
+      : null,
+    data.outputs ?? 1,
+  );
+  const blockedReason = inputReason ?? cost.blockedReason;
 
   return (
     <div className="adv-node-body adv-generator-body">
@@ -203,6 +221,7 @@ export const ImageGeneratorNodeBody = React.memo(function ImageGeneratorNodeBody
       </div>
 
       {blockedReason ? <p className="adv-inline-error" role="status">{blockedReason}</p> : null}
+      <HiggsfieldCostHint hint={cost.hint} />
 
       <div className="adv-generator-footer nodrag nopan">
         <span className="adv-icon-row">

@@ -24,7 +24,7 @@ test("Codex advertises the app's core aspect ratios", () => {
 });
 
 test("every engine with an image capability entry implements generateFreeform", () => {
-  const { registry } = require("../engines");
+  const { advancedRegistry: registry } = require("../engines");
   for (const key of Object.keys(IMAGE_CAPABILITIES)) {
     const engine = registry[key];
     assert.ok(engine, `${key} must exist in the engine registry`);

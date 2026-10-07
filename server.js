@@ -6,7 +6,8 @@ if (DEV_MODE) {
   process.env.NODE_ENV ||= "production";
 }
 
-require("dotenv").config({ quiet: true });
+// .env.local holds machine-specific secrets (git-ignored) and wins over .env.
+require("dotenv").config({ path: [".env.local", ".env"], quiet: true });
 const express = require("express");
 const http = require("http");
 const multer = require("multer");
@@ -45,6 +46,7 @@ function createApplication(nextHandler) {
   app.use("/api/presets", require("./routes/presets"));
   app.use("/api/engines", require("./routes/engines"));
   app.use("/api/settings", require("./routes/settings"));
+  app.use("/api/higgsfield", require("./routes/higgsfield"));
   app.use("/api/generations", require("./routes/generations"));
   app.use("/api/pose-references", require("./routes/pose-references"));
   app.use("/api/recipes", require("./routes/recipes"));

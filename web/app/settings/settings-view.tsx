@@ -1,9 +1,15 @@
 'use client';
 
 import * as React from 'react';
-import { CheckCircle2, Lock, Save, XCircle } from 'lucide-react';
-import { useEngines, useSettings, useUpdateSettings } from '@/lib/api/hooks';
-import type { Credential } from '@/lib/api/types';
+import { CheckCircle2, ExternalLink, Lock, PlugZap, Save, XCircle } from 'lucide-react';
+import {
+  useEngines,
+  useHiggsfieldStatus,
+  useSettings,
+  useUpdateSettings,
+  useVerifyHiggsfield,
+} from '@/lib/api/hooks';
+import type { Credential, HiggsfieldVerifyResult, Settings } from '@/lib/api/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, PanelTitle } from '@/components/ui/card';
@@ -124,6 +130,160 @@ function CredentialField({
         placeholder={locked ? 'Managed by environment' : credential.configured ? '••••••••' : 'Paste key'}
       />
     </Field>
+  );
+}
+
+const NO_CREDENTIAL: Credential = { configured: false, masked: null, source: null };
+
+const usd = (amount: number) => `$${amount.toFixed(2)}`;
+
+/**
+ * Higgsfield connection and spend controls. Higgsfield has no balance API, so
+ * balance and top-ups stay on its console; PoseForge prices each request
+ * before submitting it and enforces these limits on that price.
+ */
+function HiggsfieldCard({
+  settings,
+  draft,
+  set,
+}: {
+  settings: Settings;
+  draft: Record<string, string>;
+  set: (key: string, value: string) => void;
+}) {
+  const { data: status, isError: statusFailed } = useHiggsfieldStatus();
+  const verify = useVerifyHiggsfield();
+  const [result, setResult] = React.useState<HiggsfieldVerifyResult | null>(null);
+  const typed = draft.higgsfieldApiKey?.trim() ?? '';
+  // An API server older than this page omits the field; treat it as unset
+  // rather than crashing the whole Settings page.
+  const credential = settings.higgsfieldApiKey ?? NO_CREDENTIAL;
+  const canVerify = Boolean(typed) || credential.configured;
+
+  const test = async () => {
+    setResult(null);
+    try {
+      setResult(await verify.mutateAsync(typed || undefined));
+    } catch (cause) {
+      setResult({ ok: false, message: cause instanceof Error ? cause.message : 'Could not reach PoseForge.' });
+    }
+  };
+
+  const limit = (key: 'higgsfieldMaxUsdPerGeneration' | 'higgsfieldMonthlyBudgetUsd') =>
+    draft[key] ?? (settings[key] == null ? '' : String(settings[key]));
+  const budget = status?.limits.monthlyBudgetUsd;
+
+  return (
+    <Card>
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <PanelTitle className="mb-0">Higgsfield</PanelTitle>
+        {status ? (
+          <Badge variant={status.ready ? 'ok' : 'neutral'} dot>
+            {status.ready ? 'Ready' : 'Not configured'}
+          </Badge>
+        ) : null}
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="flex flex-col gap-3">
+          <CredentialField
+            id="higgsfield-key"
+            label="API key (key-id:key-secret)"
+            credential={credential}
+            value={draft.higgsfieldApiKey ?? ''}
+            onChange={(next) => {
+              setResult(null);
+              set('higgsfieldApiKey', next);
+            }}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant="secondary" size="sm" onClick={test} loading={verify.isPending} disabled={!canVerify}>
+              <PlugZap />
+              Test connection
+            </Button>
+            {result ? (
+              <span
+                role="status"
+                className={`text-[11px] ${result.ok ? 'text-[var(--pf-success)]' : 'text-[var(--pf-error)]'}`}
+              >
+                {result.message}
+              </span>
+            ) : null}
+          </div>
+          <p className="text-[11px] leading-relaxed text-[var(--pf-text-tertiary)]">
+            Create a key at the Higgsfield console. Powers the Higgsfield image and video generators in Advanced
+            Studio. Testing uses Higgsfield&apos;s free price estimate and spends no credits.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field
+              label="Max per generation (USD)"
+              htmlFor="higgsfield-max-per-generation"
+              help="Refuse any single run priced above this."
+            >
+              <Input
+                id="higgsfield-max-per-generation"
+                type="number"
+                min={0}
+                step="0.01"
+                inputMode="decimal"
+                placeholder="No limit"
+                value={limit('higgsfieldMaxUsdPerGeneration')}
+                onChange={(event) => set('higgsfieldMaxUsdPerGeneration', event.target.value)}
+              />
+            </Field>
+            <Field
+              label="Monthly budget (USD)"
+              htmlFor="higgsfield-monthly-budget"
+              help="Refuse runs that would exceed it this month."
+            >
+              <Input
+                id="higgsfield-monthly-budget"
+                type="number"
+                min={0}
+                step="0.01"
+                inputMode="decimal"
+                placeholder="No limit"
+                value={limit('higgsfieldMonthlyBudgetUsd')}
+                onChange={(event) => set('higgsfieldMonthlyBudgetUsd', event.target.value)}
+              />
+            </Field>
+          </div>
+          <div className="rounded-[12px] border border-[var(--pf-border)] bg-[var(--pf-surface-muted)] p-3">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--pf-text-tertiary)]">
+              This month in PoseForge
+            </p>
+            <p className="mt-1 text-[18px] font-bold tabular-nums">
+              {status ? usd(status.monthToDate.usd) : '—'}
+              {budget != null ? (
+                <span className="text-[12px] font-medium text-[var(--pf-text-tertiary)]"> of {usd(budget)}</span>
+              ) : null}
+            </p>
+            <p className="text-[11px] text-[var(--pf-text-tertiary)]">
+              {status
+                ? `${status.monthToDate.credits.toLocaleString()} credits · ${status.monthToDate.runs} ${status.monthToDate.runs === 1 ? 'run' : 'runs'}`
+                : statusFailed
+                  ? 'Spend unavailable — restart the PoseForge server to load the Higgsfield API.'
+                  : 'Loading…'}
+            </p>
+            <p className="mt-2 text-[10px] leading-relaxed text-[var(--pf-text-tertiary)]">
+              Estimated from Higgsfield quotes. Failed, moderated and canceled runs are not charged and count as $0.
+              Your balance and invoices live on the console.
+            </p>
+            <a
+              href={status?.consoleUrl ?? 'https://console.higgsfield.ai'}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-[var(--pf-accent)] underline underline-offset-2"
+            >
+              Balance and top-up
+              <ExternalLink className="size-3" />
+            </a>
+          </div>
+        </div>
+      </div>
+    </Card>
   );
 }
 
@@ -397,6 +557,8 @@ export function SettingsView() {
           </div>
         </Card>
       </div>
+
+      <HiggsfieldCard settings={settings} draft={draft} set={set} />
 
       {/* Sticky action bar so Save is always reachable on long forms. */}
       <div className="sticky bottom-4 z-10 flex items-center justify-between gap-3 rounded-[16px] border border-[var(--pf-border)] bg-[color-mix(in_srgb,var(--pf-surface)_92%,transparent)] p-3 backdrop-blur-[12px] shadow-[var(--pf-shadow-md)]">

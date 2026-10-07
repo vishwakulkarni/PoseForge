@@ -13,6 +13,7 @@ import type {
   EngineKey,
   Generation,
   GenerationStatus,
+  HiggsfieldEstimateRequest,
   MetricsScope,
   Preset,
   StudioProjectSummary,
@@ -41,6 +42,8 @@ export const queryKeys = {
   advancedCapabilities: ['advanced-studio-capabilities'] as const,
   recipes: ['recipes'] as const,
   settings: ['settings'] as const,
+  higgsfieldStatus: ['higgsfield', 'status'] as const,
+  higgsfieldEstimate: (input: HiggsfieldEstimateRequest) => ['higgsfield', 'estimate', input] as const,
   metrics: (scope: MetricsScope) => ['metrics', scope] as const,
 };
 
@@ -434,8 +437,20 @@ export function useUpdateSettings() {
       client.setQueryData(queryKeys.settings, settings);
       // Changing keys/endpoints can flip an engine's readiness.
       client.invalidateQueries({ queryKey: queryKeys.engines });
+      client.invalidateQueries({ queryKey: queryKeys.advancedCapabilities });
+      client.invalidateQueries({ queryKey: ['higgsfield'] });
     },
   });
+}
+
+/* ------------------------------------------------------------- Higgsfield */
+
+export function useHiggsfieldStatus() {
+  return useQuery({ queryKey: queryKeys.higgsfieldStatus, queryFn: api.higgsfield.status });
+}
+
+export function useVerifyHiggsfield() {
+  return useMutation({ mutationFn: (credentials?: string) => api.higgsfield.verify(credentials) });
 }
 
 /* --------------------------------------------------------------- Passport */

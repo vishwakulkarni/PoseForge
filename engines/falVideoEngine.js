@@ -155,6 +155,7 @@ async function generateVideo({
 module.exports = {
   key: "fal-video",
   label: "fal.ai Video",
+  credentialSetting: "fal_api_key",
   models: VIDEO_MODELS.map(({ id, label, note }) => ({ id, label, note })),
   videoModels: VIDEO_MODELS,
   capabilities: { video: true, local: false },

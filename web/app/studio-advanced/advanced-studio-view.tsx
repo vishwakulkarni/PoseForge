@@ -2,8 +2,10 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api/client';
-import { useAdvancedCapabilities, useCharacters } from '@/lib/api/hooks';
+import { queryKeys, useAdvancedCapabilities, useCharacters } from '@/lib/api/hooks';
+import type { HiggsfieldEstimateRequest } from '@/lib/api/types';
 import { useAdvancedWorkspace } from '@/lib/advanced-studio/use-advanced-workspace';
 import type { AdvDocument, AdvProject } from '@/lib/advanced-studio/types';
 import { AdvCanvas } from '@/components/advanced-studio/canvas';
@@ -39,6 +41,15 @@ export function AdvancedStudioView({ projectId }: { projectId: string }) {
     return response.project;
   }, [adoptProject, flushNow, projectId]);
 
+  const queryClient = useQueryClient();
+  // Cached so re-rendering a node, or flipping back to an earlier setting,
+  // does not ask Higgsfield again.
+  const estimateCost = React.useCallback((request: HiggsfieldEstimateRequest) => queryClient.fetchQuery({
+    queryKey: queryKeys.higgsfieldEstimate(request),
+    queryFn: () => api.higgsfield.estimate(request),
+    staleTime: 5 * 60_000,
+  }), [queryClient]);
+
   const save = React.useCallback((document: AdvDocument, name?: string) => {
     saveDocument(document, name);
   }, [saveDocument]);
@@ -70,6 +81,7 @@ export function AdvancedStudioView({ projectId }: { projectId: string }) {
       onSave={save}
       onRetry={() => { void retry(); }}
       onRunNode={runNode}
+      onEstimateCost={estimateCost}
     />
   );
 }

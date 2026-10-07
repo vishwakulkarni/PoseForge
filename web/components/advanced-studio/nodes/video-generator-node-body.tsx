@@ -6,6 +6,7 @@ import type { AdvVideoGeneratorNodeData } from '@/lib/advanced-studio/types';
 import { coerceVideoSettings, selectedVideoModel } from '@/lib/advanced-studio/registry/video-generator-node';
 import type { AdvNodeBodyProps } from '../node-context';
 import { PillMenu, type PillOption } from '../pill-menu';
+import { HIGGSFIELD_ENGINES, HiggsfieldCostHint, useHiggsfieldCost } from './higgsfield-cost';
 import { cn } from '@/lib/utils';
 
 export const VideoGeneratorNodeBody = React.memo(function VideoGeneratorNodeBody({
@@ -51,14 +52,33 @@ export const VideoGeneratorNodeBody = React.memo(function VideoGeneratorNodeBody
     });
   };
 
-  const blockedReason = (() => {
+  const inputReason = (() => {
     if (!data.engine || !data.model) return 'Choose a video model to enable generation.';
     if (!capability || !capability.video.supported || !model) return 'That video model is no longer available.';
-    if (!capability.ready) return capability.reason ?? 'Add a fal.ai key in Settings to generate video.';
+    if (!capability.ready) return capability.reason ?? `Set up ${capability.label} in Settings to generate video.`;
     if (!resolved.prompt.trim()) return 'Connect a prompt with some text.';
     if (model.inputs.includes('startFrame') && resolved.startFrameUrls.length === 0) return 'Connect a start frame for this model.';
+    if (model.inputs.includes('reference') && resolved.referenceImageUrls.length === 0) return 'Connect a reference image for this model.';
     return null;
   })();
+
+  const cost = useHiggsfieldCost(
+    actions.estimateCost,
+    !inputReason && model && HIGGSFIELD_ENGINES.has(data.engine ?? '')
+      ? {
+          engine: 'higgsfield-video',
+          model: model.id,
+          duration: data.duration ?? model.defaultDuration,
+          aspectRatio: data.aspectRatio ?? model.defaultAspectRatio,
+          resolution: data.resolution ?? model.defaultResolution,
+          sound: model.sound && data.sound === true,
+          hasStartFrame: resolved.startFrameUrls.length > 0,
+          hasEndFrame: resolved.endFrameUrls.length > 0,
+          referenceCount: resolved.referenceImageUrls.length,
+        }
+      : null,
+  );
+  const blockedReason = inputReason ?? cost.blockedReason;
 
   return (
     <div className="adv-node-body adv-generator-body">
@@ -133,6 +153,7 @@ export const VideoGeneratorNodeBody = React.memo(function VideoGeneratorNodeBody
       </div>
 
       {blockedReason ? <p className="adv-inline-error" role="status">{blockedReason}</p> : null}
+      <HiggsfieldCostHint hint={cost.hint} />
       <div className="adv-generator-footer nodrag nopan">
         <span className="adv-icon-row">
           {active?.videoUrl ? (

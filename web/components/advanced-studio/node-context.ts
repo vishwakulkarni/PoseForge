@@ -7,7 +7,7 @@ import type {
   AdvNodeType,
   AdvResolvedInputs,
 } from '@/lib/advanced-studio/types';
-import type { CharacterSummary } from '@/lib/api/types';
+import type { CharacterSummary, HiggsfieldEstimate, HiggsfieldEstimateRequest } from '@/lib/api/types';
 
 /**
  * Everything a node body can do, injected once by the canvas.
@@ -38,6 +38,9 @@ export interface AdvNodeActions {
   clearImage: (id: string) => void;
   openPreview: (url: string, mediaKind?: 'image' | 'video') => void;
   resolveInputsFor: (id: string) => AdvResolvedInputs;
+  /** Free pre-run price for a Higgsfield node; resolves null when the host
+   * does not provide pricing. */
+  estimateCost: (request: HiggsfieldEstimateRequest) => Promise<HiggsfieldEstimate | null>;
 }
 
 const noop = () => {};
@@ -65,6 +68,7 @@ export const AdvNodeActionsContext = React.createContext<AdvNodeActions>({
   clearImage: noop,
   openPreview: noop,
   resolveInputsFor: () => ({ prompt: '', imageUrls: [], startFrameUrls: [], endFrameUrls: [], referenceImageUrls: [], videoUrls: [], audioUrls: [] }),
+  estimateCost: async () => null,
 });
 
 export function useAdvNodeActions() {

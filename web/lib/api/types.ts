@@ -290,6 +290,10 @@ export interface Settings {
   openaiApiKey: Credential;
   replicateApiKey: Credential;
   falApiKey: Credential;
+  higgsfieldApiKey: Credential;
+  /** Dollar limits; null means no limit. */
+  higgsfieldMaxUsdPerGeneration: number | null;
+  higgsfieldMonthlyBudgetUsd: number | null;
   geminiApiKey: Credential;
   geminiModel: string;
   antigravityModel: string;
@@ -461,4 +465,44 @@ export interface MetricsResponse {
     mostUsedCharacter: { id: string; name: string; runs: number } | null;
     mostUsedPose: { id: string; title: string | null; runs: number } | null;
   };
+}
+
+/* -------------------------------------------------------------- Higgsfield */
+
+export interface HiggsfieldStatus {
+  ready: boolean;
+  reason?: string;
+  limits: { maxUsdPerGeneration: number | null; monthlyBudgetUsd: number | null };
+  /** Spend recorded on this month's Higgsfield generations; refunded
+   * failures count as zero. */
+  monthToDate: { usd: number; credits: number; runs: number };
+  consoleUrl: string;
+}
+
+export interface HiggsfieldVerifyResult {
+  ok: boolean;
+  code?: string;
+  message: string;
+}
+
+export interface HiggsfieldEstimateRequest {
+  engine: 'higgsfield' | 'higgsfield-video';
+  model: string;
+  duration?: number;
+  aspectRatio?: string;
+  resolution?: string;
+  quality?: string;
+  sound?: boolean;
+  hasStartFrame?: boolean;
+  hasEndFrame?: boolean;
+  referenceCount?: number;
+}
+
+export interface HiggsfieldEstimate {
+  estimatedCostUsd: number | null;
+  estimatedCredits: number | null;
+  pricingSource: 'higgsfield-estimate' | 'published-rate' | 'unavailable';
+  pricingNote: string;
+  /** Set when the user's spending limits would refuse this request. */
+  blockedReason: string | null;
 }

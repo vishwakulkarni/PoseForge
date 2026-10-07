@@ -17,6 +17,10 @@ import type {
   GenerationAccepted,
   GenerationListResponse,
   GenerationStatus,
+  HiggsfieldEstimate,
+  HiggsfieldEstimateRequest,
+  HiggsfieldStatus,
+  HiggsfieldVerifyResult,
   MetricsResponse,
   MetricsScope,
   PassportAccepted,
@@ -270,6 +274,17 @@ export const api = {
     get: () => request<Settings>('/api/settings'),
     update: (patch: Record<string, unknown>) =>
       request<Settings>('/api/settings', { method: 'PUT', body: JSON.stringify(patch) }),
+  },
+
+  higgsfield: {
+    status: () => request<HiggsfieldStatus>('/api/higgsfield/status'),
+    verify: (credentials?: string) =>
+      request<HiggsfieldVerifyResult>('/api/higgsfield/verify', {
+        method: 'POST',
+        body: JSON.stringify({ credentials }),
+      }),
+    estimate: (input: HiggsfieldEstimateRequest) =>
+      request<HiggsfieldEstimate>('/api/higgsfield/estimate', { method: 'POST', body: JSON.stringify(input) }),
   },
 
   passport: {
