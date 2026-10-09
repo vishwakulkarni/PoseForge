@@ -114,11 +114,11 @@ test('theme toggle switches and survives a reload', async ({ page }) => {
   await page.goto('/');
 
   const html = page.locator('html');
+  await expect(html).toHaveClass(/dark/);
+
+  await page.getByRole('button', { name: /switch to light theme/i }).click();
   await expect(html).not.toHaveClass(/dark/);
 
-  await page.getByRole('button', { name: /switch to dark theme/i }).click();
-  await expect(html).toHaveClass(/dark/);
-
   await page.reload();
-  await expect(html).toHaveClass(/dark/);
+  await expect(html).not.toHaveClass(/dark/);
 });

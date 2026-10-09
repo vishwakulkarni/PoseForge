@@ -187,7 +187,7 @@ export function SiteFooter() {
     <footer className="mt-24 border-t border-[var(--pf-border)] py-7 text-[11px] text-[var(--pf-text-tertiary)]">
       <div className="pf-container flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <p>PoseForge — your local-first home photo studio.</p>
-        <p>Light by default · Dark when you want it · Apache 2.0</p>
+        <p>Dark by default · Light when you want it · Apache 2.0</p>
       </div>
     </footer>
   );

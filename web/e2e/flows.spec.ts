@@ -214,13 +214,6 @@ test.describe('studio', () => {
     const node = page.locator('.poseforge-node-character').first();
     const controls = page.locator('.poseforge-controls');
 
-    await expect(canvas).toHaveCSS('background-color', 'rgb(248, 250, 252)');
-    await expect(node).toHaveCSS('background-color', 'rgb(255, 255, 255)');
-    await expect(controls).toHaveCSS('background-color', 'rgb(255, 255, 255)');
-    await expect(flow).toHaveClass(/light/);
-
-    await page.getByRole('button', { name: 'Switch to dark theme' }).click();
-
     await expect(page.locator('html')).toHaveClass(/dark/);
     await expect(canvas).toHaveCSS('background-color', 'rgb(20, 16, 24)');
     await expect(node).toHaveCSS('background-color', 'rgb(28, 23, 33)');
@@ -230,6 +223,14 @@ test.describe('studio', () => {
       'rgb(155, 148, 255)',
     );
     await expect(flow).toHaveClass(/dark/);
+
+    await page.getByRole('button', { name: 'Switch to light theme' }).click();
+
+    await expect(page.locator('html')).not.toHaveClass(/dark/);
+    await expect(canvas).toHaveCSS('background-color', 'rgb(248, 250, 252)');
+    await expect(node).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+    await expect(controls).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+    await expect(flow).toHaveClass(/light/);
   });
 
   test('drags, populates, inspects, and configures image blocks at a saved zoom', async ({ page }, testInfo) => {
