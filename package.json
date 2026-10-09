@@ -44,6 +44,7 @@
     "launch:score": "node scripts/score-launch-readiness.js",
     "demo:identity": "node scripts/build-identity-demo.js",
     "generate:mascot": "node scripts/generate-mascot.js",
+    "higgsfield:example": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON index.ts",
     "test": "node --require ./tests/test-env.js --test tests/*.test.js",
     "test:web": "npm --prefix web test",
     "test:e2e": "npm --prefix web run test:e2e",
@@ -53,6 +54,7 @@
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",
     "@fal-ai/client": "^1.10.1",
+    "@higgsfield/client": "^0.2.6",
     "dotenv": "^17.4.2",
     "express": "^4.19.2",
     "heic-convert": "^2.1.0",
