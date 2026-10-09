@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { CheckCircle2, ExternalLink, Lock, PlugZap, Save, XCircle } from 'lucide-react';
+import { ChevronDown, ExternalLink, KeyRound, Lock, PlugZap, Save, Server, Terminal, type LucideIcon } from 'lucide-react';
 import {
   useCreateDreaminaCanvas,
   useDreaminaLogin,
@@ -13,10 +13,10 @@ import {
   useUpdateSettings,
   useVerifyHiggsfield,
 } from '@/lib/api/hooks';
-import type { Credential, DreaminaLogin, HiggsfieldVerifyResult, Settings } from '@/lib/api/types';
+import type { Credential, DreaminaLogin, DreaminaStatus, HiggsfieldVerifyResult, Settings } from '@/lib/api/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, PanelTitle } from '@/components/ui/card';
+import { Card, CardDescription, CardTitle } from '@/components/ui/card';
 import { Field, Input, Textarea } from '@/components/ui/field';
 import {
   Select,
@@ -27,48 +27,95 @@ import {
 } from '@/components/ui/select';
 import { ErrorState, Skeleton } from '@/components/ui/feedback';
 import { useToast } from '@/components/ui/toast';
+import { cn } from '@/lib/utils';
 
-const ENGINE_SETUP_LINKS: Record<string, { label: string; href: string }> = {
-  codex: { label: 'Install Codex CLI', href: 'https://github.com/openai/codex' },
-  antigravity: { label: 'Install Antigravity CLI', href: 'https://antigravity.google/docs/cli/install/' },
+interface SetupGuideContent {
+  steps: React.ReactNode[];
+  links: { label: string; href: string }[];
+}
+
+const code = (text: string) => <code className="rounded bg-[var(--pf-surface)] px-1 font-mono text-[10.5px]">{text}</code>;
+
+const SETUP_GUIDES: Record<string, SetupGuideContent> = {
+  codex: {
+    steps: [
+      <>Install the Codex CLI, then run {code('codex login')} and complete the sign-in flow.</>,
+      <>Open a new terminal (or run {code('source ~/.zshrc')}) so the CLI is on PATH.</>,
+      <>Restart the PoseForge server ({code('npm run dev')} or {code('npm start')}).</>,
+    ],
+    links: [{ label: 'Install Codex CLI', href: 'https://github.com/openai/codex' }],
+  },
+  antigravity: {
+    steps: [
+      <>Install the Antigravity CLI, then run {code('agy install')} to add it to your shell PATH.</>,
+      <>Run {code('agy')} once to complete interactive sign-in.</>,
+      <>Open a new terminal (or run {code('source ~/.zshrc')}) so the CLI is on PATH.</>,
+      <>Restart the PoseForge server ({code('npm run dev')} or {code('npm start')}).</>,
+    ],
+    links: [{ label: 'Install Antigravity CLI', href: 'https://antigravity.google/docs/cli/install/' }],
+  },
+  dreamina: {
+    steps: [
+      <>Install the Dreamina Canvas CLI: {code('curl -fsSL https://dreamina.capcut.com/canvas-cli/install.sh | bash')}</>,
+      <>Restart the PoseForge server so it finds {code('dreamina-canvas')} on PATH.</>,
+      <>Click <strong>Sign in</strong> below and enter the code on Dreamina&apos;s page (or run {code('dreamina-canvas auth login')} in a terminal).</>,
+      <>Click <strong>Create canvas</strong>. This makes the one canvas PoseForge runs on and spends no credits.</>,
+      <>Set a credit limit per image and/or per video, then <strong>Save settings</strong>. Image and video models stay off until their limit is set.</>,
+    ],
+    links: [
+      { label: 'Dreamina Canvas CLI', href: 'https://dreamina.capcut.com/canvas-cli' },
+      { label: 'Dreamina', href: 'https://dreamina.capcut.com' },
+    ],
+  },
+  higgsfield: {
+    steps: [
+      <>Sign in to the Higgsfield console and create an API key. Copy both the key ID and the secret.</>,
+      <>Paste it below as {code('key-id:key-secret')}, or set {code('HF_CREDENTIALS')} in {code('.env.local')} and restart PoseForge.</>,
+      <>Click <strong>Test connection</strong>. It uses a free price estimate and spends no credits.</>,
+      <>Optionally set a max per generation and a monthly budget, then <strong>Save settings</strong>.</>,
+    ],
+    links: [
+      { label: 'Higgsfield console', href: 'https://console.higgsfield.ai' },
+      { label: 'API docs', href: 'https://docs.higgsfield.ai' },
+    ],
+  },
 };
 
-const ENGINE_SETUP_STEPS: Record<string, string[]> = {
-  codex: [
-    'Install the Codex CLI, then run `codex login` and complete the sign-in flow.',
-    'Open a new terminal (or run `source ~/.zshrc` / `source ~/.bashrc`) so the CLI is on PATH.',
-    'Restart the PoseForge server (`npm run dev` or `npm start`).',
-  ],
-  antigravity: [
-    'Install the Antigravity CLI, then run `agy install` to add it to your shell PATH.',
-    'Run `agy` once to complete interactive sign-in.',
-    'Open a new terminal (or run `source ~/.zshrc` / `source ~/.bashrc`) so the CLI is on PATH.',
-    'Restart the PoseForge server (`npm run dev` or `npm start`).',
-  ],
-};
-
-function EngineSetupHelp({ engineKey }: { engineKey: string }) {
-  const steps = ENGINE_SETUP_STEPS[engineKey];
-  const link = ENGINE_SETUP_LINKS[engineKey];
-  if (!steps) return null;
+/** Numbered setup steps for a provider. Open while the provider is not ready,
+ * collapsed (but still one click away) once it is. */
+function SetupGuide({ provider, ready }: { provider: keyof typeof SETUP_GUIDES; ready: boolean | undefined }) {
+  const guide = SETUP_GUIDES[provider];
   return (
-    <div className="mt-1.5 border-t border-[var(--pf-border)] pt-1.5">
-      <ol className="list-decimal space-y-0.5 pl-3.5 text-[10px] leading-relaxed text-[var(--pf-text-tertiary)]">
-        {steps.map((step) => (
-          <li key={step}>{step}</li>
+    <details
+      // Re-mount when readiness resolves so the default open state follows it.
+      key={String(ready)}
+      open={ready === false}
+      className="group rounded-[12px] border border-[var(--pf-border)] bg-[var(--pf-surface-muted)] p-3"
+    >
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-wide text-[var(--pf-text-tertiary)]">
+        Setup guide
+        <ChevronDown className="size-3.5 transition-transform group-open:rotate-180" aria-hidden />
+      </summary>
+      <ol className="mt-2 list-decimal space-y-1 pl-4 text-[11px] leading-relaxed text-[var(--pf-text-secondary)]">
+        {guide.steps.map((step, index) => (
+          <li key={index}>{step}</li>
         ))}
       </ol>
-      {link ? (
-        <a
-          href={link.href}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-1 inline-block text-[10px] font-medium text-[var(--pf-accent)] underline underline-offset-2"
-        >
-          {link.label}
-        </a>
-      ) : null}
-    </div>
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+        {guide.links.map((link) => (
+          <a
+            key={link.href}
+            href={link.href}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--pf-accent)] underline underline-offset-2"
+          >
+            {link.label}
+            <ExternalLink className="size-3" />
+          </a>
+        ))}
+      </div>
+    </details>
   );
 }
 
@@ -141,6 +188,95 @@ const NO_CREDENTIAL: Credential = { configured: false, masked: null, source: nul
 
 const usd = (amount: number) => `$${amount.toFixed(2)}`;
 
+function dreaminaReady(status: DreaminaStatus | undefined) {
+  return Boolean(
+    status?.installed &&
+      status.loggedIn &&
+      status.canvas &&
+      (status.limits.creditCeiling != null || status.limits.imageCreditCeiling != null),
+  );
+}
+
+/**
+ * One group of providers that connect the same way (CLI sign-in, API key, or
+ * local server), with a count of how many are ready.
+ */
+function SettingsSection({
+  id,
+  icon: Icon,
+  title,
+  description,
+  ready,
+  total,
+  children,
+}: {
+  id: string;
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  ready: number;
+  total: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <section id={id} aria-labelledby={`${id}-title`} className="flex scroll-mt-6 flex-col gap-3 pt-4">
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[var(--pf-border)] pb-3">
+        <div className="flex items-start gap-3">
+          <span className="grid size-9 shrink-0 place-items-center rounded-[10px] bg-[var(--pf-accent-soft)] text-[var(--pf-accent)]">
+            <Icon className="size-4" aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <h2 id={`${id}-title`} className="text-[17px] font-bold">{title}</h2>
+            <p className="mt-0.5 max-w-[68ch] text-[12px] leading-relaxed text-[var(--pf-text-secondary)]">{description}</p>
+          </div>
+        </div>
+        <Badge variant={ready === total ? 'ok' : 'neutral'} dot>
+          {ready} of {total} ready
+        </Badge>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/** The header every provider card shares: name, what it powers, and status. */
+function ProviderCard({
+  title,
+  description,
+  ready,
+  reason,
+  className,
+  children,
+}: {
+  title: string;
+  description: React.ReactNode;
+  /** Undefined while the status is still loading. */
+  ready: boolean | undefined;
+  reason?: string | null;
+  className?: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <Card className={cn('flex flex-col', className)}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <CardTitle className="text-[15px]">{title}</CardTitle>
+          <CardDescription className="mt-0.5 text-[12px]">{description}</CardDescription>
+        </div>
+        {ready === undefined ? null : (
+          <Badge variant={ready ? 'ok' : 'neutral'} dot className="shrink-0">
+            {ready ? 'Ready' : 'Not ready'}
+          </Badge>
+        )}
+      </div>
+      {ready === false && reason ? (
+        <p className="mt-2 text-[11px] leading-relaxed text-[var(--pf-text-tertiary)]">{reason}</p>
+      ) : null}
+      {children ? <div className="mt-4 flex flex-col gap-4">{children}</div> : null}
+    </Card>
+  );
+}
+
 /**
  * Higgsfield connection and spend controls. Higgsfield has no balance API, so
  * balance and top-ups stay on its console; PoseForge prices each request
@@ -178,15 +314,11 @@ function HiggsfieldCard({
   const budget = status?.limits.monthlyBudgetUsd;
 
   return (
-    <Card>
-      <div className="mb-4 flex items-center justify-between gap-2">
-        <PanelTitle className="mb-0">Higgsfield</PanelTitle>
-        {status ? (
-          <Badge variant={status.ready ? 'ok' : 'neutral'} dot>
-            {status.ready ? 'Ready' : 'Not configured'}
-          </Badge>
-        ) : null}
-      </div>
+    <ProviderCard
+      title="Higgsfield"
+      description="Higgsfield image and video generators in Advanced Studio, with spend limits."
+      ready={status?.ready}
+    >
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="flex flex-col gap-3">
           <CredentialField
@@ -213,10 +345,7 @@ function HiggsfieldCard({
               </span>
             ) : null}
           </div>
-          <p className="text-[11px] leading-relaxed text-[var(--pf-text-tertiary)]">
-            Create a key at the Higgsfield console. Powers the Higgsfield image and video generators in Advanced
-            Studio. Testing uses Higgsfield&apos;s free price estimate and spends no credits.
-          </p>
+          <SetupGuide provider="higgsfield" ready={status?.ready} />
         </div>
 
         <div className="flex flex-col gap-3">
@@ -287,7 +416,7 @@ function HiggsfieldCard({
           </div>
         </div>
       </div>
-    </Card>
+    </ProviderCard>
   );
 }
 
@@ -356,24 +485,14 @@ function DreaminaCard({
 
   const limit = (key: 'dreaminaCreditCeiling' | 'dreaminaImageCreditCeiling' | 'dreaminaMonthlyCreditBudget') =>
     draft[key] ?? (settings[key] == null ? '' : String(settings[key]));
-  const ready = Boolean(
-    status?.installed &&
-      status.loggedIn &&
-      status.canvas &&
-      (status.limits.creditCeiling != null || status.limits.imageCreditCeiling != null),
-  );
   const budget = status?.limits.monthlyCreditBudget;
 
   return (
-    <Card>
-      <div className="mb-4 flex items-center justify-between gap-2">
-        <PanelTitle className="mb-0">Dreamina</PanelTitle>
-        {status ? (
-          <Badge variant={ready ? 'ok' : 'neutral'} dot>
-            {ready ? 'Ready' : 'Not configured'}
-          </Badge>
-        ) : null}
-      </div>
+    <ProviderCard
+      title="Dreamina"
+      description="Seedream and GPT Image image models and Seedance 2.5, 2.0 and 2.0 Mini video models in Advanced Studio."
+      ready={status ? dreaminaReady(status) : undefined}
+    >
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="flex flex-col gap-3">
           <ul className="flex flex-col gap-2 text-[12px]">
@@ -443,13 +562,9 @@ function DreaminaCard({
             <span role="status" className="text-[11px] text-[var(--pf-text-secondary)]">{message ?? status?.error}</span>
           ) : null}
           <p className="text-[11px] leading-relaxed text-[var(--pf-text-tertiary)]">
-            Powers Seedream and GPT Image image models and Seedance 2.5 and 2.0 video models in Advanced Studio.
             Every run uses one PoseForge canvas on your Dreamina account, so you can review results there too.
-            Creating the canvas spends no credits.
-            {status && !status.installed ? (
-              <> Install the CLI with <code className="font-mono">curl -fsSL https://dreamina.capcut.com/canvas-cli/install.sh | bash</code>, then restart PoseForge.</>
-            ) : null}
           </p>
+          <SetupGuide provider="dreamina" ready={status ? dreaminaReady(status) : undefined} />
         </div>
 
         <div className="flex flex-col gap-3">
@@ -527,13 +642,15 @@ function DreaminaCard({
           </div>
         </div>
       </div>
-    </Card>
+    </ProviderCard>
   );
 }
 
 export function SettingsView() {
   const { data: settings, isLoading, error, refetch } = useSettings();
   const { data: engineData } = useEngines();
+  const { data: dreaminaStatus } = useDreaminaStatus();
+  const { data: higgsfieldStatus } = useHiggsfieldStatus();
   const update = useUpdateSettings();
   const toast = useToast();
 
@@ -592,42 +709,26 @@ export function SettingsView() {
   const value = (key: string, fallback: string) => draft[key] ?? fallback;
   const dirty = Object.keys(draft).length > 0;
 
+  const engine = (key: string) => engines.find((item) => item.key === key);
+  const readyCount = (flags: Array<boolean | undefined>) => flags.filter(Boolean).length;
+  const cliReady = [engine('codex')?.ready, engine('antigravity')?.ready, dreaminaReady(dreaminaStatus)];
+  const apiReady = [engine('openai')?.ready, engine('gemini')?.ready, engine('replicate')?.ready, engine('fal')?.ready, higgsfieldStatus?.ready];
+  const localReady = [engine('comfy')?.ready];
+  const sections: Array<{ id: string; icon: LucideIcon; title: string; ready: number; total: number }> = [
+    { id: 'cli-tools', icon: Terminal, title: 'CLI tools', ready: readyCount(cliReady), total: cliReady.length },
+    { id: 'api-keys', icon: KeyRound, title: 'API keys', ready: readyCount(apiReady), total: apiReady.length },
+    { id: 'local', icon: Server, title: 'Local', ready: readyCount(localReady), total: localReady.length },
+  ];
+
   return (
     <form onSubmit={save} className="flex flex-col gap-3">
-      {/* -------------------------------------------------- engine status */}
+      {/* ------------------------------------------------ default + jump bar */}
       <Card>
-        <PanelTitle>Engine status</PanelTitle>
-        <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          {engines.map((engine) => (
-            <li
-              key={engine.key}
-              className="flex items-start gap-2.5 rounded-[12px] border border-[var(--pf-border)] bg-[var(--pf-surface-muted)] p-3"
-            >
-              {engine.ready ? (
-                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[var(--pf-success)]" />
-              ) : (
-                <XCircle className="mt-0.5 size-4 shrink-0 text-[var(--pf-text-tertiary)]" />
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="text-[12px] font-bold">{engine.label}</p>
-                <p className="mt-0.5 text-[10px] leading-relaxed text-[var(--pf-text-tertiary)]">
-                  {engine.ready ? 'Ready' : (engine.reason ?? 'Not configured')}
-                </p>
-                {!engine.ready ? <EngineSetupHelp engineKey={engine.key} /> : null}
-              </div>
-            </li>
-          ))}
-        </ul>
-      </Card>
-
-      <div className="grid gap-3 lg:grid-cols-2">
-        {/* ----------------------------------------------- default engine */}
-        <Card>
-          <PanelTitle>Default engine</PanelTitle>
+        <div className="grid gap-4 md:grid-cols-[minmax(0,320px)_1fr] md:items-end">
           <Field
-            label="Used when Studio opens"
+            label="Default engine"
             htmlFor="default-engine"
-            help="You can still switch engines per generation."
+            help="Used when Studio opens. You can still switch per generation."
           >
             <Select
               value={value('defaultEngine', settings.defaultEngine)}
@@ -637,78 +738,64 @@ export function SettingsView() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {engines.map((engine) => (
-                  <SelectItem key={engine.key} value={engine.key}>
-                    {engine.label}
-                    {engine.ready ? '' : ' (not ready)'}
+                {engines.map((item) => (
+                  <SelectItem key={item.key} value={item.key}>
+                    {item.label}
+                    {item.ready ? '' : ' (not ready)'}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </Field>
-        </Card>
-
-        {/* ---------------------------------------------------- API keys */}
-        <Card>
-          <PanelTitle>Provider credentials</PanelTitle>
-          <div className="flex flex-col gap-4">
-            <CredentialField
-              id="openai-key"
-              label="OpenAI API key"
-              credential={settings.openaiApiKey}
-              value={draft.openaiApiKey ?? ''}
-              onChange={(next) => set('openaiApiKey', next)}
-            />
-            <CredentialField
-              id="gemini-key"
-              label="Gemini API key"
-              credential={settings.geminiApiKey}
-              value={draft.geminiApiKey ?? ''}
-              onChange={(next) => set('geminiApiKey', next)}
-            />
-            <CredentialField
-              id="replicate-key"
-              label="Replicate API token"
-              credential={settings.replicateApiKey}
-              value={draft.replicateApiKey ?? ''}
-              onChange={(next) => set('replicateApiKey', next)}
-            />
-            <CredentialField
-              id="fal-key"
-              label="fal.ai API key"
-              credential={settings.falApiKey}
-              value={draft.falApiKey ?? ''}
-              onChange={(next) => set('falApiKey', next)}
-            />
-          </div>
-        </Card>
-
-        {/* ----------------------------------------------------- models */}
-        <Card>
-          <PanelTitle>Model selection</PanelTitle>
-          <div className="flex flex-col gap-4">
-            {geminiModels.length ? (
-              <Field label="Gemini image model" htmlFor="gemini-model">
-                <Select
-                  value={value('geminiModel', settings.geminiModel)}
-                  onValueChange={(next) => set('geminiModel', next)}
+          <nav aria-label="Settings sections" className="flex flex-wrap gap-2 md:justify-end">
+            {sections.map((section) => (
+              <a
+                key={section.id}
+                href={`#${section.id}`}
+                className="inline-flex items-center gap-2 rounded-full border border-[var(--pf-border)] bg-[var(--pf-surface-muted)] px-3 py-1.5 text-[12px] font-semibold transition-colors hover:border-[var(--pf-border-strong)]"
+              >
+                <section.icon className="size-3.5 text-[var(--pf-accent)]" aria-hidden />
+                {section.title}
+                <span
+                  className={cn(
+                    'tabular-nums text-[11px]',
+                    section.ready === section.total ? 'text-[var(--pf-success)]' : 'text-[var(--pf-text-tertiary)]',
+                  )}
                 >
-                  <SelectTrigger id="gemini-model">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {geminiModels.map((model) => (
-                      <SelectItem key={model.id} value={model.id}>
-                        {model.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-            ) : null}
+                  {section.ready}/{section.total}
+                </span>
+              </a>
+            ))}
+          </nav>
+        </div>
+      </Card>
 
+      {/* ------------------------------------------------------ CLI tools */}
+      <SettingsSection
+        id="cli-tools"
+        icon={Terminal}
+        title="CLI tools"
+        description="Command-line tools installed on this computer. They use their own sign-in, so PoseForge stores no keys for them."
+        ready={sections[0].ready}
+        total={sections[0].total}
+      >
+        <div className="grid gap-3 lg:grid-cols-2">
+          <ProviderCard
+            title="Codex"
+            description="Image generation through the Codex CLI and your OpenAI sign-in."
+            ready={engine('codex')?.ready}
+            reason={engine('codex')?.reason}
+          >
+            {engine('codex') ? <SetupGuide provider="codex" ready={engine('codex')?.ready} /> : null}
+          </ProviderCard>
+          <ProviderCard
+            title="Antigravity"
+            description="Image generation through the Antigravity CLI and your Google sign-in."
+            ready={engine('antigravity')?.ready}
+            reason={engine('antigravity')?.reason}
+          >
             {antigravityModels.length ? (
-              <Field label="Antigravity model" htmlFor="antigravity-model">
+              <Field label="Model" htmlFor="antigravity-model">
                 <Select
                   value={value('antigravityModel', settings.antigravityModel)}
                   onValueChange={(next) => set('antigravityModel', next)}
@@ -726,37 +813,58 @@ export function SettingsView() {
                 </Select>
               </Field>
             ) : null}
-          </div>
-        </Card>
+            {engine('antigravity') ? <SetupGuide provider="antigravity" ready={engine('antigravity')?.ready} /> : null}
+          </ProviderCard>
+        </div>
+        <DreaminaCard settings={settings} draft={draft} set={set} />
+      </SettingsSection>
 
-        {/* ---------------------------------------------------- ComfyUI */}
-        <Card>
-          <PanelTitle>ComfyUI</PanelTitle>
-          <div className="flex flex-col gap-4">
-            <Field
-              label="Endpoint"
-              htmlFor="comfy-endpoint"
-              help="Local addresses only unless COMFYUI_ALLOW_REMOTE is set."
-            >
-              <Input
-                id="comfy-endpoint"
-                value={value('comfyEndpoint', settings.comfyEndpoint)}
-                onChange={(event) => set('comfyEndpoint', event.target.value)}
-                placeholder="http://127.0.0.1:8188"
-              />
-            </Field>
-
-            {comfyModels.length ? (
-              <Field label="Model profile" htmlFor="comfy-model">
+      {/* ------------------------------------------------------- API keys */}
+      <SettingsSection
+        id="api-keys"
+        icon={KeyRound}
+        title="API keys"
+        description="Hosted providers billed to your account with each of them. Keys are kept in PoseForge's local database and never sent back to the browser; a key set by an environment variable wins and is read-only here."
+        ready={sections[1].ready}
+        total={sections[1].total}
+      >
+        <div className="grid gap-3 lg:grid-cols-2">
+          <ProviderCard
+            title="OpenAI"
+            description="OpenAI image models, billed per request."
+            ready={engine('openai')?.ready}
+          >
+            <CredentialField
+              id="openai-key"
+              label="API key"
+              credential={settings.openaiApiKey}
+              value={draft.openaiApiKey ?? ''}
+              onChange={(next) => set('openaiApiKey', next)}
+            />
+          </ProviderCard>
+          <ProviderCard
+            title="Gemini"
+            description="Google Gemini image models, billed per request."
+            ready={engine('gemini')?.ready}
+          >
+            <CredentialField
+              id="gemini-key"
+              label="API key"
+              credential={settings.geminiApiKey}
+              value={draft.geminiApiKey ?? ''}
+              onChange={(next) => set('geminiApiKey', next)}
+            />
+            {geminiModels.length ? (
+              <Field label="Image model" htmlFor="gemini-model">
                 <Select
-                  value={value('comfyModel', settings.comfyModel)}
-                  onValueChange={(next) => set('comfyModel', next)}
+                  value={value('geminiModel', settings.geminiModel)}
+                  onValueChange={(next) => set('geminiModel', next)}
                 >
-                  <SelectTrigger id="comfy-model">
+                  <SelectTrigger id="gemini-model">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {comfyModels.map((model) => (
+                    {geminiModels.map((model) => (
                       <SelectItem key={model.id} value={model.id}>
                         {model.label}
                       </SelectItem>
@@ -765,6 +873,87 @@ export function SettingsView() {
                 </Select>
               </Field>
             ) : null}
+          </ProviderCard>
+          <ProviderCard
+            title="Replicate"
+            description="Models hosted on Replicate."
+            ready={engine('replicate')?.ready}
+          >
+            <CredentialField
+              id="replicate-key"
+              label="API token"
+              credential={settings.replicateApiKey}
+              value={draft.replicateApiKey ?? ''}
+              onChange={(next) => set('replicateApiKey', next)}
+            />
+          </ProviderCard>
+          <ProviderCard
+            title="fal.ai"
+            description="Image and video models hosted on fal.ai."
+            ready={engine('fal')?.ready}
+          >
+            <CredentialField
+              id="fal-key"
+              label="API key"
+              credential={settings.falApiKey}
+              value={draft.falApiKey ?? ''}
+              onChange={(next) => set('falApiKey', next)}
+            />
+          </ProviderCard>
+        </div>
+        <HiggsfieldCard settings={settings} draft={draft} set={set} />
+      </SettingsSection>
+
+      {/* ---------------------------------------------------------- Local */}
+      <SettingsSection
+        id="local"
+        icon={Server}
+        title="Local"
+        description="Generation on hardware you run yourself. Nothing is billed."
+        ready={sections[2].ready}
+        total={sections[2].total}
+      >
+        <ProviderCard
+          title="ComfyUI"
+          description="Your own ComfyUI server running a saved workflow."
+          ready={engine('comfy')?.ready}
+          reason={engine('comfy')?.reason}
+        >
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="flex flex-col gap-4">
+              <Field
+                label="Endpoint"
+                htmlFor="comfy-endpoint"
+                help="Local addresses only unless COMFYUI_ALLOW_REMOTE is set."
+              >
+                <Input
+                  id="comfy-endpoint"
+                  value={value('comfyEndpoint', settings.comfyEndpoint)}
+                  onChange={(event) => set('comfyEndpoint', event.target.value)}
+                  placeholder="http://127.0.0.1:8188"
+                />
+              </Field>
+
+              {comfyModels.length ? (
+                <Field label="Model profile" htmlFor="comfy-model">
+                  <Select
+                    value={value('comfyModel', settings.comfyModel)}
+                    onValueChange={(next) => set('comfyModel', next)}
+                  >
+                    <SelectTrigger id="comfy-model">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {comfyModels.map((model) => (
+                        <SelectItem key={model.id} value={model.id}>
+                          {model.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              ) : null}
+            </div>
 
             <Field
               label="Workflow JSON"
@@ -799,12 +988,8 @@ export function SettingsView() {
               />
             </Field>
           </div>
-        </Card>
-      </div>
-
-      <HiggsfieldCard settings={settings} draft={draft} set={set} />
-
-      <DreaminaCard settings={settings} draft={draft} set={set} />
+        </ProviderCard>
+      </SettingsSection>
 
       {/* Sticky action bar so Save is always reachable on long forms. */}
       <div className="sticky bottom-4 z-10 flex items-center justify-between gap-3 rounded-[16px] border border-[var(--pf-border)] bg-[color-mix(in_srgb,var(--pf-surface)_92%,transparent)] p-3 backdrop-blur-[12px] shadow-[var(--pf-shadow-md)]">

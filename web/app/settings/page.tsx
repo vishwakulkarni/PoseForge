@@ -5,7 +5,7 @@ import { SettingsView } from './settings-view';
 
 export const metadata: Metadata = {
   title: 'Settings',
-  description: 'Engine defaults, provider credentials and ComfyUI configuration.',
+  description: 'Default engine, CLI tools, API keys and local ComfyUI configuration.',
 };
 
 export default function SettingsPage() {
