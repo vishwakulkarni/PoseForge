@@ -26,6 +26,23 @@ function resolvePgliteDataDir(root = ROOT) {
   return path.isAbsolute(configured) ? configured : path.resolve(root, configured);
 }
 
+const BACKUP_NAME_PATTERN = /^pglite-(\d{4}-\d{2}-\d{2})\.tar\.gz$/;
+
+function findLatestBackup(backupsDir) {
+  let entries;
+  try {
+    entries = fs.readdirSync(backupsDir);
+  } catch {
+    return null;
+  }
+  const dates = entries
+    .map((entry) => entry.match(BACKUP_NAME_PATTERN)?.[1])
+    .filter(Boolean)
+    .sort();
+  const latest = dates.at(-1);
+  return latest ? path.join(backupsDir, `pglite-${latest}.tar.gz`) : null;
+}
+
 function restorePgliteBackup({ dataDir, backupPath, now = new Date() }) {
   const resolvedDataDir = path.resolve(dataDir);
   const filesystemRoot = path.parse(resolvedDataDir).root;
@@ -128,7 +145,14 @@ async function main() {
     process.exitCode = firstRun.code;
     return;
   }
-  const backupPath = path.join(ROOT, "backups", "pglite", `pglite-${utcDate()}.tar.gz`);
+  const backupsDir = path.join(ROOT, "backups", "pglite");
+  const todaysBackupPath = path.join(backupsDir, `pglite-${utcDate()}.tar.gz`);
+  const backupPath = fs.existsSync(todaysBackupPath) ? todaysBackupPath : findLatestBackup(backupsDir);
+  if (!backupPath) {
+    process.stderr.write(`[dev-recovery] No PGlite backups found in ${backupsDir}\n`);
+    process.exitCode = firstRun.code;
+    return;
+  }
 
   try {
     process.stderr.write(`[dev-recovery] PGlite failed to open; restoring ${backupPath}\n`);
@@ -155,6 +179,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  findLatestBackup,
   isRecoverablePgliteFailure,
   resolvePgliteDataDir,
   restorePgliteBackup,
