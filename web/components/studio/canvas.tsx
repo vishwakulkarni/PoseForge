@@ -1737,6 +1737,9 @@ function CanvasFlow(props: CanvasPanelProps) {
   const resizeSnapshot = React.useRef<CanvasSnapshot | null>(null);
   const sourceStartedAt = React.useRef(new Map<string, number>());
   const hydratedProject = React.useRef<string | null>(null);
+  // Result nodes are rebuilt from the generation list on every update, so a
+  // node the user removed has to be remembered or it would come straight back.
+  const dismissedNodeIdsRef = React.useRef(new Set<string>());
   const hydrationSequence = React.useRef(0);
   const persistenceReady = React.useRef(!props.onProjectChange);
   const nodesRef = React.useRef(nodes);
@@ -1814,8 +1817,9 @@ function CanvasFlow(props: CanvasPanelProps) {
   React.useEffect(() => {
     const currentNodes = nodesRef.current;
     const previousAuthoredPositions = previousAuthoredPositionsRef.current;
-    const authoredIds = new Set(flow.nodes.map((node) => node.id));
-    const nextAuthoredNodes = flow.nodes.map((next) => {
+    const liveNodes = flow.nodes.filter((node) => !dismissedNodeIdsRef.current.has(node.id));
+    const authoredIds = new Set(liveNodes.map((node) => node.id));
+    const nextAuthoredNodes = liveNodes.map((next) => {
       const savedPosition = savedPositionsRef.current.get(next.id);
       const positioned = savedPosition ? { ...next, position: { ...savedPosition } } : next;
       const existing = currentNodes.find((node) => node.id === next.id);
@@ -1874,6 +1878,8 @@ function CanvasFlow(props: CanvasPanelProps) {
       );
       const canRestoreDefault = !hasExplicitEdgeStateRef.current || isNewAuthoredEdge || isOutputEdge;
       if (
+        nodeIds.has(edge.source) &&
+        nodeIds.has(edge.target) &&
         !nextEdgeIds.has(edge.id) &&
         (!suppressedEdgeIdsRef.current.has(edge.id) || isOutputEdge) &&
         canRestoreDefault
@@ -1904,6 +1910,7 @@ function CanvasFlow(props: CanvasPanelProps) {
   React.useEffect(() => {
     if (!project || hydratedProject.current === project.id) return;
     hydratedProject.current = project.id;
+    dismissedNodeIdsRef.current = new Set();
     const sequence = ++hydrationSequence.current;
     persistenceReady.current = false;
     persistedResultSignature.current = null;
@@ -2546,27 +2553,32 @@ function CanvasFlow(props: CanvasPanelProps) {
     commitMutation(nodesRef.current, nextEdges);
   }, [commitMutation]);
 
-  const removeNode = React.useCallback((id: string) => {
+  const removeNodes = React.useCallback((ids: string[]) => {
     if (lockedRef.current) return;
-    const source = nodesRef.current.find((node) => node.id === id);
-    if (source && !source.data.custom) {
-      if (source.data.suggestionId && onToggleSuggestion) {
-        onToggleSuggestion(source.data.suggestionId);
-      } else if (source.data.kind === 'character' && source.data.sourceId) {
-        onDeleteSubject?.(source.data.sourceId);
-      } else if (source.data.kind === 'pose') {
+    const wanted = new Set(ids);
+    const removed = new Set<string>();
+    for (const node of nodesRef.current.filter((item) => wanted.has(item.id))) {
+      if (node.data.custom || node.data.kind === 'result') {
+        if (!node.data.custom) dismissedNodeIdsRef.current.add(node.id);
+        removed.add(node.id);
+      } else if (node.data.suggestionId && onToggleSuggestion) {
+        onToggleSuggestion(node.data.suggestionId);
+      } else if (node.data.kind === 'character' && node.data.sourceId) {
+        onDeleteSubject?.(node.data.sourceId);
+      } else if (node.data.kind === 'pose') {
         onDeletePose?.();
       }
-      if (pickerNodeId === id) setPickerNodeId(null);
-      sourceStartedAt.current.delete(id);
-      return;
+      if (pickerNodeId === node.id) setPickerNodeId(null);
+      sourceStartedAt.current.delete(node.id);
     }
-    const nextNodes = nodesRef.current.filter((node) => node.id !== id);
-    const nextEdges = edgesRef.current.filter((edge) => edge.source !== id && edge.target !== id);
-    commitMutation(nextNodes, nextEdges);
-    if (pickerNodeId === id) setPickerNodeId(null);
-    sourceStartedAt.current.delete(id);
+    if (!removed.size) return;
+    commitMutation(
+      nodesRef.current.filter((node) => !removed.has(node.id)),
+      edgesRef.current.filter((edge) => !removed.has(edge.source) && !removed.has(edge.target)),
+    );
   }, [commitMutation, onDeletePose, onDeleteSubject, onToggleSuggestion, pickerNodeId]);
+
+  const removeNode = React.useCallback((id: string) => removeNodes([id]), [removeNodes]);
 
   const [runningNodeIds, setRunningNodeIds] = React.useState<Set<string>>(() => new Set());
   const [runningPipeline, setRunningPipeline] = React.useState(false);
@@ -2786,6 +2798,7 @@ function CanvasFlow(props: CanvasPanelProps) {
       if (snapshotEdgeIds.has(edgeId)) suppressedEdgeIdsRef.current.delete(edgeId);
       else suppressedEdgeIdsRef.current.add(edgeId);
     }
+    for (const node of nextNodes) dismissedNodeIdsRef.current.delete(node.id);
     commitNodes(nextNodes);
     commitEdges(snapshot.edges);
     commitViewport(snapshot.viewport);
@@ -2901,6 +2914,14 @@ function CanvasFlow(props: CanvasPanelProps) {
       return;
     }
     if (lockedRef.current || event.altKey || event.metaKey || event.ctrlKey) return;
+    if (event.key === 'Delete' || event.key === 'Backspace') {
+      if ((event.target as HTMLElement).closest('button, a, input, textarea, select, [contenteditable="true"]')) return;
+      const selectedIds = nodesRef.current.filter((node) => node.selected).map((node) => node.id);
+      if (!selectedIds.length) return;
+      event.preventDefault();
+      removeNodes(selectedIds);
+      return;
+    }
     const directions: Record<string, { x: number; y: number }> = {
       ArrowLeft: { x: -1, y: 0 },
       ArrowRight: { x: 1, y: 0 },
@@ -2935,7 +2956,7 @@ function CanvasFlow(props: CanvasPanelProps) {
     setRedoStack([]);
     commitNodes(nextNodes);
     emitProject(nextNodes, edgesRef.current, viewportRef.current, lockedRef.current);
-  }, [arrangeSelectedNodes, commitNodes, emitProject, pickerNodeId]);
+  }, [arrangeSelectedNodes, commitNodes, emitProject, pickerNodeId, removeNodes]);
 
   const pickerNode = pickerNodeId
     ? nodes.find((node) => node.id === pickerNodeId) ?? null

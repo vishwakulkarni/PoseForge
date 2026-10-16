@@ -524,6 +524,32 @@ describe('PoseForge workflow canvas', () => {
     });
   });
 
+  it('deletes a selected output node with the keyboard and keeps it gone', () => {
+    const onProjectChange = vi.fn();
+    const outputs = [
+      generation({ id: 'out-a', status: 'completed', outputUrl: '/storage/a.png' }),
+      generation({ id: 'out-b', status: 'completed', outputUrl: '/storage/b.png' }),
+    ];
+    const canvasProps = props({ status: 'done', plannedOutputs: 2, generations: outputs, project: project(), onProjectChange });
+    const { container, rerender } = render(<CanvasPanel {...canvasProps} />);
+    expect(container.querySelectorAll('.poseforge-node-result')).toHaveLength(2);
+
+    const first = container.querySelector('[data-id="result-out-a"]') as HTMLElement;
+    fireEvent.click(first);
+    expect(container.querySelectorAll('.react-flow__node.selected')).toHaveLength(1);
+    fireEvent.keyDown(first, { key: 'Delete' });
+
+    expect(container.querySelector('[data-id="result-out-a"]')).toBeNull();
+    expect(container.querySelector('[data-id="result-out-b"]')).not.toBeNull();
+    const saved = onProjectChange.mock.lastCall?.[0].nodes as Array<{ id: string }>;
+    expect(saved.some((node) => node.id === 'result-out-a')).toBe(false);
+
+    // Polling hands the canvas a fresh generation list; the removed output stays removed.
+    rerender(<CanvasPanel {...canvasProps} generations={outputs.map((item) => ({ ...item }))} />);
+    expect(container.querySelector('[data-id="result-out-a"]')).toBeNull();
+    expect(container.querySelector('[data-id="result-out-b"]')).not.toBeNull();
+  });
+
   it('moves a focused node from the keyboard and saves the new position', () => {
     const onProjectChange = vi.fn();
     const { container } = render(
