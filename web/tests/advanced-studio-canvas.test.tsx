@@ -755,6 +755,28 @@ describe('Advanced Studio canvas', () => {
     await waitFor(() => expect(container.querySelectorAll('.react-flow__node.selected')).toHaveLength(0));
   });
 
+  it('spotlights the nodes feeding a selected node and dims the rest', async () => {
+    const { container } = renderCanvas({
+      project: project({
+        document: advDocument({
+          nodes: [
+            ...advDocument().nodes,
+            { id: 'text-2', type: 'text', position: { x: 0, y: 400 }, label: 'Prompt #2', data: { text: 'unrelated', mode: 'plain' } },
+          ],
+        }),
+      }),
+    });
+    await waitFor(() => expect(screen.getByText('Prompt #2')).toBeInTheDocument());
+
+    const generator = container.querySelector('.react-flow__node[data-id="gen-1"]') as HTMLElement;
+    fireEvent.click(generator);
+
+    await waitFor(() => {
+      expect(container.querySelector('.react-flow__node[data-id="text-1"]')).toHaveClass('adv-focus-upstream');
+      expect(container.querySelector('.react-flow__node[data-id="text-2"]')).toHaveClass('adv-focus-dim');
+    });
+  });
+
   it('keeps view shortcuts working while the canvas is locked', async () => {
     const user = userEvent.setup();
     renderCanvas({ project: project({ document: advDocument({ locked: true }) }) });

@@ -450,6 +450,35 @@
 .adv-canvas .react-flow__edge:hover .react-flow__edge-path { stroke-width: 3.5; filter: brightness(1.08); }
 .adv-canvas .react-flow__connectionline .react-flow__edge-path { stroke-dasharray: 5 4; }
 
+/* Selection focus: nodes feeding the selection stay lit, everything else
+   recedes. Edges keep their typed colour but fade with their nodes. */
+.adv-canvas .react-flow__node,
+.adv-canvas .react-flow__edge { transition: opacity 150ms ease; }
+.adv-canvas .react-flow__node.adv-focus-dim { opacity: 0.25; }
+.adv-canvas .react-flow__node.adv-focus-upstream .adv-node {
+  border-color: var(--adv-node-accent);
+  box-shadow: var(--pf-adv-shadow), 0 0 0 1px var(--adv-node-accent);
+}
+.adv-canvas .react-flow__edge.adv-focus-dim { opacity: 0.15; }
+
+/* Scene the dragged node would join if dropped now. */
+.adv-canvas .react-flow__node.adv-focus-drop .adv-node-group {
+  border-color: var(--pf-accent);
+  box-shadow: 0 0 0 2px var(--pf-accent), 0 0 24px color-mix(in srgb, var(--pf-accent) 35%, transparent);
+}
+
+/* Alignment guides shown while a node is dragged. Lines are drawn in flow
+   space, so they are long enough to span any viewport. */
+.adv-snap-guide {
+  position: absolute;
+  pointer-events: none;
+  background: var(--pf-accent);
+  opacity: 0.8;
+  z-index: 5;
+}
+.adv-snap-guide-x { top: -100000px; width: 1px; height: 200000px; }
+.adv-snap-guide-y { left: -100000px; height: 1px; width: 200000px; }
+
 .adv-edge-cut {
   position: absolute;
   display: grid;
@@ -1255,6 +1284,8 @@
   .adv-icon-button,
   .adv-toolbar-button,
   .adv-generate-button,
+  .adv-canvas .react-flow__node,
+  .adv-canvas .react-flow__edge,
   .adv-canvas .react-flow__handle.adv-handle { transition: none; }
   .adv-node-menu-popover,
   .adv-pill-menu,

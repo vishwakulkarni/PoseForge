@@ -7,10 +7,12 @@ import {
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
+  ViewportPortal,
   addEdge,
   useEdgesState,
   useNodesState,
   useReactFlow,
+  useStore,
   type Connection,
   type Edge,
   type EdgeChange,
@@ -26,6 +28,7 @@ import { api } from '@/lib/api/client';
 import { nodeDefinition, nodeTypesAcceptingInput } from '@/lib/advanced-studio/registry';
 import { connectionProblem, edgeDataType, type GraphNodeLike } from '@/lib/advanced-studio/validation';
 import { resolveInputs } from '@/lib/advanced-studio/resolve-inputs';
+import { snapToNeighbours, upstreamOf, type SnapGuide } from '@/lib/advanced-studio/canvas-focus';
 import {
   documentToFlow,
   flowToDocument,
@@ -66,6 +69,18 @@ const DEFAULT_EDGE_OPTIONS = { type: 'adv' } as const;
 
 const HISTORY_LIMIT = 30;
 const PASTE_OFFSET = 36;
+/** Snap distance in screen pixels; converted to flow units by the zoom. */
+const SNAP_THRESHOLD_PX = 6;
+const FOCUS_CLASS = /\s*adv-focus-\w+/g;
+
+/** Replaces any focus classes on `base` with `add`. The derived nodes and edges
+ * handed to React Flow are what `flow.getNodes()` returns, so history and copy
+ * snapshots can carry stale focus classes that must never accumulate. */
+function withFocusClasses(base: string | undefined, add: string[]): string | undefined {
+  const cleaned = (base ?? '').replace(FOCUS_CLASS, '').trim();
+  const next = [cleaned, ...add].filter(Boolean).join(' ');
+  return next || undefined;
+}
 
 interface CanvasProps {
   project: AdvProject;
@@ -113,6 +128,10 @@ function AdvCanvasInner({
   const [runningNodeIds, setRunningNodeIds] = React.useState<Set<string>>(() => new Set());
   const [preview, setPreview] = React.useState<{ url: string; mediaKind: 'image' | 'video' } | null>(null);
   const [pendingDelete, setPendingDelete] = React.useState<{ id: string; label: string; members: number } | null>(null);
+  const [snapGuides, setSnapGuides] = React.useState<SnapGuide[]>([]);
+  // The scene a dragged node would join if dropped now; drives the preview ring.
+  const [dropGroupId, setDropGroupId] = React.useState<string | null>(null);
+  const boxSelecting = useStore((state) => state.userSelectionActive);
 
   const viewportRef = React.useRef<Viewport | null>(null);
   // Hydration is tracked in state, not a ref: the save effect must not run
@@ -123,6 +142,9 @@ function AdvCanvasInner({
   const redoRef = React.useRef<HistoryEntry[]>([]);
   const clipboardRef = React.useRef<HistoryEntry | null>(null);
   const groupPositionsRef = React.useRef<Map<string, { x: number; y: number }>>(new Map());
+  // Last snapped position of the node being dragged. React Flow's drop change
+  // carries the raw pointer position, so the snap has to be re-applied there.
+  const snapTargetRef = React.useRef<{ id: string; x: number; y: number } | null>(null);
   // Tagged with the project id so switching projects invalidates the depth
   // without the hydration effect having to write state.
   const [historyDepth, setHistoryDepth] = React.useState({ id: '', undo: 0, redo: 0 });
@@ -168,6 +190,35 @@ function AdvCanvasInner({
     });
     return () => cancelAnimationFrame(frame);
   }, [flow, hydratedId, project.document.viewport, project.id]);
+
+  /* ------------------------------------------------------- focus styling */
+
+  // Selecting nodes spotlights everything that feeds them and dims the rest.
+  // Derived at render so the classes never enter the saved document, and
+  // suspended during box-select where the selection changes every frame.
+  const selectedKey = nodes.filter((node) => node.selected).map((node) => node.id).join('|');
+  const focus = React.useMemo(() => {
+    const selectedIds = new Set(selectedKey ? selectedKey.split('|') : []);
+    const spotlight = !boxSelecting && [...selectedIds].some((id) => flow.getNode(id)?.type !== 'group');
+    return spotlight ? { selectedIds, ...upstreamOf(selectedIds, edges) } : null;
+  }, [boxSelecting, edges, flow, selectedKey]);
+
+  const displayNodes = React.useMemo(() => nodes.map((node) => {
+    const classes: string[] = [];
+    if (focus && node.type !== 'group' && !focus.selectedIds.has(node.id)) {
+      classes.push(focus.nodeIds.has(node.id) ? 'adv-focus-upstream' : 'adv-focus-dim');
+    }
+    if (node.id === dropGroupId) classes.push('adv-focus-drop');
+    const className = withFocusClasses(node.className, classes);
+    return className === node.className ? node : { ...node, className };
+  }), [dropGroupId, focus, nodes]);
+
+  const displayEdges = React.useMemo(() => edges.map((edge) => {
+    const dim = focus && !focus.edgeIds.has(edge.id)
+      && !(focus.selectedIds.has(edge.source) && focus.selectedIds.has(edge.target));
+    const className = withFocusClasses(edge.className, dim ? ['adv-focus-dim'] : []);
+    return className === edge.className ? edge : { ...edge, className };
+  }), [edges, focus]);
 
   /* ------------------------------------------------------------ persistence */
 
@@ -490,10 +541,53 @@ function AdvCanvasInner({
 
   /* --------------------------------------------------- group drag handling */
 
+  /** Aligns a single dragged node to its neighbours and records the guide
+   * lines. Multi-node drags and group frames are left alone: snapping each
+   * node independently would break their relative layout. */
+  const snapDraggedNode = React.useCallback((changes: NodeChange<AdvFlowNode>[]): NodeChange<AdvFlowNode>[] => {
+    const clearGuides = () => setSnapGuides((current) => (current.length ? [] : current));
+    const dropped = changes.find((change) => change.type === 'position' && change.dragging === false);
+    if (dropped?.type === 'position') {
+      const target = snapTargetRef.current;
+      snapTargetRef.current = null;
+      clearGuides();
+      return target && target.id === dropped.id
+        ? changes.map((change) => (change === dropped ? { ...dropped, position: { x: target.x, y: target.y } } : change))
+        : changes;
+    }
+    const dragging = changes.filter((change) => change.type === 'position' && change.dragging && change.position);
+    if (!dragging.length) return changes;
+    const change = dragging[0];
+    const node = change.type === 'position' ? flow.getNode(change.id) : undefined;
+    if (dragging.length > 1 || change.type !== 'position' || !change.position || !node || node.type === 'group') {
+      snapTargetRef.current = null;
+      clearGuides();
+      return changes;
+    }
+    const rectOf = (item: AdvFlowNode, x: number, y: number) => ({
+      x,
+      y,
+      width: item.measured?.width ?? item.width ?? 0,
+      height: item.measured?.height ?? item.height ?? 0,
+    });
+    const others = flow.getNodes()
+      .filter((item) => item.id !== node.id && item.type !== 'group')
+      .map((item) => rectOf(item, item.position.x, item.position.y));
+    const snapped = snapToNeighbours(
+      rectOf(node, change.position.x, change.position.y),
+      others,
+      SNAP_THRESHOLD_PX / flow.getZoom(),
+    );
+    snapTargetRef.current = snapped.guides.length ? { id: node.id, x: snapped.x, y: snapped.y } : null;
+    setSnapGuides(snapped.guides);
+    return changes.map((item) => (item === change ? { ...change, position: { x: snapped.x, y: snapped.y } } : item));
+  }, [flow]);
+
   /** Groups are frames, not React Flow parents: moving one applies the same
    * delta to its members so relative positions are preserved without the
    * clipping that parenting would introduce. */
-  const handleNodesChange = React.useCallback((changes: NodeChange<AdvFlowNode>[]) => {
+  const handleNodesChange = React.useCallback((incoming: NodeChange<AdvFlowNode>[]) => {
+    const changes = snapDraggedNode(incoming);
     const extra: NodeChange<AdvFlowNode>[] = [];
     for (const change of changes) {
       if (change.type !== 'position' || !change.position) continue;
@@ -517,7 +611,7 @@ function AdvCanvasInner({
       }
     }
     onNodesChange(extra.length ? [...changes, ...extra] : changes);
-  }, [flow, onNodesChange]);
+  }, [flow, onNodesChange, snapDraggedNode]);
 
   const handleEdgesChange = React.useCallback((changes: EdgeChange<AdvFlowEdge>[]) => {
     if (changes.some((change) => change.type === 'remove')) pushHistory();
@@ -529,10 +623,19 @@ function AdvCanvasInner({
     if (node.type === 'group') groupPositionsRef.current.set(node.id, { ...node.position });
   }, [pushHistory]);
 
+  /** Previews the scene a dragged node would join, using the same containment
+   * test as the drop, so the highlight never disagrees with the result. */
+  const onNodeDrag = React.useCallback((_event: unknown, node: AdvFlowNode) => {
+    if (node.type === 'group') return;
+    const target = flow.getNodes().find((candidate) => candidate.type === 'group' && contains(candidate, node));
+    setDropGroupId(target?.id ?? null);
+  }, [flow]);
+
   /** Membership is recomputed on drop from geometry, so a node joins a scene by
    * being dragged into it and leaves by being dragged out. */
   const onNodeDragStop = React.useCallback(() => {
     groupPositionsRef.current.clear();
+    setDropGroupId(null);
     setNodes((current) => {
       const groups = current.filter((node) => node.type === 'group');
       if (!groups.length) return current;
@@ -961,8 +1064,8 @@ function AdvCanvasInner({
       >
         <AdvNodeActionsContext.Provider value={actions}>
         <ReactFlow<AdvFlowNode, AdvFlowEdge>
-          nodes={nodes}
-          edges={edges}
+          nodes={displayNodes}
+          edges={displayEdges}
           nodeTypes={NODE_TYPES}
           edgeTypes={EDGE_TYPES}
           defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
@@ -973,6 +1076,7 @@ function AdvCanvasInner({
           onConnectEnd={onConnectEnd}
           isValidConnection={isValidConnection}
           onNodeDragStart={onNodeDragStart}
+          onNodeDrag={onNodeDrag}
           onNodeDragStop={onNodeDragStop}
           onMoveEnd={(_event, viewport) => {
             viewportRef.current = viewport;
@@ -1016,6 +1120,18 @@ function AdvCanvasInner({
             onShowShortcuts={() => setShortcutsOpen(true)}
           />
           {minimap ? <MiniMap pannable zoomable className="adv-minimap" /> : null}
+          {snapGuides.length ? (
+            <ViewportPortal>
+              {snapGuides.map((guide) => (
+                <div
+                  key={guide.axis}
+                  className={`adv-snap-guide adv-snap-guide-${guide.axis}`}
+                  style={guide.axis === 'x' ? { left: guide.position } : { top: guide.position }}
+                  aria-hidden
+                />
+              ))}
+            </ViewportPortal>
+          ) : null}
         </ReactFlow>
         </AdvNodeActionsContext.Provider>
 
