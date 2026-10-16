@@ -755,6 +755,26 @@ describe('Advanced Studio canvas', () => {
     await waitFor(() => expect(container.querySelectorAll('.react-flow__node.selected')).toHaveLength(0));
   });
 
+  it('turns pasted text into one prompt node per blank-line-separated block', async () => {
+    const { container } = renderCanvas();
+    await waitFor(() => expect(screen.getByText('Prompt #1')).toBeInTheDocument());
+
+    fireEvent.paste(document, { clipboardData: { files: [], getData: () => 'first idea\n\nsecond idea' } });
+
+    await waitFor(() => expect(container.querySelectorAll('.react-flow__node')).toHaveLength(4));
+    expect(screen.getByText('Prompt #2')).toBeInTheDocument();
+    expect(screen.getByText('Prompt #3')).toBeInTheDocument();
+  });
+
+  it('leaves a paste alone while the canvas is locked', async () => {
+    const { container } = renderCanvas({ project: project({ document: advDocument({ locked: true }) }) });
+    await waitFor(() => expect(screen.getByText('Prompt #1')).toBeInTheDocument());
+
+    fireEvent.paste(document, { clipboardData: { files: [], getData: () => 'ignored' } });
+
+    expect(container.querySelectorAll('.react-flow__node')).toHaveLength(2);
+  });
+
   it('spotlights the nodes feeding a selected node and dims the rest', async () => {
     const { container } = renderCanvas({
       project: project({

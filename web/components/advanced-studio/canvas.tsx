@@ -30,6 +30,11 @@ import { connectionProblem, edgeDataType, type GraphNodeLike } from '@/lib/advan
 import { resolveInputs } from '@/lib/advanced-studio/resolve-inputs';
 import { snapToNeighbours, upstreamOf, type SnapGuide } from '@/lib/advanced-studio/canvas-focus';
 import {
+  INTERNAL_CLIPBOARD_MARK,
+  mediaKindOf,
+  splitTextBlocks,
+} from '@/lib/advanced-studio/canvas-input';
+import {
   documentToFlow,
   flowToDocument,
   nextLabelIndex,
@@ -778,6 +783,17 @@ function AdvCanvasInner({
 
   /* ------------------------------------------------------------- shortcuts */
 
+  /** Marks the OS clipboard as holding copied nodes so the paste handler can
+   * tell them from text copied elsewhere. Best effort: without clipboard
+   * access the paste simply falls back to the internal buffer. */
+  const markClipboard = React.useCallback(() => {
+    try {
+      void navigator.clipboard?.writeText(INTERNAL_CLIPBOARD_MARK).catch(() => undefined);
+    } catch {
+      // Clipboard access can be refused; nothing depends on it.
+    }
+  }, []);
+
   const copySelection = React.useCallback(() => {
     const selected = flow.getNodes().filter((node) => node.selected);
     if (!selected.length) return;
@@ -968,15 +984,15 @@ function AdvCanvasInner({
         return;
       }
       if (meta && event.key.toLowerCase() === 'y') { event.preventDefault(); redo(); return; }
-      if (meta && event.key.toLowerCase() === 'c') { copySelection(); return; }
+      if (meta && event.key.toLowerCase() === 'c') { copySelection(); markClipboard(); return; }
 
       // Everything below edits the graph, so it stops at the lock.
       if (locked) return;
 
-      if (meta && event.key.toLowerCase() === 'v') { pasteSelection(); return; }
       if (meta && event.key.toLowerCase() === 'x') {
         event.preventDefault();
         copySelection();
+        markClipboard();
         deleteSelection();
         return;
       }
@@ -1005,7 +1021,7 @@ function AdvCanvasInner({
       document.removeEventListener('keyup', onKeyUp);
     };
   }, [
-    arrangeNodes, clearSelection, copySelection, deleteSelection, flow, locked, nudgeSelection,
+    arrangeNodes, clearSelection, copySelection, deleteSelection, flow, locked, markClipboard, nudgeSelection,
     openAddMenuDocked, pasteSelection, redo, selectAll, spacePanning, syncViewport, toggleLock, undo,
   ]);
 
@@ -1031,6 +1047,66 @@ function AdvCanvasInner({
     });
   }, [flow]);
 
+  /* ------------------------------------------------- paste and file drop */
+
+  /** Creates input nodes for files from the OS (paste or drop), centred on
+   * `origin` and fanned out so several never stack exactly. */
+  const addMediaFiles = React.useCallback((files: File[], origin: { x: number; y: number }) => {
+    const accepted = files.flatMap((file) => {
+      const kind = mediaKindOf(file);
+      return kind ? [{ file, kind }] : [];
+    });
+    if (accepted.length < files.length) {
+      toast.error(`${files.length - accepted.length} file${files.length - accepted.length === 1 ? ' was' : 's were'} skipped: only images, video and audio can be added.`);
+    }
+    accepted.forEach(({ file, kind }, index) => {
+      const type: AdvNodeType = kind === 'image' ? 'imageInput' : kind === 'video' ? 'videoInput' : 'audioInput';
+      const { width, height } = nodeDefinition(type).geometry;
+      const id = addNode(type, {
+        x: origin.x - width / 2 + index * PASTE_OFFSET,
+        y: origin.y - height / 2 + index * PASTE_OFFSET,
+      });
+      const upload = kind === 'image' ? uploadImage(id, file) : uploadMedia(id, file);
+      upload.catch((cause) => toast.error(cause instanceof Error ? cause.message : `That ${kind} could not be added.`));
+    });
+  }, [addNode, toast, uploadImage, uploadMedia]);
+
+  /** One prompt node per blank-line-separated block of pasted text. */
+  const addTextBlocks = React.useCallback((text: string, origin: { x: number; y: number }) => {
+    const { blocks, dropped } = splitTextBlocks(text);
+    const { width, height } = nodeDefinition('text').geometry;
+    blocks.forEach((block, index) => {
+      const id = addNode('text', {
+        x: origin.x - width / 2 + index * PASTE_OFFSET,
+        y: origin.y - height / 2 + index * PASTE_OFFSET,
+      });
+      applyNodeData(id, { text: block });
+    });
+    if (dropped) toast.error(`Added the first ${blocks.length} blocks; ${dropped} more were skipped.`);
+  }, [addNode, applyNodeData, toast]);
+
+  // Native paste, not a Cmd+V keydown: the event carries the OS clipboard, so
+  // copied nodes, copied text and copied images all arrive through one path.
+  // A paste while focus is inside a node (a prompt editor, an image dropzone)
+  // belongs to that node.
+  React.useEffect(() => {
+    const onPaste = (event: ClipboardEvent) => {
+      const active = document.activeElement as HTMLElement | null;
+      const typing = active?.tagName === 'INPUT' || active?.tagName === 'TEXTAREA' || active?.isContentEditable;
+      if (locked || typing || active?.closest('.adv-node')) return;
+      const data = event.clipboardData;
+      const files = [...(data?.files ?? [])];
+      const text = data?.getData('text/plain') ?? '';
+      event.preventDefault();
+      if (text === INTERNAL_CLIPBOARD_MARK) pasteSelection();
+      else if (files.length) addMediaFiles(files, centerOfViewport());
+      else if (text.trim()) addTextBlocks(text, centerOfViewport());
+      else pasteSelection();
+    };
+    document.addEventListener('paste', onPaste);
+    return () => document.removeEventListener('paste', onPaste);
+  }, [addMediaFiles, addTextBlocks, centerOfViewport, locked, pasteSelection]);
+
   return (
     <div className="adv-shell">
       <AdvToolbar
@@ -1053,6 +1129,21 @@ function AdvCanvasInner({
         ref={wrapperRef}
         data-tool={spacePanning ? 'hand' : tool}
         data-locked={locked ? 'true' : undefined}
+        onDragOver={(event) => {
+          if (!locked && event.dataTransfer.types.includes('Files')) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'copy';
+          }
+        }}
+        // A node's own dropzone handles (and cancels) drops onto it; only drops
+        // on bare canvas or non-dropzone nodes create new nodes.
+        onDrop={(event) => {
+          if (locked || event.defaultPrevented) return;
+          const files = [...event.dataTransfer.files];
+          if (!files.length) return;
+          event.preventDefault();
+          addMediaFiles(files, flow.screenToFlowPosition({ x: event.clientX, y: event.clientY }));
+        }}
         // Bound on the wrapper rather than React Flow's pane so a right-click
         // anywhere that is not a node opens the picker, including the gaps
         // between a group frame and its members.
