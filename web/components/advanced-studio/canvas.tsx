@@ -44,6 +44,7 @@ import { AdvNodeActionsContext, type AdvNodeActions } from './node-context';
 import { AdvNodeShell } from './node-shell';
 import { AddNodeMenu } from './add-node-menu';
 import { AdvToolbar } from './toolbar';
+import { AdvCuttableEdge } from './cuttable-edge';
 import { AdvCanvasControls, type AdvCanvasTool } from './canvas-controls';
 import { ShortcutsDialog } from './shortcuts-dialog';
 import type { AdvSaveState } from '@/lib/advanced-studio/use-advanced-workspace';
@@ -59,6 +60,9 @@ const NODE_TYPES = {
   videoGenerator: AdvNodeShell,
   group: AdvNodeShell,
 } as const;
+
+const EDGE_TYPES = { adv: AdvCuttableEdge } as const;
+const DEFAULT_EDGE_OPTIONS = { type: 'adv' } as const;
 
 const HISTORY_LIMIT = 30;
 const PASTE_OFFSET = 36;
@@ -960,6 +964,8 @@ function AdvCanvasInner({
           nodes={nodes}
           edges={edges}
           nodeTypes={NODE_TYPES}
+          edgeTypes={EDGE_TYPES}
+          defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
           onNodesChange={handleNodesChange}
           onEdgesChange={handleEdgesChange}
           onConnect={onConnect}

@@ -450,6 +450,24 @@
 .adv-canvas .react-flow__edge:hover .react-flow__edge-path { stroke-width: 3.5; filter: brightness(1.08); }
 .adv-canvas .react-flow__connectionline .react-flow__edge-path { stroke-dasharray: 5 4; }
 
+.adv-edge-cut {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--pf-adv-border);
+  border-radius: 50%;
+  background: var(--pf-adv-node);
+  color: var(--pf-error);
+  cursor: pointer;
+  pointer-events: all;
+  box-shadow: 0 2px 10px rgb(0 0 0 / 0.35);
+}
+.adv-edge-cut:hover { border-color: var(--pf-error); }
+.adv-edge-cut:focus-visible { outline: 2px solid var(--pf-accent); outline-offset: 2px; }
+
 .adv-resize-line { border-color: var(--pf-accent); }
 .adv-resize-handle { background: var(--pf-accent); border-color: var(--pf-adv-handle-ring); }
 
