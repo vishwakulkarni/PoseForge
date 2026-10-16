@@ -1,14 +1,29 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Providers } from './providers';
+import { SITE_DESCRIPTION, SITE_NAME, SITE_ORIGIN, SITE_TITLE } from '@/lib/site';
 
 export const metadata: Metadata = {
+  // Origin only: Next adds the base path to the file-based share and icon
+  // images itself, so including it here would double it.
+  metadataBase: new URL(SITE_ORIGIN),
   title: {
-    default: 'PoseForge — Make the shot you imagined',
-    template: '%s · PoseForge',
+    default: SITE_TITLE,
+    template: `%s · ${SITE_NAME}`,
   },
-  description:
-    'A local-first AI pose studio for photographers and creators. Keep the identity, direct the pose, camera, light, and mood, and create the frame on your own machine.',
+  description: SITE_DESCRIPTION,
+  // The share image itself comes from the opengraph-image and twitter-image files.
+  openGraph: {
+    type: 'website',
+    siteName: SITE_NAME,
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
 };
 
 export const viewport: Viewport = {

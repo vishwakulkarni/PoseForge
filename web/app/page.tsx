@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import {
   Aperture,
   ArrowRight,
@@ -18,6 +19,7 @@ import { PageShell } from '@/components/layout/page-shell';
 import { Button } from '@/components/ui/button';
 import { HeroCarousel } from './hero-carousel';
 import styles from './landing.module.css';
+import { SITE_DESCRIPTION, SITE_TITLE, absoluteUrl } from '@/lib/site';
 
 const PUBLIC_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 const IS_GITHUB_PAGES = process.env.GITHUB_PAGES === 'true';
@@ -87,6 +89,12 @@ const WORKFLOW = [
     note: 'History stays on your machine',
   },
 ];
+
+export const metadata: Metadata = {
+  title: { absolute: SITE_TITLE },
+  description: SITE_DESCRIPTION,
+  alternates: { canonical: absoluteUrl('/') },
+};
 
 export default function LandingPage() {
   return (
