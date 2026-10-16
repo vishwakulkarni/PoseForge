@@ -131,6 +131,33 @@ describe('Studio project save queue', () => {
     expect(result.current.saveState).toBe('saved');
   });
 
+  it('saves an edit that is still waiting out the quiet window when the project is closed', async () => {
+    const saved = projectDocument({ nodes: [
+      { id: 'generate', kind: 'generate', position: { x: 100, y: 200 } },
+      { id: 'result-1', kind: 'result', position: { x: 0, y: 0 }, imageUrl: '/storage/out.png' },
+    ] });
+    let sent: { document: StudioProjectDocument } | null = null;
+    server.use(
+      http.get('/api/studio-projects/default', () =>
+        HttpResponse.json(projectResponse(3, projectDocument())),
+      ),
+      http.put('/api/studio-projects/:id', async ({ request }) => {
+        sent = await request.json() as { document: StudioProjectDocument };
+        return HttpResponse.json(projectResponse(4, saved));
+      }),
+    );
+    const { result, unmount } = renderHook(
+      () => useStudioProjectWorkspace({ saveDelayMs: STUDIO_PROJECT_SAVE_DELAY_MS }),
+      { wrapper: wrapper() },
+    );
+    await waitFor(() => expect(result.current.project?.revision).toBe(3));
+
+    act(() => result.current.save(saved));
+    unmount();
+
+    await waitFor(() => expect(sent?.document.nodes).toHaveLength(2));
+  });
+
   it('serializes rapid edits and coalesces them to the newest pending snapshot', async () => {
     const initial = projectDocument();
     const requests: Array<{ expectedRevision: number; document: StudioProjectDocument }> = [];

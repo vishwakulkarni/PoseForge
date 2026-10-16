@@ -207,7 +207,19 @@ export function useStudioProjectWorkspace({
     clearActiveProjectId();
   }, [activeProjectId, selectedProjectMissing]);
 
-  React.useEffect(() => clearSaveTimer, [clearSaveTimer]);
+  // Edits wait out a debounce before they save, so leaving the project (or
+  // hiding the tab) with one still waiting must send it now rather than drop
+  // it — otherwise a result generated just before leaving is lost on reopen.
+  React.useEffect(() => {
+    const flushPending = () => { if (pendingRef.current) void flushRef.current(); };
+    const onVisibility = () => { if (document.visibilityState === 'hidden') flushPending(); };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      clearSaveTimer();
+      flushPending();
+    };
+  }, [clearSaveTimer]);
 
   const save = React.useCallback((document: StudioProjectDocument) => {
     const key = documentKey(document);
