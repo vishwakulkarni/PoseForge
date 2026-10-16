@@ -1052,16 +1052,19 @@
 
 .adv-lightbox-media {
   position: relative;
-  max-width: 100%;
-  max-height: 100%;
+  min-width: 0;
   cursor: default;
 }
 
+/* Sized against the viewport rather than the parent: a percentage max-width
+   inside this shrink-to-fit box does not cap large images, which then spilled
+   past the screen. The 64px matches the overlay's padding. */
 .adv-lightbox img,
 .adv-lightbox video {
   display: block;
-  max-width: 100%;
+  max-width: calc(100vw - 64px);
   max-height: calc(100vh - 64px);
+  object-fit: contain;
   border-radius: var(--radius-md);
   background: #050505;
   box-shadow: var(--pf-shadow-lg);
