@@ -68,7 +68,7 @@ function CreateProjectForm({
     if (!trimmed) return setFormError('Give this project a name.');
 
     try {
-      const project = await create.mutateAsync(trimmed);
+      const project = await create.mutateAsync({ name: trimmed });
       onCreated(project);
     } catch (cause) {
       setFormError(cause instanceof Error ? cause.message : 'Could not create that project.');

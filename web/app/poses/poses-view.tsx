@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
 import { ExternalLink, ImagePlus, Images, Search, Trash2 } from 'lucide-react';
 import {
   useCreatePoseReference,
@@ -25,6 +24,7 @@ import {
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { EmptyState, ErrorState, LoadingRegion, Skeleton } from '@/components/ui/feedback';
 import { useToast } from '@/components/ui/toast';
+import { UsePoseDialog } from './use-pose-dialog';
 
 /**
  * Rendered inside DialogContent, which Radix unmounts on close — so state
@@ -137,9 +137,11 @@ function AddPoseDialog({
 function PoseCard({
   pose,
   onDelete,
+  onUse,
 }: {
   pose: PoseReference;
   onDelete: (pose: PoseReference) => void;
+  onUse: (pose: PoseReference) => void;
 }) {
   return (
     <li className="group relative overflow-hidden rounded-[18px] border border-[var(--pf-border)] bg-[var(--pf-surface)] transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[var(--pf-shadow-md)]">
@@ -187,8 +189,8 @@ function PoseCard({
         ) : null}
 
         <div className="mt-1 flex items-center justify-between gap-2">
-          <Button asChild size="sm" variant="primary">
-            <Link href={`/studio?poseReferenceId=${pose.id}`}>Use in Studio</Link>
+          <Button size="sm" variant="primary" onClick={() => onUse(pose)}>
+            Use in Studio
           </Button>
           {pose.sourcePageUrl ? (
             <a
@@ -212,6 +214,7 @@ export function PosesView() {
   const [category, setCategory] = React.useState<string | null>(null);
   const [addOpen, setAddOpen] = React.useState(false);
   const [pendingDelete, setPendingDelete] = React.useState<PoseReference | null>(null);
+  const [usingPose, setUsingPose] = React.useState<PoseReference | null>(null);
 
   const { data: poses, isLoading, error, refetch } = usePoseReferences();
   const remove = useDeletePoseReference();
@@ -358,13 +361,14 @@ export function PosesView() {
           </p>
           <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             {filtered.map((pose) => (
-              <PoseCard key={pose.id} pose={pose} onDelete={setPendingDelete} />
+              <PoseCard key={pose.id} pose={pose} onDelete={setPendingDelete} onUse={setUsingPose} />
             ))}
           </ul>
         </>
       )}
 
       <AddPoseDialog open={addOpen} onOpenChange={setAddOpen} />
+      <UsePoseDialog pose={usingPose} onOpenChange={(open) => { if (!open) setUsingPose(null); }} />
 
       <ConfirmDialog
         open={Boolean(pendingDelete)}

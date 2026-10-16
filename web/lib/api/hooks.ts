@@ -16,6 +16,7 @@ import type {
   HiggsfieldEstimateRequest,
   MetricsScope,
   Preset,
+  StudioProjectDocument,
   StudioProjectSummary,
 } from './types';
 
@@ -366,7 +367,8 @@ export function useStudioProject(id: string | null) {
 export function useCreateStudioProject() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (name: string) => api.studioProjects.create({ name }),
+    mutationFn: (input: { name: string; document?: StudioProjectDocument }) =>
+      api.studioProjects.create(input),
     onSuccess: (project) => {
       client.setQueryData(queryKeys.studioProject(project.id), project);
       client.setQueryData<StudioProjectSummary[]>(queryKeys.studioProjects, (current) =>
