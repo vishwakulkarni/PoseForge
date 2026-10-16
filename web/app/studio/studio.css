@@ -2423,6 +2423,7 @@
 
 .canvas-viewport .react-flow__renderer { background: transparent; }
 .canvas-viewport .poseforge-dot-grid .react-flow__background { z-index: 0; }
+.canvas-viewport .react-flow__background { opacity: 0.35; }
 
 /* A percentage-height React Flow root collapses to 0px when the responsive
    flex canvas has a computed (rather than declared) height. Pinning the only

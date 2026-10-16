@@ -3075,8 +3075,8 @@ function CanvasFlow(props: CanvasPanelProps) {
         <Background
           id="square-dot-texture"
           variant={BackgroundVariant.Dots}
-          gap={16}
-          size={1.5}
+          gap={18}
+          size={1.4}
           color="var(--pf-canvas-dot)"
         />
       ) : null}
