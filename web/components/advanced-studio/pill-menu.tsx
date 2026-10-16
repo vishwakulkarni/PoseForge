@@ -89,7 +89,7 @@ export function PillMenu<T extends string>({
         <ChevronDown aria-hidden size={13} className={cn('adv-pill-chevron', open && 'is-open')} />
       </button>
       {open ? (
-        <div className="adv-pill-menu" role="listbox" aria-label={label}>
+        <div className="adv-pill-menu nowheel" role="listbox" aria-label={label}>
           {groups.map(([group, groupOptions]) => (
             <React.Fragment key={group || 'ungrouped'}>
               {group ? <p className="adv-pill-group">{group}</p> : null}
