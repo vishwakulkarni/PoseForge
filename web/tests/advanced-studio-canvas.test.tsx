@@ -775,6 +775,20 @@ describe('Advanced Studio canvas', () => {
     expect(container.querySelectorAll('.react-flow__node')).toHaveLength(2);
   });
 
+  it('offers group, duplicate and delete over a multi-node selection', async () => {
+    const user = userEvent.setup();
+    const { container } = renderCanvas();
+    await waitFor(() => expect(screen.getByText('Prompt #1')).toBeInTheDocument());
+    expect(screen.queryByRole('toolbar', { name: /nodes selected/ })).not.toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: 'a', metaKey: true });
+    const toolbar = await screen.findByRole('toolbar', { name: '2 nodes selected' });
+
+    await user.click(within(toolbar).getByRole('button', { name: 'Group selection' }));
+    await waitFor(() => expect(container.querySelectorAll('.react-flow__node')).toHaveLength(3));
+    expect(screen.getByText('Group 1')).toBeInTheDocument();
+  });
+
   it('spotlights the nodes feeding a selected node and dims the rest', async () => {
     const { container } = renderCanvas({
       project: project({

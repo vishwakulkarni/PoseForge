@@ -479,6 +479,47 @@
 .adv-snap-guide-x { top: -100000px; width: 1px; height: 200000px; }
 .adv-snap-guide-y { left: -100000px; height: 1px; width: 200000px; }
 
+/* Floating actions above a multi-node selection. */
+.adv-selection-toolbar {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--pf-adv-border);
+  border-radius: var(--radius-md);
+  background: var(--pf-adv-node);
+  box-shadow: var(--pf-adv-shadow);
+  transform-origin: 0 0;
+  z-index: 6;
+}
+.adv-selection-count {
+  padding: 0 8px;
+  font-size: 12px;
+  color: var(--pf-adv-text-tertiary);
+  white-space: nowrap;
+}
+.adv-selection-toolbar button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--pf-adv-text-secondary);
+  cursor: pointer;
+}
+.adv-selection-toolbar button:hover { background: var(--pf-adv-border-soft); color: var(--pf-adv-text); }
+.adv-selection-toolbar button.is-destructive:hover { color: var(--pf-error); }
+.adv-selection-toolbar button:focus-visible { outline: 2px solid var(--pf-accent); outline-offset: 1px; }
+
+/* Arrange glides nodes to their cells instead of snapping. */
+.adv-canvas[data-arranging='true'] .react-flow__node {
+  transition: transform 380ms cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 150ms ease;
+}
+
 .adv-edge-cut {
   position: absolute;
   display: grid;
@@ -1285,6 +1326,7 @@
   .adv-toolbar-button,
   .adv-generate-button,
   .adv-canvas .react-flow__node,
+  .adv-canvas[data-arranging='true'] .react-flow__node,
   .adv-canvas .react-flow__edge,
   .adv-canvas .react-flow__handle.adv-handle { transition: none; }
   .adv-node-menu-popover,

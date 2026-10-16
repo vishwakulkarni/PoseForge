@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_PASTED_BLOCKS, mediaKindOf, splitTextBlocks } from '@/lib/advanced-studio/canvas-input';
+import { MAX_PASTED_BLOCKS, frameAround, mediaKindOf, splitTextBlocks } from '@/lib/advanced-studio/canvas-input';
 
 describe('splitTextBlocks', () => {
   it('splits on blank lines and trims', () => {
@@ -25,5 +25,15 @@ describe('mediaKindOf', () => {
     expect(mediaKindOf({ type: 'audio/mpeg' })).toBe('audio');
     expect(mediaKindOf({ type: 'application/pdf' })).toBeNull();
     expect(mediaKindOf({ type: '' })).toBeNull();
+  });
+});
+
+describe('frameAround', () => {
+  it('encloses every rect with padding and header room', () => {
+    const frame = frameAround([
+      { x: 100, y: 100, width: 200, height: 100 },
+      { x: 400, y: 150, width: 100, height: 200 },
+    ], 40, 30);
+    expect(frame).toEqual({ x: 60, y: 30, width: 480, height: 360 });
   });
 });

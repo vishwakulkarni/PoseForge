@@ -31,6 +31,7 @@ import { resolveInputs } from '@/lib/advanced-studio/resolve-inputs';
 import { snapToNeighbours, upstreamOf, type SnapGuide } from '@/lib/advanced-studio/canvas-focus';
 import {
   INTERNAL_CLIPBOARD_MARK,
+  frameAround,
   mediaKindOf,
   splitTextBlocks,
 } from '@/lib/advanced-studio/canvas-input';
@@ -53,6 +54,7 @@ import { AdvNodeShell } from './node-shell';
 import { AddNodeMenu } from './add-node-menu';
 import { AdvToolbar } from './toolbar';
 import { AdvCuttableEdge } from './cuttable-edge';
+import { AdvSelectionToolbar } from './selection-toolbar';
 import { AdvCanvasControls, type AdvCanvasTool } from './canvas-controls';
 import { ShortcutsDialog } from './shortcuts-dialog';
 import type { AdvSaveState } from '@/lib/advanced-studio/use-advanced-workspace';
@@ -134,6 +136,8 @@ function AdvCanvasInner({
   const [preview, setPreview] = React.useState<{ url: string; mediaKind: 'image' | 'video' } | null>(null);
   const [pendingDelete, setPendingDelete] = React.useState<{ id: string; label: string; members: number } | null>(null);
   const [snapGuides, setSnapGuides] = React.useState<SnapGuide[]>([]);
+  const [arranging, setArranging] = React.useState(false);
+  const arrangeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   // The scene a dragged node would join if dropped now; drives the preview ring.
   const [dropGroupId, setDropGroupId] = React.useState<string | null>(null);
   const boxSelecting = useStore((state) => state.userSelectionActive);
@@ -881,9 +885,53 @@ function AdvCanvasInner({
       x: Math.round(originX + (index % columns) * columnWidth),
       y: Math.round(originY + Math.floor(index / columns) * rowHeight),
     }]));
+    // Nodes glide to their new cells; the class only lives for the animation so
+    // ordinary drags stay immediate.
+    if (arrangeTimerRef.current) clearTimeout(arrangeTimerRef.current);
+    setArranging(true);
+    arrangeTimerRef.current = setTimeout(() => setArranging(false), 420);
     setNodes((current) => current.map((node) => (
       positions.has(node.id) ? { ...node, position: positions.get(node.id)! } : node
     )));
+  }, [flow, pushHistory, setNodes]);
+
+  React.useEffect(() => () => {
+    if (arrangeTimerRef.current) clearTimeout(arrangeTimerRef.current);
+  }, []);
+
+  /** Wraps the selected nodes in a new group frame. */
+  const groupSelection = React.useCallback(() => {
+    const members = flow.getNodes().filter((node) => node.selected && node.type !== 'group');
+    if (members.length < 2) return;
+    pushHistory();
+    const definition = nodeDefinition('group');
+    const frame = frameAround(
+      members.map((node) => ({
+        x: node.position.x,
+        y: node.position.y,
+        width: node.measured?.width ?? node.width ?? 0,
+        height: node.measured?.height ?? node.height ?? 0,
+      })),
+      48,
+      56,
+    );
+    setNodes((current) => {
+      const created = {
+        id: `group-${crypto.randomUUID().slice(0, 8)}`,
+        type: 'group',
+        position: { x: frame.x, y: frame.y },
+        width: frame.width,
+        height: frame.height,
+        zIndex: -1,
+        selected: false,
+        data: {
+          ...definition.defaultData(),
+          label: definition.defaultLabel(nextLabelIndex(current, 'group')),
+          memberIds: members.map((node) => node.id),
+        },
+      } as AdvFlowNode;
+      return [created, ...current];
+    });
   }, [flow, pushHistory, setNodes]);
 
   const canArrange = React.useMemo(
@@ -1129,6 +1177,7 @@ function AdvCanvasInner({
         ref={wrapperRef}
         data-tool={spacePanning ? 'hand' : tool}
         data-locked={locked ? 'true' : undefined}
+        data-arranging={arranging ? 'true' : undefined}
         onDragOver={(event) => {
           if (!locked && event.dataTransfer.types.includes('Files')) {
             event.preventDefault();
@@ -1211,6 +1260,14 @@ function AdvCanvasInner({
             onShowShortcuts={() => setShortcutsOpen(true)}
           />
           {minimap ? <MiniMap pannable zoomable className="adv-minimap" /> : null}
+          <AdvSelectionToolbar
+            nodes={nodes}
+            disabled={locked}
+            onArrange={arrangeNodes}
+            onGroup={groupSelection}
+            onDuplicate={() => { copySelection(); pasteSelection(); }}
+            onDelete={deleteSelection}
+          />
           {snapGuides.length ? (
             <ViewportPortal>
               {snapGuides.map((guide) => (
