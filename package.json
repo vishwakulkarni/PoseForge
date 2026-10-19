@@ -29,7 +29,9 @@
     "node": ">=20.9.0"
   },
   "scripts": {
+    "postinstall": "npm --prefix web install",
     "setup": "node scripts/setup.js",
+    "prestart": "node scripts/ensure-web-build.js",
     "start": "node server.js",
     "dev": "node scripts/dev-with-pglite-recovery.js",
     "build:web": "npm --prefix web run build",

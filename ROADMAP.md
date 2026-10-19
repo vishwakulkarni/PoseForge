@@ -7,7 +7,7 @@ as real users report where they get stuck.
 
 ## Now — launch readiness
 
-- Make a fresh installation reliable through `npm run setup`.
+- Make a fresh installation reliable through `npm install && npm run dev`.
 - Verify macOS and Linux compatibility on clean machines.
 - Improve identity preservation and multi-person pose adherence.
 - Polish Codex CLI and Google Antigravity readiness diagnostics.

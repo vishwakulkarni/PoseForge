@@ -20,13 +20,13 @@ the goal is to keep it approachable for both users and contributors.
 ```bash
 git clone https://github.com/vishwakulkarni/PoseForge.git
 cd PoseForge
-npm run setup
+npm install
 npm run dev
 ```
 
-The setup command preserves an existing `.env`, installs locked API and web
-dependencies, initializes embedded PGlite, applies migrations, and verifies the
-bundled starter poses. Re-run it after pulling dependency or migration changes.
+`npm install` installs the API and web dependencies; migrations run on start.
+Run `npm run setup` to verify the database and bundled starter poses end to end.
+Re-run `npm install` after pulling dependency changes.
 
 Open http://localhost:3000. Pages, `/api`, and `/storage` are served by the
 same process and origin.

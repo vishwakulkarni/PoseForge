@@ -52,14 +52,16 @@ Prerequisite: Node.js 20.9+. PGlite is embedded, so Docker and a separate databa
 ```bash
 git clone https://github.com/vishwakulkarni/PoseForge.git
 cd PoseForge
-npm run setup
+npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The setup command creates
-`.env` when needed, installs locked dependencies, creates the embedded PGlite
-database, runs migrations, and verifies the 16 bundled offline poses. It preserves an
-existing `.env` and is safe to rerun after pulling updates.
+Open [http://localhost:3000](http://localhost:3000). `npm install` installs both
+the API and web dependencies. The embedded PGlite database is created and
+migrated automatically on first start. Settings can be configured in the app;
+copy `.env.example` to `.env` only if you want to set options such as API keys
+up front. To check a fresh install end to end (database and the 16 bundled
+offline poses), run `npm run setup`.
 
 No image engine is required to explore the interface. To generate images,
 authenticate Codex or Google Antigravity, connect local ComfyUI, or configure
@@ -201,7 +203,8 @@ flowchart LR
 
 | Command | Purpose |
 |---|---|
-| `npm run setup` | Install dependencies, initialize PGlite, migrate, and verify bundled poses |
+| `npm install` | Install API and web dependencies |
+| `npm run setup` | Optional: clean-install dependencies, create `.env`, migrate, and verify bundled poses |
 | `npm run dev` | Start the complete application with Next.js development mode |
 | `npm run build:web` | Create the production web build |
 | `npm run test:all` | Run API and web unit/component tests |
@@ -256,9 +259,11 @@ Replicate, and fal.ai credentials can also be configured in Settings.
 ## Production and security boundary
 
 ```bash
-npm run build:web
 npm start
 ```
+
+`npm start` builds the web app on first run. After pulling updates, rebuild it
+with `npm run build:web`.
 
 PoseForge is a trusted, single-user local application. It has no authentication
 or authorization layer and should not be exposed directly to the internet or a

@@ -3,13 +3,15 @@
 Start with:
 
 ```bash
-npm run setup
+npm install
 npm run dev
 ```
 
-The setup command is safe to rerun. It preserves an existing `.env`, installs
-locked dependencies, initializes embedded PGlite, applies migrations, and
-checks the bundled pose collection.
+`npm install` is safe to rerun. If something still looks wrong, `npm run setup`
+is also safe to rerun: it preserves an existing `.env`, reinstalls locked
+dependencies, applies migrations, and checks the bundled pose collection.
+
+If `npm start` reports a missing production build, run `npm run build:web`.
 
 ## The embedded database does not open
 
@@ -105,7 +107,7 @@ older image indefinitely.
 ## Native image dependencies fail to install
 
 PoseForge uses `sharp`. Use a supported Node.js LTS release and reinstall the
-locked dependencies with `npm run setup`. On an unsupported CPU/OS combination,
+locked dependencies with `npm install`. On an unsupported CPU/OS combination,
 include the complete non-secret install error in a bug report.
 
 ## Can PoseForge be exposed to the internet?

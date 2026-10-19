@@ -11,7 +11,7 @@ small, reproducible diagnostic report.
 - **Setup question or workflow help:** start a [GitHub Discussion](https://github.com/vishwakulkarni/PoseForge/discussions).
 - **Security vulnerability:** use a private [GitHub Security Advisory](https://github.com/vishwakulkarni/PoseForge/security/advisories/new). Do not open a public issue.
 
-Before reporting a problem, run `npm run setup` again and check
+Before reporting a problem, run `npm install` again and check
 [Troubleshooting](docs/TROUBLESHOOTING.md).
 
 ## What to include
