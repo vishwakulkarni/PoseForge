@@ -18,6 +18,7 @@ const logger = require("./lib/logger");
 const { prefetchProviderLimits } = require("./lib/providerLimits");
 const { pool, databaseConfig } = require("./db/pool");
 const { runMigrations } = require("./db/migrate");
+const { seedExampleProjects } = require("./lib/exampleProjects");
 const { createDailyBackup, scheduleDailyBackups } = require("./lib/dbBackup");
 
 const WEB_DIR = path.join(__dirname, "web");
@@ -85,6 +86,9 @@ async function start() {
   const dev = DEV_MODE || process.env.NODE_ENV === "development";
 
   await runMigrations();
+  await seedExampleProjects().catch((error) =>
+    logger.error("example project seeding failed", { error: error.message })
+  );
 
   await createDailyBackup(pool, logger).catch((error) =>
     logger.error("startup database backup failed", { error: error.message })
