@@ -114,6 +114,58 @@ describe('Studio workbench layout', () => {
     })).toBeInTheDocument();
   });
 
+  it('resumes a generation that finished while the project was closed', async () => {
+    withPoses();
+    const generationId = '55555555-5555-4555-8555-555555555555';
+    server.use(
+      http.get('/api/studio-projects/default', () => HttpResponse.json({
+        id: '33333333-3333-4333-8333-333333333333',
+        name: 'My Studio',
+        schemaVersion: 1,
+        revision: 1,
+        document: {
+          schemaVersion: 1,
+          viewport: { x: 0, y: 0, zoom: 1 },
+          nodes: [{
+            id: `result-${generationId}`,
+            kind: 'result',
+            position: { x: 0, y: 670 },
+            generationId,
+            status: 'running',
+          }],
+          edges: [],
+          edgeState: 'explicit',
+          locked: false,
+        },
+      })),
+      http.get(`/api/generations/${generationId}`, () => HttpResponse.json({
+          id: generationId,
+          status: 'completed',
+          engine: 'codex',
+          characters: [],
+          posePhotoUrl: '/storage/pose-1.png',
+          poseReferenceId: null,
+          poseTitle: null,
+          outputUrl: '/storage/generations/done/output.png',
+          backgroundPreset: null,
+          stylePreset: null,
+          prompt: '',
+          studioMode: 'normal',
+          advancedSettings: {},
+          batchId: null,
+          usage: {},
+          documentSheetUrl: null,
+          passportSheetUrl: null,
+          errorMessage: null,
+          createdAt: '2026-08-17T10:00:00.000Z',
+      })),
+    );
+    const { container } = renderWithProviders(<StudioView />);
+    await waitFor(() =>
+      expect(container.querySelector('img[src="/storage/generations/done/output.png"]')).not.toBeNull(),
+    );
+  });
+
   it('hydrates the Sources panel from the active Studio project', async () => {
     withPoses();
     server.use(http.get('/api/studio-projects/default', () => HttpResponse.json({

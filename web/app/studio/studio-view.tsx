@@ -268,9 +268,20 @@ export function StudioView({ projectId }: { projectId?: string } = {}) {
   const { data: generationHistory } = useGenerations({ limit: 30, status: 'completed' });
   const hydratedProjectSources = React.useRef<string | null>(null);
 
-  const { generations, settled, completed, failed } = useGenerationsPolling(
-    state.activeGenerationIds,
+  // Active generation ids live in page state, so leaving Studio mid-run drops
+  // them. The saved result nodes remember the generation but not its outcome;
+  // keep polling those so a run that finished while away lands in its node.
+  const savedPendingIds = React.useMemo(
+    () => (projectWorkspace.project?.document.nodes ?? [])
+      .filter((node) => node.kind === 'result' && node.generationId && !node.imageUrl)
+      .map((node) => node.generationId as string),
+    [projectWorkspace.project],
   );
+  const pollIds = React.useMemo(
+    () => [...new Set([...state.activeGenerationIds, ...savedPendingIds])],
+    [state.activeGenerationIds, savedPendingIds],
+  );
+  const { generations, settled, completed, failed } = useGenerationsPolling(pollIds);
 
   // A Studio project owns its source choices as well as its graph geometry.
   // Hydrate the generation reducer from the authored source nodes once per
