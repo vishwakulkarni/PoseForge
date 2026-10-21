@@ -32,7 +32,7 @@ function ProjectPreview({ project }: { project: StudioProjectSummary }) {
   if (generatedImageUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element -- project assets are served by the local storage mount
-      <img src={generatedImageUrl} alt="Latest generated result" className="h-full w-full object-cover" />
+      <img src={generatedImageUrl} alt="Latest generated result" className="h-full w-full object-cover object-top" />
     );
   }
 
@@ -41,7 +41,7 @@ function ProjectPreview({ project }: { project: StudioProjectSummary }) {
       <div className="flex h-full w-full gap-1.5 p-2" aria-label={`${loadedImageUrls.length} loaded project images`}>
         {loadedImageUrls.map((imageUrl) => (
           // eslint-disable-next-line @next/next/no-img-element -- project assets are served by the local storage mount
-          <img key={imageUrl} src={imageUrl} alt="Loaded project source" className="min-w-0 flex-1 rounded-[10px] object-cover" />
+          <img key={imageUrl} src={imageUrl} alt="Loaded project source" className="min-w-0 flex-1 rounded-[10px] object-cover object-top" />
         ))}
       </div>
     );
@@ -208,7 +208,7 @@ export function StudioProjectsView() {
                   <button
                     type="button"
                     onClick={() => openProject(project.id)}
-                    className="truncate text-left text-[14px] font-bold hover:underline"
+                    className="block max-w-full break-words text-left text-[14px] font-bold hover:underline"
                   >
                     {project.name}
                   </button>
@@ -222,7 +222,7 @@ export function StudioProjectsView() {
                     </Badge>
                   ) : null}
                 </div>
-                <Button size="sm" variant="ghost" onClick={() => openProject(project.id)}>
+                <Button size="sm" variant="ghost" className="shrink-0" onClick={() => openProject(project.id)}>
                   Open
                 </Button>
               </div>

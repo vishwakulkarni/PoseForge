@@ -39,14 +39,14 @@ function ProjectPreview({ project }: { project: AdvProjectSummary }) {
 
   if (generated) {
     // eslint-disable-next-line @next/next/no-img-element -- served by the local storage mount
-    return <img src={generated} alt="Latest generated result" className="h-full w-full object-cover" />;
+    return <img src={generated} alt="Latest generated result" className="h-full w-full object-cover object-top" />;
   }
   if (loaded.length) {
     return (
       <div className="flex h-full w-full gap-1.5 p-2" aria-label={`${loaded.length} project images`}>
         {loaded.map((imageUrl) => (
           // eslint-disable-next-line @next/next/no-img-element -- served by the local storage mount
-          <img key={imageUrl} src={imageUrl} alt="Workflow input" className="min-w-0 flex-1 rounded-[10px] object-cover" />
+          <img key={imageUrl} src={imageUrl} alt="Workflow input" className="min-w-0 flex-1 rounded-[10px] object-cover object-top" />
         ))}
       </div>
     );
@@ -133,10 +133,10 @@ export function AdvancedProjectsView() {
                   <div className="min-w-0">
                     <Link
                       href={`/studio-advanced/${project.id}`}
-                      className="flex items-center gap-2 truncate text-left text-[14px] font-bold hover:underline"
+                      className="flex flex-wrap items-center gap-x-2 gap-y-1 text-left text-[14px] font-bold hover:underline"
                     >
-                      <span className="truncate">{project.name}</span>
-                      <Badge>{TEMPLATE_LABEL[project.template] ?? 'Blank'}</Badge>
+                      <span className="min-w-0 break-words">{project.name}</span>
+                      <Badge className="shrink-0">{TEMPLATE_LABEL[project.template] ?? 'Blank'}</Badge>
                     </Link>
                     <p className="text-[11px] text-[var(--pf-text-tertiary)]">
                       {project.nodeCount} node{project.nodeCount === 1 ? '' : 's'} · edited {relativeTime(project.updatedAt)}
