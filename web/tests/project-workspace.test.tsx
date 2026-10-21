@@ -8,6 +8,8 @@ import {
   STUDIO_PROJECT_SAVE_DELAY_MS,
   useStudioProjectWorkspace,
 } from '@/lib/studio/project-workspace';
+import { queryKeys } from '@/lib/api/hooks';
+import type { StudioProjectSummary } from '@/lib/api/types';
 import { makeTestQueryClient } from './helpers/render';
 import { server } from './helpers/server';
 
@@ -156,6 +158,40 @@ describe('Studio project save queue', () => {
     unmount();
 
     await waitFor(() => expect(sent?.document.nodes).toHaveLength(2));
+  });
+
+  it('keeps a project card thumbnail in the cached gallery after a save', async () => {
+    const preview = { generatedImageUrl: null, loadedImageUrls: ['/storage/characters/a.png'] };
+    const saved = projectDocument({ viewport: { x: 1, y: 2, zoom: 1 } });
+    server.use(
+      http.get('/api/studio-projects/default', () =>
+        HttpResponse.json(projectResponse(3, projectDocument())),
+      ),
+      http.get('/api/studio-projects', () => HttpResponse.json({
+        projects: [{
+          id: projectId, name: 'My Studio', schemaVersion: 1, revision: 3, isDefault: true, preview,
+          createdAt: '2026-08-17T10:00:00.000Z', updatedAt: '2026-08-17T10:05:00.000Z',
+        }],
+      })),
+      http.put('/api/studio-projects/:id', () => HttpResponse.json(projectResponse(4, saved))),
+    );
+    const queryClient = makeTestQueryClient();
+    function SharedWrapper({ children }: { children: React.ReactNode }) {
+      return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    }
+    const { result } = renderHook(
+      () => useStudioProjectWorkspace({ saveDelayMs: 25 }),
+      { wrapper: SharedWrapper },
+    );
+    await waitFor(() => expect(result.current.project?.revision).toBe(3));
+    await waitFor(() => expect(queryClient.getQueryData(queryKeys.studioProjects)).toBeDefined());
+
+    act(() => result.current.save(saved));
+    await waitFor(() => expect(result.current.project?.revision).toBe(4));
+
+    const list = queryClient.getQueryData<StudioProjectSummary[]>(queryKeys.studioProjects);
+    expect(list?.[0].revision).toBe(4);
+    expect(list?.[0].preview).toEqual(preview);
   });
 
   it('serializes rapid edits and coalesces them to the newest pending snapshot', async () => {

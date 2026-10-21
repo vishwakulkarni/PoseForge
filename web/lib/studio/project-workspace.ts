@@ -136,10 +136,15 @@ export function useStudioProjectWorkspace({
     queryClient.setQueryData<StudioProjectSummary[]>(queryKeys.studioProjects, (current) => {
       if (!current) return [summary];
       const exists = current.some((item) => item.id === summary.id);
+      // `preview` (thumbnail URLs) is built server-side and a saved project
+      // cannot rebuild it, so an update keeps the entry's existing preview.
       return exists
-        ? current.map((item) => item.id === summary.id ? summary : item)
+        ? current.map((item) => item.id === summary.id ? { ...item, ...summary } : item)
         : [summary, ...current];
     });
+    // The kept preview can lag a newly saved result. Mark the list stale
+    // without refetching so the gallery picks up fresh thumbnails next visit.
+    queryClient.invalidateQueries({ queryKey: queryKeys.studioProjects, exact: true, refetchType: 'none' });
   }, [queryClient]);
 
   const flush = React.useCallback(async () => {

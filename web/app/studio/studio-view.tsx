@@ -269,17 +269,19 @@ export function StudioView({ projectId }: { projectId?: string } = {}) {
   const hydratedProjectSources = React.useRef<string | null>(null);
 
   // Active generation ids live in page state, so leaving Studio mid-run drops
-  // them. The saved result nodes remember the generation but not its outcome;
-  // keep polling those so a run that finished while away lands in its node.
-  const savedPendingIds = React.useMemo(
+  // them. Result nodes render from the polled generations, so every saved
+  // result's generation stays in the list: a run that finished while away lands
+  // in its node, and a node that already has its image is not replaced by an
+  // empty placeholder the moment it is saved.
+  const savedResultIds = React.useMemo(
     () => (projectWorkspace.project?.document.nodes ?? [])
-      .filter((node) => node.kind === 'result' && node.generationId && !node.imageUrl)
+      .filter((node) => node.kind === 'result' && node.generationId)
       .map((node) => node.generationId as string),
     [projectWorkspace.project],
   );
   const pollIds = React.useMemo(
-    () => [...new Set([...state.activeGenerationIds, ...savedPendingIds])],
-    [state.activeGenerationIds, savedPendingIds],
+    () => [...new Set([...state.activeGenerationIds, ...savedResultIds])],
+    [state.activeGenerationIds, savedResultIds],
   );
   const { generations, settled, completed, failed } = useGenerationsPolling(pollIds);
 
