@@ -3,7 +3,6 @@ import { DocsLayout } from 'fumadocs-ui/layouts/docs';
 import { RootProvider } from 'fumadocs-ui/provider/next';
 import { source } from '@/lib/source';
 import { SiteNav } from '@/components/layout/site-nav';
-import 'fumadocs-ui/style.css';
 
 export default function Layout({ children }: { children: ReactNode }) {
   return (

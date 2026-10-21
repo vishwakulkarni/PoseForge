@@ -1,5 +1,13 @@
 @import 'tailwindcss';
 
+/* Fumadocs joins this single Tailwind build instead of shipping its own
+   style.css from the docs layout. That prebuilt sheet carries its own
+   `theme` layer (--radius-*, --font-sans, ...) and stays loaded after
+   client-side navigation leaves /docs, restyling every other page. */
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+@source '../node_modules/fumadocs-ui/dist/**/*.js';
+
 /* ------------------------------------------------------------------ *
  * PoseForge design tokens.
  *
