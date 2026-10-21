@@ -53,20 +53,32 @@ test("seeds a runnable example per entry into each studio exactly once", async (
   }
 
   // Advanced Studio: each generated example, then the saved snapshots. The
-  // hand-hold example is Studio only.
+  // family example is Studio only.
   const advancedExamples = EXAMPLES.filter((example) => example.advanced !== false);
   const advanced = await projects("advanced");
   assert.equal(advanced.length, advancedExamples.length + ADVANCED_SNAPSHOTS.length);
-  assert.ok(!advanced.some((row) => row.name === "Example: two characters, hand in hand"));
+  assert.ok(!advanced.some((row) => row.name === "Example: family, walking pose"));
+  assert.ok(advanced.some((row) => row.name === "Example: two characters, hand in hand"));
   for (const [index, example] of advancedExamples.entries()) {
     const row = advanced.find((item) => item.name === example.name);
     const doc = sanitizeAdvancedDocument(row.document);
     const generators = doc.nodes.filter((node) => node.type === "imageGenerator");
     assert.equal(generators.length, example.poses.length, row.name);
-    // Every generator is fed the prompt, every character, and its own pose.
+    // Every generator is fed its prompt, every character, and its own pose.
     for (const generator of generators) {
       const incoming = doc.edges.filter((edge) => edge.target === generator.id);
       assert.equal(incoming.length, 2 + example.characters.length, row.name);
+    }
+    // One structured (JSON) prompt per generator, detailed enough to steer the output.
+    const prompts = doc.nodes.filter((node) => node.type === "text");
+    assert.equal(prompts.length, example.poses.length, row.name);
+    for (const prompt of prompts) {
+      assert.equal(prompt.data.mode, "structured", row.name);
+      const spec = JSON.parse(prompt.data.text);
+      for (const key of ["task", "inputs", "pose", "camera", "environment", "lighting", "style", "constraints", "avoid", "output"]) {
+        assert.ok(key in spec, `${row.name}: prompt has "${key}"`);
+      }
+      assert.ok(spec.constraints.length >= 3, row.name);
     }
   }
 });
