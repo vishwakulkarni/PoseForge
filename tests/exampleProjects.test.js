@@ -11,7 +11,7 @@ const storageRoot = path.join(__dirname, "..", "storage");
 const publicRoot = path.join(__dirname, "..", "web", "public");
 const { pool } = require("../db/pool");
 const { runMigrations } = require("../db/migrate");
-const { seedExampleProjects, EXAMPLES } = require("../lib/exampleProjects");
+const { seedExampleProjects, EXAMPLES, ADVANCED_SNAPSHOTS } = require("../lib/exampleProjects");
 const { sanitizeStudioDocument } = require("../lib/studioProject");
 const { resolveGenerateInputs } = require("../lib/studioPipeline");
 const { sanitizeAdvancedDocument } = require("../lib/advancedStudioProject");
@@ -39,7 +39,7 @@ const projects = async (workspace) => (await pool.query(
 )).rows;
 
 test("seeds a runnable example per entry into each studio exactly once", async () => {
-  assert.equal(await seedExampleProjects(), EXAMPLES.length);
+  assert.equal(await seedExampleProjects(), EXAMPLES.length + ADVANCED_SNAPSHOTS.length);
   assert.equal(await seedExampleProjects(), 0);
 
   const studio = await projects("studio");
@@ -52,18 +52,49 @@ test("seeds a runnable example per entry into each studio exactly once", async (
     assert.ok(inputs.poseSource.referenceId, row.name);
   }
 
+  // Advanced Studio: each generated example, then the saved snapshots. The
+  // hand-hold example is Studio only.
+  const advancedExamples = EXAMPLES.filter((example) => example.advanced !== false);
   const advanced = await projects("advanced");
-  assert.equal(advanced.length, EXAMPLES.length);
-  for (const [index, row] of advanced.entries()) {
+  assert.equal(advanced.length, advancedExamples.length + ADVANCED_SNAPSHOTS.length);
+  assert.ok(!advanced.some((row) => row.name === "Example: two characters, hand in hand"));
+  for (const [index, example] of advancedExamples.entries()) {
+    const row = advanced.find((item) => item.name === example.name);
     const doc = sanitizeAdvancedDocument(row.document);
     const generators = doc.nodes.filter((node) => node.type === "imageGenerator");
-    assert.equal(generators.length, EXAMPLES[index].poses.length, row.name);
+    assert.equal(generators.length, example.poses.length, row.name);
     // Every generator is fed the prompt, every character, and its own pose.
     for (const generator of generators) {
       const incoming = doc.edges.filter((edge) => edge.target === generator.id);
-      assert.equal(incoming.length, 2 + EXAMPLES[index].characters.length, row.name);
+      assert.equal(incoming.length, 2 + example.characters.length, row.name);
     }
   }
+});
+
+test("seeds the baby-running workflow with its media copied into the project", async () => {
+  const snapshot = ADVANCED_SNAPSHOTS.find((item) => item.flag.endsWith("baby-running"));
+  const row = (await pool.query(
+    "SELECT id, document FROM studio_projects WHERE workspace = 'advanced' AND name = $1", [snapshot.name]
+  )).rows[0];
+  const doc = sanitizeAdvancedDocument(row.document);
+  assert.equal(doc.nodes.filter((node) => node.type === "imageGenerator").length, 6);
+  assert.equal(doc.nodes.filter((node) => node.type === "videoGenerator").length, 3);
+
+  const urls = [];
+  for (const node of doc.nodes) {
+    for (const result of node.data.results || []) {
+      // Keep each file's real type: videos stay .mp4, images stay .jpg.
+      if (result.videoUrl) assert.match(result.videoUrl, /\.mp4$/);
+      if (result.imageUrl) assert.match(result.imageUrl, /\.jpg$/);
+      urls.push(result.imageUrl || result.videoUrl);
+    }
+  }
+  assert.ok(urls.length >= 9);
+  for (const url of urls) {
+    assert.ok(url.startsWith(`/storage/advanced/${row.id}/`), url);
+    assert.ok(fs.existsSync(path.join(storageRoot, url.replace(/^\/storage\//, ""))), url);
+  }
+  assert.ok(!JSON.stringify(row.document).includes("/demo/"), "no shipped-demo URL left in the project");
 });
 
 test("saves the home-page family example with its poses, character and result", async () => {
