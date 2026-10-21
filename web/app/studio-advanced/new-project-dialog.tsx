@@ -6,9 +6,11 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import type { AdvTemplateId } from '@/lib/advanced-studio/types';
 import { cn } from '@/lib/utils';
 
@@ -122,19 +124,19 @@ export function NewProjectDialog({
           />
         </label>
 
-        <div className="adv-dialog-actions">
-          <button type="button" className="adv-toolbar-button" onClick={() => handleOpenChange(false)}>
+        <DialogFooter>
+          <Button type="button" variant="ghost" onClick={() => handleOpenChange(false)}>
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className="adv-generate-button"
-            disabled={creating}
+            variant="primary"
+            loading={creating}
             onClick={() => onCreate({ name: name.trim() || chosen.title, template })}
           >
-            {creating ? 'Creating…' : 'Create workflow'}
-          </button>
-        </div>
+            Create workflow
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

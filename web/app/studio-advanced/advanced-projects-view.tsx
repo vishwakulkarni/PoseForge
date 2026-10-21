@@ -85,8 +85,9 @@ export function AdvancedProjectsView() {
         <p className="text-sm text-[var(--pf-text-secondary)]">
           Free-form node workflows for image, video and storyboard work.
         </p>
-        <Button onClick={() => setDialogOpen(true)}>
-          <Plus className="size-4" /> New project
+        <Button variant="primary" onClick={() => setDialogOpen(true)}>
+          <Plus />
+          New project
         </Button>
       </div>
 
@@ -105,7 +106,12 @@ export function AdvancedProjectsView() {
           <EmptyState
             title="No workflows yet"
             description="Create an image, video, or storyboard workflow — or start from a blank canvas."
-            action={<Button onClick={() => setDialogOpen(true)}><Plus className="size-4" /> New project</Button>}
+            action={
+              <Button variant="primary" onClick={() => setDialogOpen(true)}>
+                <Plus />
+                New project
+              </Button>
+            }
           />
         ) : (
           <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
