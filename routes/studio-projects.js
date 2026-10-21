@@ -10,6 +10,7 @@ const { buildWaves, resolveGenerateInputs } = require("../lib/studioPipeline");
 const { sanitizeAdvancedSettings } = require("../lib/studioSettings");
 const { createGeneration } = require("../lib/generationRunner");
 const storage = require("../lib/storage");
+const { resultThumbnail, sourceThumbnails } = require("../lib/thumbnails");
 const { registry } = require("../engines");
 
 const router = express.Router();
@@ -63,7 +64,7 @@ function projectPreview(rawDocument) {
     .map((node) => node.imageUrl)
     .filter((url, index, urls) => urls.indexOf(url) === index)
     .slice(0, 4);
-  return { generatedImageUrl, loadedImageUrls };
+  return { generatedImageUrl: resultThumbnail(generatedImageUrl), loadedImageUrls: sourceThumbnails(loadedImageUrls) };
 }
 
 function validateDocument(input) {

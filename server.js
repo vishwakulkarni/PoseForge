@@ -55,6 +55,7 @@ function createApplication(nextHandler) {
   app.use("/api/studio-projects", require("./routes/studio-projects"));
   app.use("/api/advanced-studio-projects", require("./routes/advanced-studio-projects"));
   app.use("/api/media", require("./routes/media"));
+  app.use("/api/thumbnails", require("./routes/thumbnails"));
   app.use("/api/passport", require("./routes/passport"));
   app.use("/api/metrics", require("./routes/metrics"));
 

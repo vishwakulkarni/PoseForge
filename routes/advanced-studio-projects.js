@@ -25,6 +25,7 @@ const { listAdvancedCapabilities } = require("../lib/advancedCapabilities");
 const { createAdvancedImageGeneration, createAdvancedVideoGeneration } = require("../lib/advancedGenerationRunner");
 const { normalizeToPng } = require("../lib/imageNormalizer");
 const storage = require("../lib/storage");
+const { resultThumbnail, sourceThumbnails } = require("../lib/thumbnails");
 const engines = require("../engines");
 const registry = engines.advancedRegistry || engines.registry;
 
@@ -81,7 +82,7 @@ function projectPreview(rawDocument) {
     .map((node) => node.data.imageUrl)
     .filter((url, index, urls) => urls.indexOf(url) === index)
     .slice(0, 4);
-  return { generatedImageUrl, loadedImageUrls };
+  return { generatedImageUrl: resultThumbnail(generatedImageUrl), loadedImageUrls: sourceThumbnails(loadedImageUrls) };
 }
 
 function summary(row) {
