@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { PageShell } from '@/components/layout/page-shell';
 import { ErrorBoundary } from '@/components/ui/feedback';
+import { STATIC_DEMO } from '@/lib/demo-mode';
 import { MetricsView } from './metrics-view';
 
 export const metadata: Metadata = {
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
 export default function MetricsPage() {
   return (
     <PageShell
-      eyebrow="Studio telemetry"
+      eyebrow={STATIC_DEMO ? 'Sample data' : 'Studio telemetry'}
       title="What your studio is actually costing."
       description="Every generation records tokens, cost, latency and outcome. This is that history, rolled up — so you can see which engine earns its keep before the bill arrives."
     >
