@@ -1,9 +1,10 @@
 name: GitHub Pages
 
-# The public site is built from the `site` branch: the whole app as a read-only demo.
+# The public site is the whole app as a read-only demo, built from the captured sample data in
+# web/public/demo-api (see scripts/capture-demo-fixtures.js).
 on:
   push:
-    branches: [site]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
