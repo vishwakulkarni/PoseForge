@@ -24,7 +24,8 @@ export const NAV_ITEMS = [
 
 const GITHUB_PAGES_NAV_ITEMS = [
   { label: 'Home', href: '/' },
-  { label: 'Demo', href: '/demo/advanced' },
+  { label: 'Workflow demo', href: '/demo/advanced' },
+  { label: 'Metrics demo', href: '/demo/metrics' },
   { label: 'Docs', href: '/docs' },
 ] as const;
 const IS_GITHUB_PAGES = process.env.NEXT_PUBLIC_GITHUB_PAGES === 'true';

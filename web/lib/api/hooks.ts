@@ -511,8 +511,9 @@ export function useCreatePassportPhoto() {
 
 /* ---------------------------------------------------------------- Metrics */
 
-export function useMetrics(scope: MetricsScope, refreshMs = 30_000) {
+export function useMetrics(scope: MetricsScope, refreshMs = 30_000, enabled = true) {
   return useQuery({
+    enabled,
     queryKey: queryKeys.metrics(scope),
     queryFn: () => api.metrics.get(scope),
     // The server prefetches CLI limits in the background. Poll briefly only

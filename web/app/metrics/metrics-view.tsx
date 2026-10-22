@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Download, RefreshCw } from 'lucide-react';
 import { useMetrics } from '@/lib/api/hooks';
-import type { AccountLimitWindow, MetricsBucket, MetricsScope } from '@/lib/api/types';
+import type { AccountLimitWindow, MetricsBucket, MetricsResponse, MetricsScope } from '@/lib/api/types';
 import {
   cn,
   downloadBlob,
@@ -100,12 +100,19 @@ function AccountLimitCard({
   );
 }
 
-export function MetricsView() {
+/**
+ * Metrics dashboard. With a `snapshot` it renders that fixed data instead of
+ * polling the local API, which is how the static site shows sample numbers.
+ */
+export function MetricsView({ snapshot }: { snapshot?: MetricsResponse }) {
   const [scope, setScope] = React.useState<MetricsScope>('historical');
   const [bucket, setBucket] = React.useState<MetricsBucket>('daily');
   const [measure, setMeasure] = React.useState<TrendMeasure>('tokens');
 
-  const { data, isLoading, isFetching, error, refetch } = useMetrics(scope);
+  const live = useMetrics(scope, undefined, !snapshot);
+  const { data, isLoading, isFetching, error, refetch } = snapshot
+    ? { data: snapshot, isLoading: false, isFetching: false, error: null, refetch: () => {} }
+    : live;
 
   // Colour assignment is driven by a stable, sorted engine list so a series
   // does not change colour when a new engine appears mid-session.
@@ -166,13 +173,15 @@ export function MetricsView() {
       {/* ----------------------------------------------------------- header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-3">
-          <Segmented
-            aria-label="Metrics time scope"
-            value={scope}
-            onValueChange={setScope}
-            options={SCOPE_OPTIONS}
-            size="sm"
-          />
+          {snapshot ? null : (
+            <Segmented
+              aria-label="Metrics time scope"
+              value={scope}
+              onValueChange={setScope}
+              options={SCOPE_OPTIONS}
+              size="sm"
+            />
+          )}
 
           {healthTone && health ? (
             <Badge variant={healthTone.variant} dot pulse={health.status !== 'healthy'}>
@@ -196,15 +205,17 @@ export function MetricsView() {
           >
             {data ? `Updated ${relativeTime(data.generatedAt)}` : 'Loading…'}
           </span>
-          <Button
-            size="icon"
-            variant="secondary"
-            onClick={() => refetch()}
-            aria-label="Refresh metrics"
-            title="Refresh metrics"
-          >
-            <RefreshCw className={cn(isFetching && 'animate-spin')} />
-          </Button>
+          {snapshot ? null : (
+            <Button
+              size="icon"
+              variant="secondary"
+              onClick={() => refetch()}
+              aria-label="Refresh metrics"
+              title="Refresh metrics"
+            >
+              <RefreshCw className={cn(isFetching && 'animate-spin')} />
+            </Button>
+          )}
           <Button size="sm" variant="secondary" onClick={exportJson} disabled={!data}>
             <Download />
             JSON
