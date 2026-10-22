@@ -35,6 +35,9 @@ jobs:
         with:
           enablement: true
 
+      - name: Drop dynamic local-app routes (they cannot be statically exported)
+        run: npm run pages:prepare -- --sources
+
       - name: Build static Next.js preview
         working-directory: web
         env:

@@ -28,7 +28,7 @@ no PoseForge server process is actually running.
 If the error is `Aborted(). Build with -sASSERTIONS for more info.` instead
 of a lock error, the embedded database's WAL is corrupted (usually from the
 process being killed mid-write). See
-[PGLITE_RECOVERY.md](PGLITE_RECOVERY.md) for the recovery runbook. PoseForge
+[PGLITE_RECOVERY.md](/docs/pglite-recovery) for the recovery runbook. PoseForge
 also takes an automatic daily backup to `backups/pglite/` (on every startup
 and once per day thereafter) to cap the worst-case data loss.
 

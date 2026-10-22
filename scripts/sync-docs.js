@@ -32,6 +32,12 @@ const DOCUMENTS = [
     description: "Setup, database, pose library, engine, and generation troubleshooting.",
   },
   {
+    src: "docs/PGLITE_RECOVERY.md",
+    slug: "pglite-recovery",
+    title: "Recovering the local database",
+    description: "Runbook for restoring a corrupted PGlite data directory from backup.",
+  },
+  {
     src: "docs/COMPATIBILITY.md",
     slug: "compatibility",
     title: "Compatibility",

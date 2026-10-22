@@ -1,0 +1,525 @@
+{
+  "schemaVersion": 2,
+  "template": "blank",
+  "viewport": {
+    "x": 321,
+    "y": 49,
+    "zoom": 0.262
+  },
+  "nodes": [
+    {
+      "id": "text-0cf5c173",
+      "type": "text",
+      "position": {
+        "x": -29,
+        "y": 198
+      },
+      "data": {
+        "text": "A 3D animated cartoon-style baby boy, around 12 months old, standing upright on a fluffy cream shag carpet in a cozy living room, both chubby hands holding onto the edge of a low wooden coffee table for balance, legs slightly apart with a cute wobbly stance, bare feet flat on the carpet with toes curled into the fluff. Body facing the camera at a three-quarter angle, head turned up and to the side, looking with a delighted open-mouth smile showing two tiny bottom teeth.\n\nVery large, oversized, round glossy dark-brown eyes taking up a big part of the face, with big sparkling catchlights and long lashes, wide-eyed wonder expression. Clean smooth forehead with no marks. Soft chubby rosy cheeks, small button nose, tousled wavy dark-brown hair with a soft side fringe. Wearing a plain white short-sleeve cotton t-shirt with a tiny embroidered teddy bear patch on the chest, and a white diaper with small gold star prints. Chubby thighs and arms.\n\nStyle: high-quality stylized 3D animated feature film look, smooth subsurface-scattered skin, soft rounded proportions, big head with extra-large expressive eyes, clean detailed textures.\n\nLighting & scene: warm golden-hour window light from the left, soft rim light on hair, shallow depth of field, blurred background with beige sofa, blue and mustard cushions, wooden shelves with framed photos, a potted plant and a warm table lamp. A few colorful wooden toy blocks scattered on the carpet. Cozy, joyful, heartwarming mood.\n\nFull-body shot, head to toe visible, portrait orientation, camera at low toddler eye level, 50mm lens feel, ultra-detailed, 4K.",
+        "mode": "plain"
+      },
+      "width": 336,
+      "height": 247,
+      "label": "Prompt #1",
+      "expandedWidth": 262,
+      "expandedHeight": 180
+    },
+    {
+      "id": "imageGenerator-c4299613",
+      "type": "imageGenerator",
+      "position": {
+        "x": 547,
+        "y": 74
+      },
+      "data": {
+        "engine": "codex",
+        "model": "codex",
+        "aspectRatio": "9:16",
+        "resolution": "2K",
+        "outputs": 1,
+        "status": "done",
+        "results": [
+          {
+            "imageUrl": "/demo/baby-running/img-01.jpg"
+          },
+          {
+            "imageUrl": "/demo/baby-running/img-02.jpg"
+          }
+        ],
+        "activeResultIndex": 1
+      },
+      "width": 420,
+      "height": 620,
+      "label": "Image Generator #1"
+    },
+    {
+      "id": "imageGenerator-1878c8aa",
+      "type": "imageGenerator",
+      "position": {
+        "x": 558,
+        "y": 871
+      },
+      "data": {
+        "engine": "codex",
+        "model": "codex",
+        "aspectRatio": "9:16",
+        "resolution": "1K",
+        "outputs": 1,
+        "status": "done",
+        "results": [
+          {
+            "imageUrl": "/demo/baby-running/img-03.jpg"
+          }
+        ],
+        "activeResultIndex": 0
+      },
+      "width": 420,
+      "height": 620,
+      "label": "Image Generator #2"
+    },
+    {
+      "id": "text-e1e94fb5",
+      "type": "text",
+      "position": {
+        "x": -45,
+        "y": 873
+      },
+      "data": {
+        "text": "A 3D animated cartoon-style man in his early 30s, standing upright on a fluffy cream shag carpet in a cozy living room, relaxed confident stance with weight on one leg, one hand in his pants pocket and the other hanging naturally at his side. Body at a slight three-quarter angle to the camera, head tilted a little, with a warm, playful half-smile.\n\nLarge expressive dark-brown eyes with bright catchlights, thick expressive eyebrows, a well-groomed short full black beard and mustache, warm tan skin, voluminous wavy dark-brown hair swept up and back with a few loose strands falling on the forehead. Clean smooth forehead. Wearing a dark charcoal-black textured knit sweater with sleeves slightly pushed up, a silver wristwatch on the left wrist, beige chino pants and white sneakers. Slim athletic build.\n\nStyle: high-quality stylized 3D animated feature film look, smooth subsurface-scattered skin, soft rounded proportions, slightly enlarged head and eyes, expressive face, clean detailed fabric textures.\n\nLighting & scene: warm golden-hour window light from the left, soft rim light on hair and shoulders, shallow depth of field, blurred background with beige sofa, blue and mustard cushions, wooden shelves with framed photos, a potted plant and a warm table lamp. A few colorful wooden toy blocks scattered on the carpet. Cozy, heartwarming mood.\n\nFull-body shot, head to toe visible, portrait orientation, eye-level camera, 50mm lens feel, ultra-detailed, 4K.",
+        "mode": "plain"
+      },
+      "width": 460,
+      "height": 300,
+      "label": "Prompt #2"
+    },
+    {
+      "id": "imageGenerator-4b5a8e40",
+      "type": "imageGenerator",
+      "position": {
+        "x": 561,
+        "y": 1639
+      },
+      "data": {
+        "engine": "codex",
+        "model": "codex",
+        "aspectRatio": "9:16",
+        "resolution": "2K",
+        "outputs": 1,
+        "status": "done",
+        "results": [
+          {
+            "imageUrl": "/demo/baby-running/img-04.jpg"
+          }
+        ],
+        "activeResultIndex": 0
+      },
+      "width": 420,
+      "height": 620,
+      "label": "Image Generator #3"
+    },
+    {
+      "id": "text-61eedb6f",
+      "type": "text",
+      "position": {
+        "x": -171,
+        "y": 1555
+      },
+      "data": {
+        "text": "A 3D animated cartoon-style young Indian woman in her late 20s, standing upright in a warm, sunlit living room beside a carved wooden sideboard with intricate lattice-pattern cabinet doors. Graceful relaxed stance, body at a three-quarter angle, head turned over her shoulder toward the room with a gentle, caring expression and softly parted lips. She holds a small white ceramic elephant figurine in both hands, gently wiping it with a soft cloth.\n\nVery large, round, glossy dark-brown eyes with long lashes and sparkling catchlights, delicate eyebrows, small nose, soft rosy cheeks, warm fair-tan skin. Clean smooth forehead. Very long, silky, glossy",
+        "mode": "plain"
+      },
+      "width": 460,
+      "height": 300,
+      "label": "Prompt #3"
+    },
+    {
+      "id": "imageGenerator-fb131191",
+      "type": "imageGenerator",
+      "position": {
+        "x": 2091,
+        "y": 368
+      },
+      "data": {
+        "engine": "codex",
+        "model": "codex",
+        "aspectRatio": "9:16",
+        "resolution": "1K",
+        "outputs": 1,
+        "status": "done",
+        "results": [
+          {
+            "imageUrl": "/demo/baby-running/img-05.jpg"
+          }
+        ],
+        "activeResultIndex": 0
+      },
+      "width": 332,
+      "height": 431,
+      "label": "Image Generator #4"
+    },
+    {
+      "id": "text-52a326f4",
+      "type": "text",
+      "position": {
+        "x": 1230,
+        "y": -150
+      },
+      "data": {
+        "text": "3D animated feature-film style, golden-hour cozy living room. A young Indian mom in a mint floral Anarkali and her 12-month-old baby boy with huge sparkling brown eyes sit on a patterned rug stacking colorful wooden blocks. The tower falls, the baby claps and giggles, mom laughs and tickles him. Suddenly the baby hears the front door open, freezes, and turns his head toward it with wide, excited eyes and a gasp of joy. Slow push-in, warm light, dust particles floating. 9:16.",
+        "mode": "plain"
+      },
+      "width": 460,
+      "height": 300,
+      "label": "Prompt #4"
+    },
+    {
+      "id": "imageGenerator-59969e90",
+      "type": "imageGenerator",
+      "position": {
+        "x": 1964,
+        "y": 956
+      },
+      "data": {
+        "engine": "codex",
+        "model": "codex",
+        "aspectRatio": "9:16",
+        "resolution": "1K",
+        "outputs": 1,
+        "status": "done",
+        "results": [
+          {
+            "imageUrl": "/demo/baby-running/img-06.jpg"
+          }
+        ],
+        "activeResultIndex": 0
+      },
+      "width": 420,
+      "height": 620,
+      "label": "Image Generator #5"
+    },
+    {
+      "id": "text-1005e3ea",
+      "type": "text",
+      "position": {
+        "x": 1151,
+        "y": 793
+      },
+      "data": {
+        "text": "3D animated feature-film style, golden-hour living room. A bearded Indian dad in a light-blue office shirt with a laptop bag walks in the front door looking tired; he sees his baby son and his face melts into a huge loving smile. He drops his bag and kneels with arms wide open. The 12-month-old baby boy in a white t-shirt and diaper waddle-runs toward him with wobbly excited steps, arms outstretched, giggling. Low-angle tracking shot at baby height, slow motion near the end. 9:16.",
+        "mode": "plain"
+      },
+      "width": 460,
+      "height": 300,
+      "label": "Prompt #5"
+    },
+    {
+      "id": "imageGenerator-b79fc18b",
+      "type": "imageGenerator",
+      "position": {
+        "x": 1996,
+        "y": 1741
+      },
+      "data": {
+        "engine": "codex",
+        "model": "codex",
+        "aspectRatio": "9:16",
+        "resolution": "1K",
+        "outputs": 1,
+        "status": "done",
+        "results": [
+          {
+            "imageUrl": "/demo/baby-running/img-07.jpg"
+          }
+        ],
+        "activeResultIndex": 0
+      },
+      "width": 420,
+      "height": 620,
+      "label": "Image Generator #6"
+    },
+    {
+      "id": "text-a3ece053",
+      "type": "text",
+      "position": {
+        "x": 1291,
+        "y": 1645
+      },
+      "data": {
+        "text": "3D animated feature-film style, golden-hour living room. Slow-motion close-up: a 12-month-old baby boy falls into his kneeling dad's arms. Dad scoops him up and hugs him tight, eyes closed, cheek on the baby's head, a happy tear rolling down. The baby snuggles into his neck, tiny hands gripping his blue shirt. Mom in a mint floral Anarkali walks in, smiling with teary eyes, and wraps her arms around both. Camera slowly orbits the family, warm sun flare behind them. Emotional, cinematic. 9:16.",
+        "mode": "plain"
+      },
+      "width": 460,
+      "height": 300,
+      "label": "Prompt #6"
+    },
+    {
+      "id": "videoGenerator-7abf7869",
+      "type": "videoGenerator",
+      "position": {
+        "x": 2976,
+        "y": 20
+      },
+      "data": {
+        "engine": "fal-video",
+        "model": "fal-ai/kling-video/v2.1/master/image-to-video",
+        "aspectRatio": "16:9",
+        "resolution": "720p",
+        "duration": 5,
+        "outputs": 1,
+        "status": "done",
+        "results": [
+          {
+            "videoUrl": "/demo/baby-running/vid-01.mp4"
+          }
+        ],
+        "activeResultIndex": 0
+      },
+      "width": 420,
+      "height": 720,
+      "label": "Video Generator #1"
+    },
+    {
+      "id": "text-b131d08a",
+      "type": "text",
+      "position": {
+        "x": 2249,
+        "y": 64
+      },
+      "data": {
+        "text": "3D animated feature-film style, golden-hour cozy living room. A young Indian mom in a mint floral Anarkali and her 12-month-old baby boy with huge sparkling brown eyes sit on a patterned rug stacking colorful wooden blocks. The tower falls, the baby claps and giggles, mom laughs and tickles him. Suddenly the baby hears the front door open, freezes, and turns his head toward it with wide, excited eyes and a gasp of joy. Slow push-in, warm light, dust particles floating. 9:16.",
+        "mode": "plain"
+      },
+      "width": 460,
+      "height": 300,
+      "label": "Prompt #7"
+    },
+    {
+      "id": "text-8dfff511",
+      "type": "text",
+      "position": {
+        "x": 2454,
+        "y": 773
+      },
+      "data": {
+        "text": "3D animated feature-film style, golden-hour living room. A bearded Indian dad in a light-blue office shirt with a laptop bag walks in the front door looking tired; he sees his baby son and his face melts into a huge loving smile. He drops his bag and kneels with arms wide open. The 12-month-old baby boy in a white t-shirt and diaper waddle-runs toward him with wobbly excited steps, arms outstretched, giggling. Low-angle tracking shot at baby height, slow motion near the end. 9:16.",
+        "mode": "plain"
+      },
+      "width": 460,
+      "height": 300,
+      "label": "Prompt #8"
+    },
+    {
+      "id": "videoGenerator-050eba02",
+      "type": "videoGenerator",
+      "position": {
+        "x": 2933,
+        "y": 1715
+      },
+      "data": {
+        "engine": "fal-video",
+        "model": "fal-ai/kling-video/v2.1/master/image-to-video",
+        "aspectRatio": "9:16",
+        "resolution": "720p",
+        "duration": 5,
+        "outputs": 1,
+        "status": "done",
+        "results": [
+          {
+            "videoUrl": "/demo/baby-running/vid-02.mp4"
+          }
+        ],
+        "activeResultIndex": 0
+      },
+      "width": 450,
+      "height": 779,
+      "label": "Video Generator #3"
+    },
+    {
+      "id": "text-af94692b",
+      "type": "text",
+      "position": {
+        "x": 2418,
+        "y": 1556
+      },
+      "data": {
+        "text": "3D animated feature-film style, golden-hour living room. Slow-motion close-up: a 12-month-old baby boy falls into his kneeling dad's arms. Dad scoops him up and hugs him tight, eyes closed, cheek on the baby's head, a happy tear rolling down. The baby snuggles into his neck, tiny hands gripping his blue shirt. Mom in a mint floral Anarkali walks in, smiling with teary eyes, and wraps her arms around both. Camera slowly orbits the family, warm sun flare behind them. Emotional, cinematic. 9:16.",
+        "mode": "plain"
+      },
+      "width": 460,
+      "height": 300,
+      "label": "Prompt #9"
+    },
+    {
+      "id": "videoGenerator-31190f20",
+      "type": "videoGenerator",
+      "position": {
+        "x": 2963,
+        "y": 793
+      },
+      "data": {
+        "engine": "higgsfield-video",
+        "model": "kling-video/v2.5-turbo/pro/image-to-video",
+        "resolution": "auto",
+        "duration": 5,
+        "outputs": 1,
+        "status": "done",
+        "results": [
+          {
+            "videoUrl": "/demo/baby-running/vid-03.mp4"
+          }
+        ],
+        "activeResultIndex": 0
+      },
+      "width": 420,
+      "height": 720,
+      "label": "Video Generator #2"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-text-0cf5c173-text-imageGenerator-c4299613-prompt",
+      "source": "text-0cf5c173",
+      "target": "imageGenerator-c4299613",
+      "sourceHandle": "text",
+      "targetHandle": "prompt",
+      "dataType": "text"
+    },
+    {
+      "id": "e-text-e1e94fb5-text-imageGenerator-1878c8aa-prompt",
+      "source": "text-e1e94fb5",
+      "target": "imageGenerator-1878c8aa",
+      "sourceHandle": "text",
+      "targetHandle": "prompt",
+      "dataType": "text"
+    },
+    {
+      "id": "e-text-61eedb6f-text-imageGenerator-4b5a8e40-prompt",
+      "source": "text-61eedb6f",
+      "target": "imageGenerator-4b5a8e40",
+      "sourceHandle": "text",
+      "targetHandle": "prompt",
+      "dataType": "text"
+    },
+    {
+      "id": "e-imageGenerator-c4299613-image-imageGenerator-fb131191-image",
+      "source": "imageGenerator-c4299613",
+      "target": "imageGenerator-fb131191",
+      "sourceHandle": "image",
+      "targetHandle": "image",
+      "dataType": "image"
+    },
+    {
+      "id": "e-imageGenerator-4b5a8e40-image-imageGenerator-fb131191-image",
+      "source": "imageGenerator-4b5a8e40",
+      "target": "imageGenerator-fb131191",
+      "sourceHandle": "image",
+      "targetHandle": "image",
+      "dataType": "image"
+    },
+    {
+      "id": "e-text-52a326f4-text-imageGenerator-fb131191-prompt",
+      "source": "text-52a326f4",
+      "target": "imageGenerator-fb131191",
+      "sourceHandle": "text",
+      "targetHandle": "prompt",
+      "dataType": "text"
+    },
+    {
+      "id": "e-imageGenerator-1878c8aa-image-imageGenerator-59969e90-image",
+      "source": "imageGenerator-1878c8aa",
+      "target": "imageGenerator-59969e90",
+      "sourceHandle": "image",
+      "targetHandle": "image",
+      "dataType": "image"
+    },
+    {
+      "id": "e-imageGenerator-c4299613-image-imageGenerator-59969e90-image",
+      "source": "imageGenerator-c4299613",
+      "target": "imageGenerator-59969e90",
+      "sourceHandle": "image",
+      "targetHandle": "image",
+      "dataType": "image"
+    },
+    {
+      "id": "e-text-1005e3ea-text-imageGenerator-59969e90-prompt",
+      "source": "text-1005e3ea",
+      "target": "imageGenerator-59969e90",
+      "sourceHandle": "text",
+      "targetHandle": "prompt",
+      "dataType": "text"
+    },
+    {
+      "id": "e-imageGenerator-1878c8aa-image-imageGenerator-b79fc18b-image",
+      "source": "imageGenerator-1878c8aa",
+      "target": "imageGenerator-b79fc18b",
+      "sourceHandle": "image",
+      "targetHandle": "image",
+      "dataType": "image"
+    },
+    {
+      "id": "e-imageGenerator-c4299613-image-imageGenerator-b79fc18b-image",
+      "source": "imageGenerator-c4299613",
+      "target": "imageGenerator-b79fc18b",
+      "sourceHandle": "image",
+      "targetHandle": "image",
+      "dataType": "image"
+    },
+    {
+      "id": "e-text-a3ece053-text-imageGenerator-b79fc18b-prompt",
+      "source": "text-a3ece053",
+      "target": "imageGenerator-b79fc18b",
+      "sourceHandle": "text",
+      "targetHandle": "prompt",
+      "dataType": "text"
+    },
+    {
+      "id": "e-imageGenerator-fb131191-image-videoGenerator-7abf7869-startFrame",
+      "source": "imageGenerator-fb131191",
+      "target": "videoGenerator-7abf7869",
+      "sourceHandle": "image",
+      "targetHandle": "startFrame",
+      "dataType": "image"
+    },
+    {
+      "id": "e-text-b131d08a-text-videoGenerator-7abf7869-prompt",
+      "source": "text-b131d08a",
+      "target": "videoGenerator-7abf7869",
+      "sourceHandle": "text",
+      "targetHandle": "prompt",
+      "dataType": "text"
+    },
+    {
+      "id": "e-imageGenerator-b79fc18b-image-videoGenerator-050eba02-startFrame",
+      "source": "imageGenerator-b79fc18b",
+      "target": "videoGenerator-050eba02",
+      "sourceHandle": "image",
+      "targetHandle": "startFrame",
+      "dataType": "image"
+    },
+    {
+      "id": "e-text-af94692b-text-videoGenerator-050eba02-prompt",
+      "source": "text-af94692b",
+      "target": "videoGenerator-050eba02",
+      "sourceHandle": "text",
+      "targetHandle": "prompt",
+      "dataType": "text"
+    },
+    {
+      "id": "e-text-8dfff511-text-videoGenerator-31190f20-prompt",
+      "source": "text-8dfff511",
+      "target": "videoGenerator-31190f20",
+      "sourceHandle": "text",
+      "targetHandle": "prompt",
+      "dataType": "text"
+    },
+    {
+      "id": "e-imageGenerator-59969e90-image-videoGenerator-31190f20-startFrame",
+      "source": "imageGenerator-59969e90",
+      "target": "videoGenerator-31190f20",
+      "sourceHandle": "image",
+      "targetHandle": "startFrame",
+      "dataType": "image"
+    }
+  ],
+  "locked": false
+}
