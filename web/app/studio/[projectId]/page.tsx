@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { SiteNav } from '@/components/layout/site-nav';
+import { demoProjectParams } from '@/lib/api/demo-params';
 import { ErrorBoundary } from '@/components/ui/feedback';
 import { StudioView } from '../studio-view';
 import '../studio.css';
@@ -16,6 +17,11 @@ function StudioSkeleton() {
       <div className="studio-workbench" aria-hidden />
     </div>
   );
+}
+
+/** Only the static demo build pre-renders projects (the captured examples); otherwise routes stay dynamic. */
+export function generateStaticParams() {
+  return demoProjectParams('studio-projects');
 }
 
 export default async function StudioProjectPage({

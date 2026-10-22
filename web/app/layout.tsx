@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Providers } from './providers';
 import { SITE_DESCRIPTION, SITE_NAME, SITE_ORIGIN, SITE_TITLE } from '@/lib/site';
+import { STATIC_DEMO } from '@/lib/demo-mode';
 
 export const metadata: Metadata = {
   // Origin only: Next adds the base path to the file-based share and icon
@@ -43,8 +44,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {isGitHubPages ? (
           <aside className="github-pages-notice" aria-label="GitHub Pages preview notice">
-            <span>GitHub Pages preview</span>
-            <p>This site contains the product overview and docs. The full Studio runs locally.</p>
+            <span>{STATIC_DEMO ? 'Read-only demo' : 'GitHub Pages preview'}</span>
+            <p>
+              {STATIC_DEMO
+                ? 'Explore PoseForge with sample data. Install it to create and generate your own.'
+                : 'This site contains the product overview and docs. The full Studio runs locally.'}
+            </p>
             <a href="https://github.com/vishwakulkarni/PoseForge#quickstart">
               Install PoseForge
             </a>

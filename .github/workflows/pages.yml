@@ -1,8 +1,9 @@
 name: GitHub Pages
 
+# The public site is built from the `site` branch: the whole app as a read-only demo.
 on:
   push:
-    branches: [main]
+    branches: [site]
   workflow_dispatch:
 
 permissions:
@@ -35,19 +36,14 @@ jobs:
         with:
           enablement: true
 
-      - name: Drop dynamic local-app routes (they cannot be statically exported)
-        run: npm run pages:prepare -- --sources
-
-      - name: Build static Next.js preview
+      - name: Build static read-only demo
         working-directory: web
         env:
           GITHUB_PAGES: 'true'
           NEXT_PUBLIC_GITHUB_PAGES: 'true'
+          NEXT_PUBLIC_STATIC_DEMO: 'true'
           NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
         run: npm run build
-
-      - name: Keep only landing and documentation routes
-        run: npm run pages:prepare
 
       - name: Check exported links
         env:

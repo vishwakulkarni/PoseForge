@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { Menu, Moon, Sun, X } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
+import { STATIC_DEMO } from '@/lib/demo-mode';
 import { Button } from '@/components/ui/button';
 
 export const NAV_ITEMS = [
@@ -24,8 +25,6 @@ export const NAV_ITEMS = [
 
 const GITHUB_PAGES_NAV_ITEMS = [
   { label: 'Home', href: '/' },
-  { label: 'Workflow demo', href: '/demo/advanced' },
-  { label: 'Metrics demo', href: '/demo/metrics' },
   { label: 'Docs', href: '/docs' },
 ] as const;
 const IS_GITHUB_PAGES = process.env.NEXT_PUBLIC_GITHUB_PAGES === 'true';
@@ -72,7 +71,7 @@ function BrandMark() {
 export function SiteNav() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = React.useState(false);
-  const navItems = IS_GITHUB_PAGES ? GITHUB_PAGES_NAV_ITEMS : NAV_ITEMS;
+  const navItems = IS_GITHUB_PAGES && !STATIC_DEMO ? GITHUB_PAGES_NAV_ITEMS : NAV_ITEMS;
 
   const isActive = React.useCallback(
     (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href)),

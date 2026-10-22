@@ -40,7 +40,6 @@ export function AdvToolbar({
   minimap,
   onToggleMinimap,
   onShowShortcuts,
-  back = { href: '/studio-advanced', label: 'Back to Advanced Studio projects' },
 }: {
   name: string;
   saveState: AdvSaveState;
@@ -51,8 +50,6 @@ export function AdvToolbar({
   minimap: boolean;
   onToggleMinimap: () => void;
   onShowShortcuts: () => void;
-  /** Where the leading arrow goes; the static demo points it somewhere that exists. */
-  back?: { href: string; label: string };
 }) {
   const [draft, setDraft] = React.useState(name);
   // Adjust during render rather than in an effect: renaming elsewhere (or
@@ -67,7 +64,7 @@ export function AdvToolbar({
   return (
     <div className="adv-toolbar">
       <div className="adv-toolbar-left">
-        <Link className="adv-icon-button" href={back.href} aria-label={back.label} title={back.label}>
+        <Link className="adv-icon-button" href="/studio-advanced" aria-label="Back to Advanced Studio projects" title="All projects">
           <ArrowLeft aria-hidden size={16} />
         </Link>
         <input

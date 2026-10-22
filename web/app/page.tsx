@@ -20,9 +20,11 @@ import { Button } from '@/components/ui/button';
 import { HeroCarousel } from './hero-carousel';
 import styles from './landing.module.css';
 import { SITE_DESCRIPTION, SITE_TITLE, absoluteUrl } from '@/lib/site';
+import { STATIC_DEMO } from '@/lib/demo-mode';
 
 const PUBLIC_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
-const IS_GITHUB_PAGES = process.env.GITHUB_PAGES === 'true';
+// The static demo build links into the (read-only) app, so only the docs-only Pages build rewrites links.
+const IS_GITHUB_PAGES = process.env.GITHUB_PAGES === 'true' && !STATIC_DEMO;
 const INSTALL_URL = 'https://github.com/vishwakulkarni/PoseForge#quickstart';
 const STUDIO_HREF = IS_GITHUB_PAGES ? INSTALL_URL : '/studio';
 const POSES_HREF = IS_GITHUB_PAGES ? '/docs/user-guide#characters-and-poses' : '/poses';

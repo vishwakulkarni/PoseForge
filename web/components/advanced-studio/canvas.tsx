@@ -98,8 +98,6 @@ interface CanvasProps {
   onRetry: () => void;
   onRunNode: (nodeId: string) => Promise<AdvProject | null>;
   onEstimateCost?: (request: HiggsfieldEstimateRequest) => Promise<HiggsfieldEstimate | null>;
-  /** Destination of the toolbar's back arrow. Defaults to the project list. */
-  back?: { href: string; label: string };
 }
 
 interface HistoryEntry {
@@ -110,7 +108,7 @@ interface HistoryEntry {
 const noEstimate = async () => null;
 
 function AdvCanvasInner({
-  project, capabilities, characters = [], saveState, onSave, onRetry, onRunNode, onEstimateCost = noEstimate, back,
+  project, capabilities, characters = [], saveState, onSave, onRetry, onRunNode, onEstimateCost = noEstimate,
 }: CanvasProps) {
   const flow = useReactFlow<AdvFlowNode, AdvFlowEdge>();
   const { resolvedTheme } = useTheme();
@@ -1172,7 +1170,6 @@ function AdvCanvasInner({
         minimap={minimap}
         onToggleMinimap={() => setMinimap((current) => !current)}
         onShowShortcuts={() => setShortcutsOpen(true)}
-        back={back}
       />
 
       <div

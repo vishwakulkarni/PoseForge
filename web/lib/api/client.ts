@@ -40,6 +40,7 @@ import type {
   StudioProjectSummary,
   UsageEstimate,
 } from './types';
+import { DEMO_READ_ONLY_MESSAGE, STATIC_DEMO, demoAutosave, isDemoAutosave, readDemoFixture } from './demo';
 
 /**
  * Thrown for every non-2xx API response. Carries the status so callers can
@@ -66,7 +67,22 @@ export class ApiError extends Error {
   }
 }
 
+/** Static demo build: GETs read captured sample data, autosave is acknowledged, other writes are refused. */
+async function demoRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const method = (init?.method ?? 'GET').toUpperCase();
+  if (isDemoAutosave(path, method)) {
+    const saved = await demoAutosave<T>(path, init?.body);
+    if (saved !== null) return saved;
+  } else if (method !== 'GET') {
+    throw new ApiError(DEMO_READ_ONLY_MESSAGE, 403, null);
+  }
+  const body = await readDemoFixture<T>(path);
+  if (body === null) throw new ApiError('That is not part of the demo.', 404, null);
+  return body;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  if (STATIC_DEMO) return demoRequest<T>(path, init);
   let response: Response;
   try {
     response = await fetch(path, {
