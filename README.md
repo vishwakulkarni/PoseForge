@@ -20,7 +20,7 @@ PoseForge exists so Codex, Google Antigravity, and ComfyUI users can turn their
 existing AI access into a repeatable visual workflow instead of rebuilding the
 same multi-image prompt in chat for every photograph.
 
-[![PoseForge character to pose to transformed-result demo](web/public/demo/poseforge-readme-demo.gif)](demo-output/poseforge-generation-walkthrough-15s.mp4)
+[![PoseForge character to pose to transformed-result demo](web/public/demo/poseforge-homepage-demo.gif)](demo-output/poseforge-generation-walkthrough-15s.mp4)
 
 [Watch the 15-second generation walkthrough](demo-output/poseforge-generation-walkthrough-15s.mp4) ·
 [Download the lightweight 10-second MP4](web/public/demo/poseforge-readme-demo.mp4) ·
@@ -33,7 +33,7 @@ same multi-image prompt in chat for every photograph.
 [Support](SUPPORT.md) ·
 [Discussions](https://github.com/vishwakulkarni/PoseForge/discussions)
 
-<video controls preload="metadata" width="100%" poster="web/public/demo/poseforge-readme-demo.gif">
+<video controls preload="metadata" width="100%" poster="web/public/demo/poseforge-homepage-demo.gif">
   <source src="demo-output/poseforge-generation-walkthrough-15s.mp4" type="video/mp4">
   Your Markdown viewer does not support embedded video. Use the walkthrough link above.
 </video>
@@ -150,7 +150,7 @@ frames and FFmpeg creates the MP4 and optimized GIF without network assets.
 | Detail | Value |
 |---|---|
 | Inputs | The two fictional triptychs above |
-| Output | [MP4](web/public/demo/poseforge-readme-demo.mp4) and [GIF](web/public/demo/poseforge-readme-demo.gif) |
+| Output | [MP4](web/public/demo/poseforge-readme-demo.mp4) and [GIF](web/public/demo/poseforge-homepage-demo.gif) |
 | Media engine | AGY-orchestrated local `sharp` + FFmpeg pipeline |
 | Runtime output | Exactly 10.00 seconds, 300 frames at 30 FPS |
 | Hardware | Maintainer macOS development machine; media render is CPU-local |
