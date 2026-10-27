@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge, StatusBadge } from '@/components/ui/badge';
 import { Segmented } from '@/components/ui/segmented';
@@ -28,7 +29,7 @@ describe('Button', () => {
   it('renders as a child element when asChild is set', () => {
     render(
       <Button asChild variant="primary">
-        <a href="/studio">Open Studio</a>
+        <Link href="/studio">Open Studio</Link>
       </Button>,
     );
 

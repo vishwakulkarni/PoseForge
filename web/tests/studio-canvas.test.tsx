@@ -106,14 +106,14 @@ describe('PoseForge workflow canvas', () => {
     const { container } = render(<CanvasPanel {...props()} />);
 
     expect(container.querySelector('.react-flow')).toHaveClass('poseforge-dot-grid');
-    expect(screen.queryByTestId('rf__background')).not.toBeInTheDocument();
+    expect(screen.getByTestId('rf__background')).toBeInTheDocument();
     expect(container.querySelector('[data-id="character-subject-1"]')).toHaveTextContent('Anika');
     expect(container.querySelector('[data-id="character-subject-2"]')).toHaveTextContent('Ravi');
     expect(container.querySelector('[data-id="pose-manual"]')).toHaveTextContent('Arms crossed');
     expect(container.querySelector('[data-id="generate"]')).toHaveTextContent('Forge composition');
-    // 2 character sources + 2 pose sources + generate (character/pose/prompt
-    // targets + 1 source) + result (1 target) = 9 handles.
-    expect(container.querySelectorAll('.poseforge-handle')).toHaveLength(9);
+    // 2 character sources + 1 pose source + generate (character/pose/prompt
+    // targets + 1 source) + result (1 target) = 8 handles.
+    expect(container.querySelectorAll('.poseforge-handle')).toHaveLength(8);
     const arrowhead = container.querySelector<SVGPolylineElement>(
       '.react-flow__arrowhead polyline.arrowclosed',
     );
@@ -270,7 +270,10 @@ describe('PoseForge workflow canvas', () => {
     const reset = screen.getByRole('button', { name: 'Reset canvas' });
     const lock = screen.getByRole('button', { name: 'Lock canvas' });
     expect(reset).toBeInTheDocument();
-    expect(reset.nextElementSibling).toBe(lock);
+    // A decorative divider separates the reset action from the lock toggle.
+    const divider = reset.nextElementSibling;
+    expect(divider).toHaveAttribute('aria-hidden');
+    expect(divider?.nextElementSibling).toBe(lock);
 
     fireEvent.click(lock);
     expect(screen.getByRole('button', { name: 'Unlock canvas' })).toBeInTheDocument();

@@ -370,7 +370,12 @@ export function useStudioProjectWorkspace({
   // component, so the workspace must re-target itself to match the URL.
   React.useEffect(() => {
     if (projectId && projectId !== activeProjectId) {
-      void switchProject(projectId);
+      // Syncing to the URL is the effect's job; switchProject flags 'switching'
+      // up front so the UI reflects the pending load. A failure is already
+      // surfaced through projectActionError, so it must not escape as an
+      // unhandled rejection.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      switchProject(projectId).catch(() => {});
     }
   }, [projectId, activeProjectId, switchProject]);
 
