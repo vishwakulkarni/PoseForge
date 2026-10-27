@@ -160,18 +160,63 @@ For generation benchmarks, record the exact engine, model, prompt, runtime,
 local hardware, and provider date. Do not compare providers using unrecorded
 launch assets or publish identifiable photos without permission.
 
+## Studio, Advanced Studio, and Metrics
+
+### Studio: character → pose → result
+
+The guided workbench. Pick up to four identity slots, a pose reference (or split
+a multi-pose sheet), then direct per-person styling, camera, lighting, and
+fidelity. A live workflow canvas shows what feeds the generation, recipes save
+your settings, and up to six variants can be queued at once. Normal mode keeps
+the controls compact; Advanced mode adds per-person direction and identity and pose
+fidelity controls.
+
+### Advanced Studio: free-form node workflows
+
+A multi-project node canvas for workflows that do not start from a character
+and a pose. Start from a template or a blank canvas, wire nodes together, and
+run them from the canvas:
+
+| Template | Opens with |
+|---|---|
+| **Image generation** | Prompt node → Image Generator (text-to-image or image-to-image) |
+| **Video generation** | Prompt node → Video Generator, with frames or references where the model allows |
+| **Storyboard** | Three ordered scene groups, each with a prompt and a still; rename, duplicate, and extend |
+| **Blank canvas** | Add any node you like |
+
+Node types include text/prompt, image and media inputs, image and video
+generators, and groups. Generator options (aspect ratios, resolutions,
+reference-image limits) come from what each engine can actually do rather than
+a global list. Projects autosave, edges can be cut, and the canvas has
+keyboard shortcuts and a selection toolbar. Open it at `/studio-advanced`.
+
+### Metrics: know what each generation cost
+
+The Metrics page summarizes every generation stored locally: lifetime spend,
+tokens, success rate, median and P95 latency, queue wait, and active days. It
+adds a cumulative usage chart (group by day, week, month, or run; tokens or
+cost), a per-engine and per-model breakdown, recurring failure groups, and
+Codex and Antigravity account-limit windows. Switch between **Historical** and
+**Session** scope, and export JSON or CSV. Values are marked actual, estimated,
+partial, or local, so you can tell provider-reported usage from estimates; see
+the [metrics reference](docs/METRICS.md).
+
+### Try it without installing
+
+A read-only static demo of the whole app, including sample Metrics data, is
+published from `main` to GitHub Pages: <https://vishwakulkarni.github.io/PoseForge/>.
+Generation is disabled there; run PoseForge locally to create images.
+
 ## What is included
 
-- **Studio:** up to four identity slots, pose reference, live workflow canvas,
-  per-person direction, camera and lighting controls, fidelity controls,
-  multi-pose collage splitting, recipes, and up to six queued variants.
+- **Studio:** guided character → pose → result workbench described above.
+- **Advanced Studio:** node-canvas image, video, and storyboard workflows.
 - **Characters and poses:** reusable local libraries with normalized image
   storage, pose filtering, and best-effort tagging.
 - **History:** generation details, inputs, outputs, deletion, and rerun context.
 - **ID Photos:** local formatting for U.S. and Indian passport, visa, e-Visa,
   and OCI profiles, with optional AI assistance kept separate.
-- **Metrics:** tokens, spend estimates, latency, queue wait, engine mix,
-  reliability, failure groups, and JSON/CSV exports.
+- **Metrics:** usage, spend, latency, reliability, and exports described above.
 - **Documentation:** repository Markdown rendered inside the application.
 
 ## Architecture
