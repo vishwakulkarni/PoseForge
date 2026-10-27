@@ -80,6 +80,32 @@ PoseForge stores successful pose uploads in the reusable pose library and
 keeps generation history, usage, latency, cost estimates, and outputs together
 on the local machine.
 
+## Consistent characters, on any provider
+
+PoseForge keeps the parts that make a result look like the *same person* on your
+machine, then hands each provider the same carefully prepared inputs:
+
+- **Characters live locally.** Saved character references, per-character angle
+  profiles, your pose library, and every generation are stored in the embedded
+  PGlite database and local image storage, not in a provider account.
+- **A local pipeline does the preparation.** References are normalized, poses can
+  be split from multi-pose sheets, and the multi-image prompt is assembled with
+  your identity, pose, camera, lighting, and fidelity controls before any engine
+  is called, so engines receive consistent, well-formed input.
+- **The same characters carry through images and videos.** Reuse one saved
+  character across Studio stills and Advanced Studio image and video nodes, with
+  up to four people per generation, instead of re-describing them each time.
+- **Switch providers without starting over.** Characters, poses, history,
+  projects, and metrics all stay put when you change engine, so you can try
+  Codex, Antigravity, Dreamina, Higgsfield, ComfyUI, or a hosted API and compare
+  results from identical inputs.
+- **Metrics are calculated locally.** Usage, cost, latency, and reliability come
+  from your own stored runs; nothing is sent to a PoseForge cloud, because there
+  isn't one.
+
+Output quality still depends on the engine and model you choose; PoseForge's job
+is to give each one the best, most consistent starting point.
+
 ## Choose where the image is made
 
 [![Codex CLI](https://img.shields.io/badge/Codex%20CLI-supported-111827)](https://github.com/openai/codex)
@@ -102,8 +128,19 @@ terms. Database-backed API keys and ComfyUI workflow JSON are stored in plain
 text in the local database; prefer environment variables where supported and
 read [SECURITY.md](SECURITY.md) before use on a shared machine.
 
-PoseForge currently supports **seven** interchangeable engines. Adding another
-engine is a small adapter change; see [the engine interface](engines/engineInterface.md).
+Studio supports **seven** interchangeable engines. **Advanced Studio** adds two
+more providers, **Higgsfield** and **Dreamina**, for image and video nodes, and
+uses fal.ai for video too:
+
+| Advanced Studio engine | Access | Image models | Video models |
+|---|---|---|---|
+| **Higgsfield** | API credentials (hosted) | Higgsfield Soul, Grok Imagine | Seedance 2.5, Kling 2.5 Turbo |
+| **Dreamina** | Signed-in Dreamina Canvas CLI | Seedream 4.0–5.0, GPT Image 2 / 2.5 | Seedance 2.0 / 2.5 |
+
+Higgsfield and Dreamina usage is metered in credits and shown on the
+**Metrics** page next to token and dollar spend. Selected inputs leave your
+machine for both providers. Adding another engine is a small adapter change; see
+[the engine interface](engines/engineInterface.md).
 
 ## Examples
 
@@ -187,8 +224,14 @@ run them from the canvas:
 Node types include text/prompt, image and media inputs, image and video
 generators, and groups. Generator options (aspect ratios, resolutions,
 reference-image limits) come from what each engine can actually do rather than
-a global list. Projects autosave, edges can be cut, and the canvas has
+a global list. Generator nodes can run on Higgsfield and Dreamina as well as
+the Studio engines (see below). Projects autosave, edges can be cut, and the canvas has
 keyboard shortcuts and a selection toolbar. Open it at `/studio-advanced`.
+
+![Advanced Studio node canvas for the "baby running" example: prompt nodes feed image generators whose outputs chain into video generators](web/public/images/poseforge-advanced-studio-baby-running.webp)
+
+*The bundled "Example: baby running" project: prompts feed image generators, and
+their outputs chain into video generators. Fictional, AI-created subjects.*
 
 ### Metrics: know what each generation cost
 
@@ -226,19 +269,7 @@ rules, generation queues, and engine adapters; Next.js owns the interface. The
 browser talks to one local origin. See [ARCHITECTURE.md](ARCHITECTURE.md) for
 the request lifecycle, data model, and adapter contract.
 
-```mermaid
-flowchart LR
-  Browser[Browser] --> Next[Next.js UI]
-  Browser --> API[Express API]
-  API --> DB[(PGlite / PostgreSQL metadata)]
-  API --> Storage[(Local image storage)]
-  API --> Queue[Generation queue]
-  Queue --> Engines[Engine adapters]
-  Engines --> Local[Local ComfyUI]
-  Engines --> Providers[Codex, Antigravity, and hosted APIs]
-  Local --> Storage
-  Providers --> Storage
-```
+![PoseForge architecture: Codex, Antigravity, Dreamina, OpenAI, Gemini, Replicate, fal.ai, Higgsfield and ComfyUI connect to PoseForge, which stores data and calculates metrics on your machine](web/public/images/poseforge-architecture.svg)
 
 [System architecture](ARCHITECTURE.md#system-architecture) ·
 [Generation call flow](ARCHITECTURE.md#generation-call-flow) ·
