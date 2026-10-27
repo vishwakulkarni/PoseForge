@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 const PAGES = [
-  { path: '/', heading: /make the shot/i },
+  { path: '/', heading: /your local-first.*ai studio/i },
   { path: '/studio', heading: /sources/i },
   { path: '/characters', heading: /people you photograph/i },
   { path: '/poses', heading: /body language/i },
@@ -17,19 +17,16 @@ test.describe('landing page progressive enhancement', () => {
   test('keeps every core section visible without hydration', async ({ page }) => {
     await page.goto('/');
 
-    await expect(page.getByRole('heading', { name: /make the shot/i })).toBeVisible();
-    await expect(
-      page.getByRole('heading', { name: /a new pose without another photoshoot/i }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole('heading', { name: /one little personality.*family portrait/i }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole('heading', { name: /your archive is not our business model/i }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole('heading', { name: /stop waiting for the perfect reshoot/i }),
-    ).toBeVisible();
+    for (const heading of [
+      /your local-first.*ai studio/i,
+      /switch the engine\. keep everything else/i,
+      /from still frame to moving shot/i,
+      /everything around the image matters too/i,
+      /three steps from portrait to finished frame/i,
+      /one command\. your own ai studio/i,
+    ]) {
+      await expect(page.getByRole('heading', { name: heading })).toBeVisible();
+    }
   });
 });
 

@@ -11,9 +11,9 @@ const ORIGIN = process.env.NEXT_PUBLIC_SITE_URL
 export const SITE_ORIGIN = ORIGIN.replace(/\/$/, '');
 export const SITE_URL = `${SITE_ORIGIN}${BASE_PATH}`;
 export const SITE_NAME = 'PoseForge';
-export const SITE_TITLE = 'PoseForge — Make the shot you imagined';
+export const SITE_TITLE = 'PoseForge — Your local-first AI studio';
 export const SITE_DESCRIPTION =
-  'A local-first AI pose studio for photographers and creators. Keep the identity, direct the pose, camera, light, and mood, and create the frame on your own machine.';
+  'A local-first, open-source AI studio for images and video. Your characters and results stay on your machine; switch between Codex, Gemini, OpenAI, ComfyUI, Higgsfield, Dreamina and more without re-uploading or setting up again.';
 
 /** Absolute URL for a site path such as "/docs/privacy". The static export
  * serves every page as a directory, so its URLs end in a slash. */

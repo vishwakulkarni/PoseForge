@@ -4,20 +4,30 @@ import type { Metadata } from 'next';
 import {
   Aperture,
   ArrowRight,
+  BarChart3,
+  BookImage,
   Check,
-  ChevronDown,
-  Download,
+  Clapperboard,
+  Film,
+  HardDrive,
+  IdCard,
   Images,
-  Layers3,
+  LayoutGrid,
   LockKeyhole,
   MousePointer2,
+  Repeat,
   SlidersHorizontal,
+  Smartphone,
   Sparkles,
-  Zap,
+  Star,
+  Users,
 } from 'lucide-react';
 import { PageShell } from '@/components/layout/page-shell';
 import { Button } from '@/components/ui/button';
+import { EngineSwitch } from './engine-switch';
 import { HeroCarousel } from './hero-carousel';
+import { ENGINES } from './landing-engines';
+import { InstallCommand } from './install-command';
 import styles from './landing.module.css';
 import { SITE_DESCRIPTION, SITE_TITLE, absoluteUrl } from '@/lib/site';
 import { STATIC_DEMO } from '@/lib/demo-mode';
@@ -25,46 +35,106 @@ import { STATIC_DEMO } from '@/lib/demo-mode';
 const PUBLIC_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 // The static demo build links into the (read-only) app, so only the docs-only Pages build rewrites links.
 const IS_GITHUB_PAGES = process.env.GITHUB_PAGES === 'true' && !STATIC_DEMO;
-const INSTALL_URL = 'https://github.com/vishwakulkarni/PoseForge#quickstart';
+// Visitors on the public site haven't installed yet; the local app's own homepage skips the pitch to install.
+const IS_PUBLIC_SITE = STATIC_DEMO || IS_GITHUB_PAGES;
+const REPO_URL = 'https://github.com/vishwakulkarni/PoseForge';
+const INSTALL_URL = `${REPO_URL}#quickstart`;
 const STUDIO_HREF = IS_GITHUB_PAGES ? INSTALL_URL : '/studio';
-const POSES_HREF = IS_GITHUB_PAGES ? '/docs/user-guide#characters-and-poses' : '/poses';
 const ADVANCED_HREF = IS_GITHUB_PAGES ? '/docs/user-guide#studio' : '/studio?mode=advanced';
 
-const CREATOR_FEATURES = [
+const LOCAL_POINTS = [
   {
-    icon: Layers3,
-    kicker: 'Identity control',
-    title: 'Keep the person unmistakably them.',
-    body: 'Build reusable character references, compose up to four people, and direct identity fidelity person by person.',
-    className: styles.featureWide,
+    icon: HardDrive,
+    title: 'Characters live on your disk',
+    body: 'Build a character once. Every engine uses the same saved references. Nothing to export, re-upload or rebuild.',
+  },
+  {
+    icon: Images,
+    title: 'Every result stays yours',
+    body: 'Images, clips, prompts, cost and latency land in one local history, whichever provider made them.',
+  },
+  {
+    icon: Repeat,
+    title: 'Switch without starting over',
+    body: 'If a provider raises prices or changes its model, pick another from the dropdown. Your project keeps going.',
+  },
+];
+
+const STATS = [
+  { value: '9', label: 'engines, one interface' },
+  { value: '6', label: 'video models' },
+  { value: '4', label: 'people per frame' },
+  { value: '16', label: 'bundled pose references' },
+  { value: '$0', label: 'provider cost with local ComfyUI' },
+  { value: '0', label: 'PoseForge accounts needed' },
+];
+
+const VIDEO_MODES = [
+  { title: 'Image → video', body: 'Animate any frame you made, straight from its node.' },
+  { title: 'Text → video', body: 'Describe the shot and let the model block it out.' },
+  { title: 'First & last frame', body: 'Pin the start and end; the model fills the motion.' },
+  { title: 'Reference → video', body: 'Guide a shot with reference images, clips and audio.' },
+];
+
+const VIDEO_MODELS = ['Kling 2.5 Turbo Pro', 'Kling 2.1 Master', 'Veo 3.1 Fast', 'Seedance 2.5', 'Seedance 2.0', 'Seedance 2.0 Mini'];
+
+const VIDEO_CLIPS = ['vid-01.mp4', 'vid-02.mp4', 'vid-03.mp4'];
+
+const FEATURES = [
+  {
+    icon: Users,
+    kicker: 'Multi-person',
+    title: 'Up to four people in one frame',
+    body: 'Compose families and groups, with identity strength set person by person.',
+    wide: true,
+    chips: ['Person 1 · high', 'Person 2 · high', 'Person 3 · medium', 'Person 4 · high'],
   },
   {
     icon: Aperture,
     kicker: 'Creative direction',
-    title: 'Think like a photographer.',
-    body: 'Dial in lens, aperture, lighting, framing, wardrobe, expression, grain, and finish—not just a vague prompt.',
-    className: styles.featureTall,
+    title: 'Direct like a photographer',
+    body: 'Lens, aperture, light, framing, wardrobe, expression, grain and finish.',
+    chips: ['35mm', 'f/1.8', 'Golden hour', '3/4 framing', 'Film grain'],
   },
   {
-    icon: Images,
+    icon: BookImage,
     kicker: 'Pose library',
-    title: 'Turn inspiration into a reusable source.',
-    body: 'Upload a reference, split a pose sheet, or start with the built-in collection. Your library stays ready for the next shoot.',
-    className: '',
+    title: '16 poses built in',
+    body: 'Upload any reference or split a pose sheet into single poses. Everything you add is saved for next time.',
   },
   {
-    icon: Zap,
-    kicker: 'Your engine',
-    title: 'Choose where the image gets made.',
-    body: 'Use local tools such as Codex, Antigravity, or ComfyUI—or connect the image API you already trust.',
-    className: '',
+    icon: LayoutGrid,
+    kicker: 'Variations',
+    title: 'Up to six takes per run',
+    body: 'Compare takes side by side and keep the one that works.',
   },
   {
-    icon: Download,
-    kicker: 'Every take, organized',
-    title: 'Compare, revisit, download.',
-    body: 'Keep variants, prompts, usage, and finished frames together instead of losing the best take in a download folder.',
-    className: styles.featureWide,
+    icon: BarChart3,
+    kicker: 'Metrics',
+    title: 'Know what every image cost',
+    body: 'Spend, tokens, success rate and median latency for each engine. Export to CSV or JSON.',
+    wide: true,
+    chips: ['Lifetime spend', 'Tokens used', 'Success rate', 'Median latency', 'CSV · JSON'],
+  },
+  {
+    icon: IdCard,
+    kicker: 'ID photos',
+    title: 'Passport and visa photos',
+    body: 'Crop U.S. and Indian passport, visa and OCI photos locally, with the official guidance alongside.',
+  },
+  {
+    icon: Sparkles,
+    kicker: 'Recipes',
+    title: 'Reuse a look',
+    wide: true,
+    body: 'Save camera, light and styling as a recipe and apply it to the next shoot.',
+  },
+  {
+    icon: Smartphone,
+    kicker: 'Any photo',
+    title: 'Straight from your phone',
+    wide: true,
+    body: 'JPG, PNG, HEIC and HEIF are welcome. No conversion step.',
   },
 ];
 
@@ -72,23 +142,20 @@ const WORKFLOW = [
   {
     number: '01',
     icon: MousePointer2,
-    title: 'Bring the identity',
-    body: 'Drop in a portrait from your camera roll. JPG, PNG, HEIC, and HEIF are welcome.',
-    note: 'One or up to four people',
+    title: 'Pick your characters',
+    body: 'Choose one to four people from your local library, or add a portrait from your camera roll.',
   },
   {
     number: '02',
     icon: SlidersHorizontal,
     title: 'Direct the pose',
-    body: 'Choose body language, then shape camera, light, composition, wardrobe, and finish.',
-    note: 'Guided or Advanced mode',
+    body: 'Borrow body language from any reference, then set lens, light, framing, wardrobe and finish.',
   },
   {
     number: '03',
     icon: Sparkles,
-    title: 'Forge the frame',
-    body: 'Generate variations, compare the takes, and download the image that feels like the shoot you meant to make.',
-    note: 'History stays on your machine',
+    title: 'Generate, then animate',
+    body: 'Run on any image engine, keep the best take, then turn it into a clip with Kling, Veo or Seedance.',
   },
 ];
 
@@ -101,6 +168,8 @@ export const metadata: Metadata = {
 export default function LandingPage() {
   return (
     <PageShell bare title="PoseForge">
+      <div className={styles.scrollProgress} aria-hidden />
+
       <section className={styles.hero} aria-labelledby="hero-title">
         <div className={styles.heroGlow} aria-hidden />
         <div className={`pf-container ${styles.heroGrid}`}>
@@ -108,36 +177,51 @@ export default function LandingPage() {
             <div className={styles.heroIntro}>
               <div className={styles.announcement}>
                 <span className={styles.liveDot} />
-                Local-first AI pose studio for creators
+                Open source · Images + video · Runs on your machine
               </div>
-
               <h1 id="hero-title" className={styles.heroTitle}>
-                Make the shot{' '}
-                <span>you imagined.</span>
+                Your local-first{' '}
+                <span>AI studio.</span>
               </h1>
             </div>
-
             <div className={styles.heroDetails}>
               <p className={styles.heroLead}>
-                Keep the person. Change the pose, camera, light, and mood. PoseForge turns a portrait
-                and a pose reference into a frame you can art-direct—right from your own machine.
+                One studio for every image and video model. Your characters and results stay on your
+                disk. Make stills with Codex, Gemini, OpenAI or ComfyUI, animate them with Kling,
+                Veo or Seedance, and switch providers without moving a thing.
               </p>
-
+              {IS_PUBLIC_SITE ? <InstallCommand /> : null}
               <div className={styles.heroActions}>
-                <Button asChild variant="primary" size="lg" className={styles.primaryCta}>
-                  <Link href={STUDIO_HREF}>
-                    {IS_GITHUB_PAGES ? 'Install PoseForge' : 'Create your first frame'}
-                    <ArrowRight />
-                  </Link>
-                </Button>
-                <Link href={POSES_HREF} className={styles.textCta}>
-                  {IS_GITHUB_PAGES ? 'Read the pose guide' : 'Explore pose ideas'}
-                  <span aria-hidden>↗</span>
-                </Link>
+                {IS_PUBLIC_SITE ? (
+                  <>
+                    <Button asChild variant="primary" size="lg" className={styles.primaryCta}>
+                      <Link href={STATIC_DEMO ? '/studio' : '/docs'}>
+                        {STATIC_DEMO ? 'Try the live demo' : 'Read the docs'}
+                        <ArrowRight />
+                      </Link>
+                    </Button>
+                    <a href={REPO_URL} className={styles.githubCta}>
+                      <Star aria-hidden />
+                      Star on GitHub
+                    </a>
+                  </>
+                ) : (
+                  <>
+                    <Button asChild variant="primary" size="lg" className={styles.primaryCta}>
+                      <Link href="/studio">
+                        Open Studio
+                        <ArrowRight />
+                      </Link>
+                    </Button>
+                    <Link href="/characters" className={styles.textCta}>
+                      Your characters
+                      <span aria-hidden>↗</span>
+                    </Link>
+                  </>
+                )}
               </div>
-
               <ul className={styles.trustList} aria-label="PoseForge benefits">
-                {['No account', 'Your own storage', 'Choose your AI engine'].map((item) => (
+                {['No PoseForge account', 'Apache 2.0', 'macOS & Linux'].map((item) => (
                   <li key={item}>
                     <Check aria-hidden />
                     {item}
@@ -146,211 +230,184 @@ export default function LandingPage() {
               </ul>
             </div>
           </div>
-
           <HeroCarousel />
         </div>
-
-        <a href="#workflow" className={styles.scrollCue} aria-label="See how PoseForge works">
-          See how it works
-          <ChevronDown />
-        </a>
       </section>
 
-      <section className={styles.proofStrip} aria-label="Product highlights">
-        <div className="pf-container">
-          <p>One portrait</p>
-          <i aria-hidden />
-          <p>Any pose reference</p>
-          <i aria-hidden />
-          <p>Full creative direction</p>
-          <i aria-hidden />
-          <p>Your machine, your files</p>
+      <section className={styles.engineStrip} aria-label="Supported engines">
+        <span className={styles.engineStripLabel}>Works with</span>
+        <div className={styles.marquee}>
+          {[false, true].map((duplicate) => (
+            <ul key={String(duplicate)} aria-hidden={duplicate || undefined}>
+              {ENGINES.map((engine) => (
+                <li key={engine.name}>{engine.name}</li>
+              ))}
+            </ul>
+          ))}
         </div>
       </section>
 
-      <section id="workflow" className={`pf-container ${styles.workflowSection}`}>
-        <div className={styles.sectionIntro}>
-          <span className="pf-eyebrow">From reference to remarkable</span>
-          <h2>A new pose without another photoshoot.</h2>
+      <section className={`pf-container ${styles.statsBand}`} aria-label="PoseForge at a glance">
+        <dl>
+          {STATS.map((stat) => (
+            <div key={stat.label} className={styles.reveal}>
+              <dt>{stat.label}</dt>
+              <dd>{stat.value}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+
+      <section id="switch" className={`pf-container ${styles.switchSection}`} aria-labelledby="switch-title">
+        <div className={`${styles.switchCopy} ${styles.reveal}`}>
+          <span className="pf-eyebrow">One interface · every provider</span>
+          <h2 id="switch-title">Switch the engine. Keep everything else.</h2>
           <p>
-            PoseForge gives creators a visual workflow instead of a blank prompt box. Bring the
-            ingredients, direct the details, keep the result.
+            Your characters, poses, projects and history belong to you, not to a provider&apos;s
+            account. Change engines in one click and carry on where you left off.
+          </p>
+          <ul className={styles.localPoints}>
+            {LOCAL_POINTS.map((point) => {
+              const Icon = point.icon;
+              return (
+                <li key={point.title}>
+                  <span className={styles.localIcon}><Icon aria-hidden /></span>
+                  <div>
+                    <h3>{point.title}</h3>
+                    <p>{point.body}</p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          <p className={styles.honestNote}>
+            ComfyUI keeps generation fully offline. Other engines receive only the references and
+            prompt for the image you&apos;re making.{' '}
+            <Link href="/docs/privacy">See the data flow</Link>
           </p>
         </div>
-
-        <ol className={styles.workflowGrid}>
-          {WORKFLOW.map((item) => {
-            const Icon = item.icon;
-            return (
-              <li key={item.number} className={styles.workflowCard}>
-                <div className={styles.workflowTopline}>
-                  <span>{item.number}</span>
-                  <Icon aria-hidden />
-                </div>
-                <h3>{item.title}</h3>
-                <p>{item.body}</p>
-                <small>{item.note}</small>
-              </li>
-            );
-          })}
-        </ol>
-      </section>
-
-      <section className={styles.showcaseSection}>
-        <div className={`pf-container ${styles.showcaseGrid}`}>
-          <div className={styles.showcaseVisual}>
-            <div className={styles.cropFrame}>
-              <Image
-                src={`${PUBLIC_BASE_PATH}/images/poseforge-transformation-hero.webp`}
-                alt="Finished cobalt editorial portrait created from the pose reference"
-                width={1693}
-                height={929}
-                sizes="(max-width: 900px) 94vw, 48vw"
-              />
-            </div>
-            <div className={styles.scoreCard}>
-              <span>Identity fidelity</span>
-              <strong>92</strong>
-              <div><i /></div>
-            </div>
-          </div>
-
-          <div className={styles.showcaseCopy}>
-            <span className="pf-eyebrow">More art direction. Less prompt roulette.</span>
-            <h2>The pose changes. Their identity doesn&apos;t.</h2>
-            <p>
-              Direct the image with controls that speak your language: focal length, depth of
-              field, light, framing, wardrobe, expression, finish, and identity strength.
-            </p>
-            <ul>
-              {[
-                'Create one polished frame or up to six variations',
-                'Save creative recipes for a repeatable visual style',
-                'Build multi-person compositions with individual direction',
-              ].map((item) => (
-                <li key={item}><Check aria-hidden />{item}</li>
-              ))}
-            </ul>
-            <Button asChild variant="secondary">
-              <Link href={ADVANCED_HREF}>
-                {IS_GITHUB_PAGES ? 'Read the Studio guide' : 'Explore Advanced mode'}
-                <ArrowRight />
-              </Link>
-            </Button>
-          </div>
+        <div className={styles.reveal}>
+          <EngineSwitch />
         </div>
       </section>
 
-      <section className={styles.familySection} aria-labelledby="family-story-title">
-        <div className={`pf-container ${styles.familyGrid}`}>
-          <div className={styles.familyCopy}>
-            <span className="pf-eyebrow">Made for the whole family</span>
-            <h2 id="family-story-title">One little personality. A whole new family portrait.</h2>
-            <p>
-              Bring identity references for the people you love, borrow the body language from any
-              family pose, and direct a finished portrait without asking a two-year-old to hold
-              still for another photoshoot.
+      <section id="video" className={styles.videoSection} aria-labelledby="video-title">
+        <div className={`pf-container ${styles.videoGrid}`}>
+          <div className={styles.reveal}>
+            <span className="pf-eyebrow"><Film aria-hidden className={styles.eyebrowIcon} /> Video, too</span>
+            <h2 id="video-title">From still frame to moving shot.</h2>
+            <p className={styles.videoLead}>
+              Send any frame you made to a video model, on the same canvas and with the same
+              characters. Every clip is saved to your local history next to the image it came from.
             </p>
-            <ul>
-              {[
-                'Use a different family photo only for pose and composition',
-                'Preserve each person as an individual identity reference',
-                'Try a new setting, wardrobe direction, or family pose',
-              ].map((item) => (
-                <li key={item}><Check aria-hidden />{item}</li>
+            <ul className={styles.videoModes}>
+              {VIDEO_MODES.map((mode) => (
+                <li key={mode.title}>
+                  <strong><Clapperboard aria-hidden />{mode.title}</strong>
+                  <span>{mode.body}</span>
+                </li>
               ))}
             </ul>
-            <Button asChild variant="primary">
-              <Link href={STUDIO_HREF}>
-                {IS_GITHUB_PAGES ? 'Install PoseForge' : 'Create a family portrait'}
-                <ArrowRight />
-              </Link>
-            </Button>
+            <ul className={styles.modelChips} aria-label="Video models">
+              {VIDEO_MODELS.map((model) => <li key={model}>{model}</li>)}
+            </ul>
+            <p className={styles.videoVia}>Through fal.ai, Higgsfield and Dreamina.</p>
           </div>
-
-          <div className={styles.familyVisual}>
-            <div className={styles.familyHalo} aria-hidden />
-            <div className={`${styles.contactSheet} ${styles.familySheet}`}>
-              <div className={styles.sheetHeader}>
-                <span>PF / FAMILY 01</span>
-                <span>Indian identity + American pose</span>
-                <span>Family select</span>
-              </div>
-              <div className={styles.imageWrap}>
-                <Image
-                  src={`${PUBLIC_BASE_PATH}/images/poseforge-indian-family-pose-transfer-v2.webp`}
-                  alt="An Indian family identity reference, an American family pose reference, and the Indian family transformed into that pose"
-                  width={1800}
-                  height={854}
-                  sizes="(max-width: 900px) 94vw, 56vw"
+          <div className={`${styles.videoReel} ${styles.reveal}`}>
+            {VIDEO_CLIPS.map((clip, index) => (
+              <figure key={clip}>
+                <video
+                  src={`${PUBLIC_BASE_PATH}/demo/baby-running/${clip}`}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  preload="metadata"
+                  aria-label={`Generated video clip ${index + 1} from the bundled “baby running” example project`}
                 />
-                <div className={styles.frameLabels} aria-hidden>
-                  <span>Indian identity</span>
-                  <span>American pose</span>
-                  <span>Indian result</span>
-                </div>
-              </div>
-            </div>
-            <div className={styles.familyBadge}>
-              <strong>Real pose transfer</strong>
-              <span>New identities · same family pose</span>
-            </div>
+                <figcaption>Clip {String(index + 1).padStart(2, '0')} · 5s</figcaption>
+              </figure>
+            ))}
           </div>
         </div>
       </section>
 
-      <section className={`pf-container ${styles.featuresSection}`}>
-        <div className={styles.sectionIntro}>
-          <span className="pf-eyebrow">A real creator workspace</span>
-          <h2>Everything around the generation matters too.</h2>
-          <p>
-            Source libraries, precise direction, engine choice, usage visibility, and history—all
-            in the same place as the image you&apos;re making.
-          </p>
+      <section className={`pf-container ${styles.featuresSection}`} aria-labelledby="features-title">
+        <div className={`${styles.sectionIntro} ${styles.reveal}`}>
+          <span className="pf-eyebrow">Inside the studio</span>
+          <h2 id="features-title">Everything around the image matters too.</h2>
+          <p>Sources, direction, cost and history live in one local workspace, whichever engine you use.</p>
         </div>
-
         <div className={styles.featureGrid}>
-          {CREATOR_FEATURES.map((feature) => {
+          {FEATURES.map((feature) => {
             const Icon = feature.icon;
             return (
               <article
                 key={feature.title}
-                className={`${styles.featureCard} ${feature.className}`}
+                className={`${styles.featureCard} ${feature.wide ? styles.featureWide : ''} ${styles.reveal}`}
               >
-                <div className={styles.featureIcon}><Icon aria-hidden /></div>
-                <span>{feature.kicker}</span>
+                <div className={styles.featureTop}>
+                  <span className={styles.featureIcon}><Icon aria-hidden /></span>
+                  <span className={styles.featureKicker}>{feature.kicker}</span>
+                </div>
                 <h3>{feature.title}</h3>
                 <p>{feature.body}</p>
+                {feature.chips ? (
+                  <ul className={styles.featureChips}>
+                    {feature.chips.map((chip) => <li key={chip}>{chip}</li>)}
+                  </ul>
+                ) : null}
               </article>
             );
           })}
         </div>
       </section>
 
-      <section className={`pf-container ${styles.privacyWrap}`}>
-        <div className={styles.privacyPanel}>
-          <div className={styles.privacyGlow} aria-hidden />
-          <div className={styles.privacyMark}>
-            <LockKeyhole aria-hidden />
-          </div>
-          <div className={styles.privacyCopy}>
-            <span>Local-first by design</span>
-            <h2>Your archive is not our business model.</h2>
+      <section id="workflow" className={styles.workflowSection} aria-labelledby="workflow-title">
+        <div className="pf-container">
+          <div className={`${styles.sectionIntro} ${styles.reveal}`}>
+            <span className="pf-eyebrow">How it works</span>
+            <h2 id="workflow-title">Three steps from portrait to finished frame.</h2>
             <p>
-              PoseForge runs on your computer. Your characters, pose library, previews, recipes,
-              and history live in your own storage—not in a PoseForge cloud account.
+              Keep the person and change the pose, camera, light and mood. Chain image and video
+              steps on one canvas, even when each step uses a different engine.
             </p>
           </div>
-          <ul>
-            <li><Check />No hosted gallery</li>
-            <li><Check />No PoseForge login</li>
-            <li><Check />Transparent provider choice</li>
-          </ul>
+          <ol className={styles.workflowGrid}>
+            {WORKFLOW.map((item) => {
+              const Icon = item.icon;
+              return (
+                <li key={item.number} className={`${styles.workflowCard} ${styles.reveal}`}>
+                  <div className={styles.workflowTopline}>
+                    <span>{item.number}</span>
+                    <Icon aria-hidden />
+                  </div>
+                  <h3>{item.title}</h3>
+                  <p>{item.body}</p>
+                </li>
+              );
+            })}
+          </ol>
+          <figure className={styles.canvasShot}>
+            <Image
+              src={`${PUBLIC_BASE_PATH}/images/poseforge-advanced-studio-baby-running.webp`}
+              alt="The Advanced Studio canvas: prompts feed Codex CLI image generators, whose frames feed Kling video generators, all in one project"
+              width={1860}
+              height={1360}
+              sizes="(max-width: 1240px) 94vw, 1180px"
+            />
+            <figcaption>
+              <span>Advanced Studio</span>
+              Codex CLI images → Kling video, one project
+              <Link href={ADVANCED_HREF}>Open the canvas <ArrowRight aria-hidden /></Link>
+            </figcaption>
+          </figure>
         </div>
       </section>
 
-      <section className={`pf-container ${styles.finalSection}`}>
-        <div className={styles.finalCta}>
+      <section id="install" className={`pf-container ${styles.finalSection}`} aria-labelledby="install-title">
+        <div className={`${styles.finalCta} ${styles.reveal}`}>
+          <div className={styles.finalGrid} aria-hidden />
           <Image
             src={`${PUBLIC_BASE_PATH}/images/mascot-painter-dog.svg`}
             alt=""
@@ -358,16 +415,36 @@ export default function LandingPage() {
             height={148}
             className={styles.mascot}
           />
-          <div className={styles.finalSpark} aria-hidden><Sparkles /></div>
-          <span className="pf-eyebrow">Your next frame starts here</span>
-          <h2>Stop waiting for the perfect reshoot.</h2>
-          <p>Pick the face. Pick the pose. Forge the photograph.</p>
-          <Button asChild variant="primary" size="lg" className={styles.primaryCta}>
-            <Link href={STUDIO_HREF}>
-              {IS_GITHUB_PAGES ? 'Install PoseForge' : 'Open PoseForge Studio'}
-              <ArrowRight />
-            </Link>
-          </Button>
+          <span className={styles.finalMark}><LockKeyhole aria-hidden /> Local-first by design</span>
+          <h2 id="install-title">One command. Your own AI studio.</h2>
+          <p>
+            Paste it into Terminal. PoseForge downloads, installs, sets up its own database and
+            starts. No account, no Docker, no cloud gallery.
+          </p>
+          <InstallCommand />
+          <ol className={styles.installSteps}>
+            <li><b>1</b>Paste and press Enter</li>
+            <li><b>2</b>Open <code>localhost:3000</code></li>
+            <li><b>3</b>Pick an engine in Settings</li>
+          </ol>
+          <p className={styles.installNote}>
+            Needs <a href="https://nodejs.org/">Node.js 20.9+</a> and git. Your characters and
+            results stay in the PoseForge folder on your machine.
+          </p>
+          <div className={styles.finalActions}>
+            <Button asChild variant="primary" size="lg" className={styles.primaryCta}>
+              <Link href={STUDIO_HREF}>
+                {STATIC_DEMO ? 'Try the live demo' : IS_GITHUB_PAGES ? 'Install PoseForge' : 'Open Studio'}
+                <ArrowRight />
+              </Link>
+            </Button>
+            {IS_PUBLIC_SITE ? (
+              <a href={REPO_URL} className={styles.githubCta}>
+                <Star aria-hidden />
+                Star on GitHub
+              </a>
+            ) : null}
+          </div>
         </div>
       </section>
     </PageShell>
