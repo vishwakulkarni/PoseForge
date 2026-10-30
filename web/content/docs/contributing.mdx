@@ -111,6 +111,19 @@ is a good reference for a cloud API-based engine) as a template:
 `outputSettings` and `model` may be omitted by the caller, so adapters must
 provide safe defaults. See `engines/engineInterface.md` for the full contract.
 
+## Adding or changing an API route
+
+Every route under `/api` must also be reachable by agents through the MCP
+server (see `docs/MCP.md`), or be excluded on purpose. When you add a route:
+
+- add a tool declaration in `lib/mcp/tools/` that names the route — usually a
+  few lines, since tools call the HTTP API and inherit all of its rules; or
+- list the route in `lib/mcp/exclusions.js` with the reason it stays UI-only.
+
+`npm test` runs `tests/mcpCoverage.test.js`, which fails and names any route
+that has neither. A new router file also needs an entry in `API_ROUTES` in
+`server.js`.
+
 ## Updating documentation
 
 The repository Markdown files are the source of truth. `scripts/sync-docs.js`

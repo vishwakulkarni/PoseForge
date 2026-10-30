@@ -50,6 +50,12 @@ const DOCUMENTS = [
     description: "Definitions for cost, tokens, latency, scopes, estimates, and exports.",
   },
   {
+    src: "docs/MCP.md",
+    slug: "mcp",
+    title: "MCP server",
+    description: "Automate characters, poses, Advanced Studio workflows, history and metrics from any local agent.",
+  },
+  {
     src: "ARCHITECTURE.md",
     slug: "architecture",
     title: "Architecture",

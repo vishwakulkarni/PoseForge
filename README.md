@@ -233,6 +233,18 @@ keyboard shortcuts and a selection toolbar. Open it at `/studio-advanced`.
 *The bundled "Example: baby running" project: prompts feed image generators, and
 their outputs chain into video generators. Fictional, AI-created subjects.*
 
+### Automate it: MCP server for local agents
+
+PoseForge serves an MCP endpoint at `http://127.0.0.1:3000/mcp`, so Claude
+Code, Cursor or any local agent can create characters, build and run Advanced
+Studio workflows, and pull results, history and metrics without the UI:
+
+```bash
+claude mcp add --transport http poseforge http://127.0.0.1:3000/mcp
+```
+
+See the [MCP guide](docs/MCP.md) for the tool list and an end-to-end example.
+
 ### Metrics: know what each generation cost
 
 The Metrics page summarizes every generation stored locally: lifetime spend,
@@ -291,6 +303,7 @@ the request lifecycle, data model, and adapter contract.
 ## Documentation and community
 
 - [User guide](docs/USER_GUIDE.md)
+- [MCP server for local agents](docs/MCP.md)
 - [Troubleshooting and FAQ](docs/TROUBLESHOOTING.md)
 - [Compatibility and hardware matrix](docs/COMPATIBILITY.md)
 - [Privacy and data flow](PRIVACY.md)

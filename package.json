@@ -57,11 +57,13 @@
     "@electric-sql/pglite": "^0.5.8",
     "@fal-ai/client": "^1.10.1",
     "@higgsfield/client": "^0.2.6",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "dotenv": "^17.4.2",
     "express": "^4.22.3",
     "heic-convert": "^2.1.0",
     "multer": "^2.5.0",
     "pg": "^8.22.0",
-    "sharp": "^0.35.5"
+    "sharp": "^0.35.5",
+    "zod": "^4.6.7"
   }
 }

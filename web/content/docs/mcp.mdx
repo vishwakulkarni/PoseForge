@@ -1,0 +1,201 @@
+---
+title: "MCP server"
+description: "Automate characters, poses, Advanced Studio workflows, history and metrics from any local agent."
+---
+
+PoseForge includes a [Model Context Protocol](https://modelcontextprotocol.io)
+server. Any agent on your machine — Claude Code, Cursor, an IDE assistant, or
+a local model behind an MCP-capable client — can manage characters and poses,
+build and run Advanced Studio workflows, and read history and metrics,
+without opening the UI.
+
+The server is part of the app: whenever PoseForge is running, it is at
+
+```
+http://127.0.0.1:3000/mcp
+```
+
+(use your `PORT` if you changed it). It speaks Streamable HTTP and is
+stateless, so any compliant client works.
+
+## Connect a client
+
+**Claude Code**
+
+```bash
+claude mcp add --transport http poseforge http://127.0.0.1:3000/mcp
+```
+
+**Cursor** — add to `.cursor/mcp.json` (or `~/.cursor/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "poseforge": { "url": "http://127.0.0.1:3000/mcp" }
+  }
+}
+```
+
+**Anything else** — point the client's HTTP (Streamable HTTP) transport at
+`http://127.0.0.1:3000/mcp`. Clients that only speak stdio can use a bridge
+such as `npx mcp-remote http://127.0.0.1:3000/mcp`.
+
+## Tools
+
+| Area | Tools |
+|---|---|
+| Advanced Studio | `advanced_list_capabilities`, `list_workflows`, `get_workflow`, `create_workflow`, `update_workflow`, `delete_workflow`, `upload_workflow_image`, `upload_workflow_media` |
+| Runs and versions | `run_workflow`, `run_batch`, `get_run`, `list_runs`, `get_run_status`, `list_versions`, `get_version`, `restore_version` |
+| Characters | `list_characters`, `get_character`, `create_character`, `rename_character`, `add_character_photo`, `build_angle_profile`, `delete_character` |
+| Poses | `list_poses`, `suggest_poses`, `add_pose`, `delete_pose` |
+| History | `list_generations`, `get_generation`, `delete_generation`, `estimate_generation_cost` |
+| Metrics | `get_metrics` |
+| Settings | `get_settings` (read-only; reports which credentials are configured, never their values) |
+| Engines | `list_engines` |
+
+Things worth knowing:
+
+- **Files go in by path.** Upload tools take an absolute `filePath` on this
+  machine. Every result that mentions a stored file also lists it under
+  `files`, with its absolute URL and its path on disk.
+- **Runs don't block.** `run_workflow` starts generating and returns a
+  `runId` at once; poll `get_run` until its status is `completed`, `partial`
+  or `failed`. Generator nodes run in dependency order, independent ones in
+  parallel, and a node downstream of a failure is skipped with a clear error.
+  Pass `nodeIds` to run only some.
+- **Every run is a record** with the version it ran, its inputs, each node's
+  outcome, its output files and its estimated cost — nothing is lost when a
+  node's own result list (the last eight) moves on.
+- **Hand-written documents get feedback.** `create_workflow` and
+  `update_workflow` return `warnings` for anything dropped or ignored: an
+  unknown node type, an edge to a missing node, a misspelled handle, or an
+  aspect ratio the engine doesn't support.
+- **Saves are revision-checked**, like the canvas autosave. Pass the
+  `revision` you last read as `expectedRevision`; on a conflict, read again
+  and reapply.
+- **Workflows you create appear in Advanced Studio**, so you can open, tweak
+  and rerun them in the UI.
+- Generations spend credits on whichever provider the node uses. Destructive
+  tools are marked so clients ask before running them.
+
+## Templates, inputs and batches
+
+A workflow becomes a reusable template once it declares inputs:
+
+- write `&#123;&#123;name&#125;&#125;` anywhere in a text node — `"&#123;&#123;product&#125;&#125; on a &#123;&#123;surface&#125;&#125;, studio light"`;
+- or set `data.inputName` on a text node or an image input node; its current
+  value is the default.
+
+`get_workflow` lists them under `inputs`. Fill them per run without changing
+the saved workflow:
+
+```json
+run_workflow { "id": "…", "inputs": { "product": "a ceramic mug", "surface": "oak table", "hero": { "characterId": "…" } } }
+```
+
+`run_batch` runs one workflow once per row — up to 100 rows, e.g. every
+product × pose — and returns a `batchId`; `list_runs(&#123; batchId &#125;)` follows
+them. Every row is validated before any starts: an unknown or missing input
+stops the batch before anything is spent.
+
+Image inputs accept more than uploaded files: `&#123; "characterId": "…" &#125;` (that
+character's current primary photo), `&#123; "poseId": "…" &#125;` (a pose library
+image — including the many that live on Unsplash or Pexels), or any http(s)
+image URL. Web images are downloaded once into the workflow's storage and
+reused.
+
+## Versions
+
+A version is each distinct set of nodes, settings and connections that has
+run; moving nodes or new results never make one. Runs record their version,
+so you can always answer "which version made this?":
+`list_versions` (with `currentVersionId`, the version the canvas matches),
+`list_runs(&#123; versionId &#125;)`, `get_version`, and `restore_version` to put an
+older recipe back on the canvas — current results stay. Each version reports
+`costUsd`, the total of its completed generations' recorded estimates;
+engines billed through a plan (Codex, Antigravity, fal) record no price, so
+when `pricedGenerationCount` is below `generationCount` the total is partial.
+In the app, the **Versions** menu in the Advanced Studio toolbar lists the
+same versions with their cost.
+
+## Example: one photo to a short clip
+
+Ask your agent:
+
+> Create a character called Maya from ~/photos/maya.jpg. Build an Advanced
+> Studio workflow where her photo and a prompt make a 16:9 editorial
+> portrait, and that portrait is the start frame of a 5-second video. Run it
+> and give me the output files.
+
+The agent will typically call `advanced_list_capabilities` to pick ready
+engines, `create_character`, then `create_workflow` with a document like this:
+
+```json
+{
+  "nodes": [
+    { "id": "prompt", "type": "text", "position": { "x": 0, "y": 0 },
+      "data": { "text": "Editorial portrait of the woman in the reference, golden hour" } },
+    { "id": "maya", "type": "imageInput", "position": { "x": 0, "y": 300 },
+      "data": { "imageUrl": "<primaryPhotoUrl from create_character>" } },
+    { "id": "portrait", "type": "imageGenerator", "position": { "x": 500, "y": 0 },
+      "data": { "engine": "openai", "aspectRatio": "16:9" } },
+    { "id": "clip", "type": "videoGenerator", "position": { "x": 1000, "y": 0 },
+      "data": { "engine": "fal-video", "model": "<a model id from advanced_list_capabilities>", "duration": 5 } }
+  ],
+  "edges": [
+    { "id": "e1", "source": "prompt", "sourceHandle": "text", "target": "portrait", "targetHandle": "prompt", "dataType": "text" },
+    { "id": "e2", "source": "maya", "sourceHandle": "image", "target": "portrait", "targetHandle": "image", "dataType": "image" },
+    { "id": "e3", "source": "prompt", "sourceHandle": "text", "target": "clip", "targetHandle": "prompt", "dataType": "text" },
+    { "id": "e4", "source": "portrait", "sourceHandle": "image", "target": "clip", "targetHandle": "startFrame", "dataType": "image" }
+  ]
+}
+```
+
+It then calls `run_workflow` and polls `get_run`. The run's `outputs`, and
+the `files` list, point at the image and the MP4 on disk.
+
+Generator target handles: `prompt` (text), `image` (reference images for an
+image generator), `startFrame`, `endFrame` and `reference` (images for a video
+generator), `referenceVideo` and `referenceAudio`.
+
+## Security
+
+The endpoint has no API key because it only listens on loopback. To stop a
+web page in your browser from reaching it (DNS rebinding), PoseForge rejects
+requests whose `Host` isn't `localhost`/`127.0.0.1`/`[::1]` and requests from
+any non-local browser `Origin`.
+
+If you start PoseForge with `HOST` set to anything other than a loopback
+address, `/mcp` is **off** unless you also set `POSEFORGE_MCP_TOKEN`; every
+request must then send `Authorization: Bearer <token>`. The rest of the app
+still has no authentication — see [SECURITY.md](/docs/security).
+
+Provider API keys are never exposed: `get_settings` drops even the masked
+previews, and there is no tool to change settings.
+
+## Out of scope
+
+The guided Studio (character → pose transform) isn't exposed. Build the same
+thing as an Advanced Studio workflow with a character image feeding an image
+generator. Presets, recipes and ID photos aren't exposed yet either.
+
+## For contributors: new features must ship with MCP tools
+
+Every API route is either an MCP tool or a deliberate exclusion.
+`tests/mcpCoverage.test.js` walks every router in `server.js`'s `API_ROUTES`
+and fails, naming the route, when one is neither a tool's `route` in
+`lib/mcp/tools/` nor listed in `lib/mcp/exclusions.js` with a reason. Most
+tools are a short declaration:
+
+```js
+{
+  name: "add_pose",
+  route: "POST /api/pose-references",
+  description: "Add a local photo to the pose library as a custom pose reference.",
+  input: { filePath: z.string(), title: z.string().optional() },
+  files: { posePhoto: "filePath" }, // multipart field ← argument holding a local path
+}
+```
+
+Tools call PoseForge's own HTTP API over loopback, so every rule the route
+enforces applies to agents too, and nothing is implemented twice.

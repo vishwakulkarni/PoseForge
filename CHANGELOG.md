@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- MCP server at `http://127.0.0.1:3000/mcp`: local agents (Claude Code,
+  Cursor, local models) can manage characters and poses, build and run
+  Advanced Studio workflows, and read history, metrics, engines and
+  settings. Loopback-only with DNS-rebinding protection; optional bearer
+  token when listening beyond localhost. See `docs/MCP.md`.
+- `POST /api/advanced-studio-projects/:id/run` runs a whole workflow (or
+  chosen nodes) in dependency order in the background; projects report
+  in-flight nodes as `activeRun`.
+- Advanced Studio create and update responses include `warnings` for nodes,
+  edges and generator settings that were dropped or will be ignored.
+- CI fails when an API route has neither an MCP tool nor a reasoned
+  exclusion (`tests/mcpCoverage.test.js`).
+- Advanced Studio workflows can be templates: `{{name}}` placeholders and
+  `inputName` nodes are filled per run, and `POST /:id/batch` runs one
+  workflow once per row of inputs (up to 100).
+- Every Advanced Studio run is recorded with its version, inputs, outputs and
+  estimated cost. A **Versions** menu in the toolbar lists each version with
+  what its runs cost and can restore an older version (results are kept).
+- Image inputs can reference a character (its current primary photo), a pose
+  library entry, or a web image URL, which is downloaded once at run time.
+
 ## [1.0.0] — 2026-08-26
 
 ### Added

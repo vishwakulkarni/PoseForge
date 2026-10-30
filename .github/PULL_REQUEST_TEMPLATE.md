@@ -10,6 +10,7 @@
 
 - [ ] I've read `CONTRIBUTING.md`
 - [ ] `npm test` passes locally
+- [ ] New or changed API routes have an MCP tool in `lib/mcp/tools/` (or a reasoned entry in `lib/mcp/exclusions.js`)
 - [ ] I updated `CHANGELOG.md` under "Unreleased" (for user-facing changes)
 - [ ] I updated relevant docs (`README.md` / `ARCHITECTURE.md`) if behavior or setup changed
 - [ ] Screenshots or a short clip attached, for any UI change

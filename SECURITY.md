@@ -15,6 +15,11 @@ shared/multi-user service. Specifically:
   rest.
 - Uploaded and generated images are stored unencrypted on the local
   filesystem under `storage/`.
+- The MCP endpoint (`/mcp`, see `docs/MCP.md`) gives local agents the same
+  access as the UI, minus settings changes and credential values. It rejects
+  non-loopback `Host` headers and foreign browser origins (DNS rebinding),
+  and turns itself off when `HOST` is not a loopback address unless
+  `POSEFORGE_MCP_TOKEN` is set, in which case it requires that bearer token.
 
 If you deploy PoseForge on a server, behind a reverse proxy, or on a shared
 machine, you are taking on all of the above as your own responsibility —

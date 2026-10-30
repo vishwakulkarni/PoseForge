@@ -414,6 +414,38 @@ etc.) and validates that resolved paths stay inside `storage/` — nothing
 else in the codebase should build a `storage/` path by hand. `server.js`
 serves `storage/` read-only at `/storage`.
 
+## MCP server
+
+`routes/mcp.js` serves a stateless Streamable HTTP MCP endpoint at `/mcp`
+(user-facing guide: `docs/MCP.md`). Each tool in `lib/mcp/tools/` is a
+declaration naming the API route it wraps; `lib/mcp/api.js` calls that route
+over loopback, so the Express routes stay the single owner of business rules
+and an agent can never do something the UI's API would refuse. Tools only add
+what an agent needs on top: local file paths for uploads and results
+(`lib/mcp/media.js`), and summaries such as `get_run_status`.
+
+Advanced Studio graph runs (`POST /api/advanced-studio-projects/:id/run`)
+answer 202 and execute in the background in waves planned by
+`lib/advancedWorkflowRunner.js`; each node reloads the latest document, so a
+downstream node sees the results its upstream wave just saved. In-flight
+state is reported as `activeRun` on the project.
+
+Every run — the canvas Run button, `/run`, each row of `/batch` — is a row in
+`advanced_workflow_runs` tied to an `advanced_workflow_versions` row
+(`lib/advancedRuns.js`). A version is keyed by a hash of the recipe (node
+types, data minus run outputs, wiring), so layout edits never make one and
+returning to an earlier recipe reuses it. Generations carry
+`advanced_run_id`. A run executes on its own copy of the document with
+inputs applied (`lib/advancedRunInputs.js`: `{{name}}` placeholders,
+`inputName` nodes, and image sources — characters, poses, web URLs —
+resolved to stored files), so concurrent batch rows never read each other's
+outputs; finished nodes append their results to the canvas under a
+per-project write lock.
+
+`tests/mcpCoverage.test.js` requires every route in `server.js`'s
+`API_ROUTES` to be a tool or an entry in `lib/mcp/exclusions.js` with a
+reason, so new features cannot silently skip MCP.
+
 ## Frontend
 
 The UI lives entirely in `web/` as a Next.js App Router application.

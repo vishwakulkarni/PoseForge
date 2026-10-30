@@ -25,6 +25,29 @@ const WEB_DIR = path.join(__dirname, "web");
 const requireFromWeb = createRequire(path.join(WEB_DIR, "package.json"));
 
 /**
+ * Every API router, in mount order. One table so tests can walk exactly what
+ * the app serves — tests/mcpCoverage.test.js requires each route here to be
+ * exposed as an MCP tool or excluded with a reason.
+ */
+const API_ROUTES = [
+  ["/api/characters", "./routes/characters"],
+  ["/api/presets", "./routes/presets"],
+  ["/api/engines", "./routes/engines"],
+  ["/api/settings", "./routes/settings"],
+  ["/api/higgsfield", "./routes/higgsfield"],
+  ["/api/dreamina", "./routes/dreamina"],
+  ["/api/generations", "./routes/generations"],
+  ["/api/pose-references", "./routes/pose-references"],
+  ["/api/recipes", "./routes/recipes"],
+  ["/api/studio-projects", "./routes/studio-projects"],
+  ["/api/advanced-studio-projects", "./routes/advanced-studio-projects"],
+  ["/api/media", "./routes/media"],
+  ["/api/thumbnails", "./routes/thumbnails"],
+  ["/api/passport", "./routes/passport"],
+  ["/api/metrics", "./routes/metrics"],
+];
+
+/**
  * Mount the existing API and local file storage ahead of Next's request
  * handler. The browser therefore talks to one origin and one server; Express
  * remains the source of truth for business rules without needing a proxy.
@@ -43,21 +66,8 @@ function createApplication(nextHandler) {
   app.use(express.static(path.join(__dirname, "public"), { index: false }));
   app.use("/storage", express.static(storage.STORAGE_ROOT, { fallthrough: true }));
 
-  app.use("/api/characters", require("./routes/characters"));
-  app.use("/api/presets", require("./routes/presets"));
-  app.use("/api/engines", require("./routes/engines"));
-  app.use("/api/settings", require("./routes/settings"));
-  app.use("/api/higgsfield", require("./routes/higgsfield"));
-  app.use("/api/dreamina", require("./routes/dreamina"));
-  app.use("/api/generations", require("./routes/generations"));
-  app.use("/api/pose-references", require("./routes/pose-references"));
-  app.use("/api/recipes", require("./routes/recipes"));
-  app.use("/api/studio-projects", require("./routes/studio-projects"));
-  app.use("/api/advanced-studio-projects", require("./routes/advanced-studio-projects"));
-  app.use("/api/media", require("./routes/media"));
-  app.use("/api/thumbnails", require("./routes/thumbnails"));
-  app.use("/api/passport", require("./routes/passport"));
-  app.use("/api/metrics", require("./routes/metrics"));
+  for (const [mountPath, modulePath] of API_ROUTES) app.use(mountPath, require(modulePath));
+  app.use("/mcp", require("./routes/mcp"));
 
   // Unknown API requests remain JSON errors instead of falling through to the
   // Next.js HTML 404 page.
@@ -153,4 +163,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { createApplication, start };
+module.exports = { API_ROUTES, createApplication, start };
