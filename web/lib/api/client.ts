@@ -7,6 +7,7 @@ import type {
   AdvProject,
   AdvProjectSummary,
   AdvTemplateId,
+  AdvVersionsResponse,
 } from '../advanced-studio/types';
 import type {
   CharacterDetail,
@@ -291,6 +292,13 @@ export const api = {
         body: form,
       });
     },
+    versions: (id: string) =>
+      request<AdvVersionsResponse>(`/api/advanced-studio-projects/${id}/versions`),
+    restoreVersion: (id: string, versionId: string, expectedRevision: number) =>
+      request<AdvProject>(`/api/advanced-studio-projects/${id}/versions/${versionId}/restore`, {
+        method: 'POST',
+        body: JSON.stringify({ expectedRevision }),
+      }),
     runNode: (id: string, nodeId: string) =>
       request<AdvNodeRunResponse>(`/api/advanced-studio-projects/${id}/nodes/${nodeId}/run`, {
         method: 'POST',

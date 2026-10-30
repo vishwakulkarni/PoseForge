@@ -41,6 +41,9 @@ export const queryKeys = {
   advancedProjects: ['advanced-studio-projects'] as const,
   advancedProject: (id: string) => ['advanced-studio-projects', id] as const,
   advancedCapabilities: ['advanced-studio-capabilities'] as const,
+  // Outside the project key on purpose: refreshing versions must never
+  // refetch (and so remount) the canvas.
+  advancedVersions: (id: string) => ['advanced-studio-versions', id] as const,
   recipes: ['recipes'] as const,
   settings: ['settings'] as const,
   higgsfieldStatus: ['higgsfield', 'status'] as const,
@@ -543,6 +546,16 @@ export function useAdvancedProjects() {
     queryKey: queryKeys.advancedProjects,
     queryFn: api.advancedStudio.list,
     staleTime: 30_000,
+  });
+}
+
+/** `poll` while the versions menu is open, so runs started elsewhere (an
+ * agent over MCP, a batch) show up without a reload. */
+export function useAdvancedVersions(projectId: string, poll: boolean) {
+  return useQuery({
+    queryKey: queryKeys.advancedVersions(projectId),
+    queryFn: () => api.advancedStudio.versions(projectId),
+    refetchInterval: poll ? 5_000 : false,
   });
 }
 

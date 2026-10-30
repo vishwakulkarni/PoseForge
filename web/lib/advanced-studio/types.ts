@@ -44,11 +44,17 @@ export interface AdvNodeHandles {
 export interface AdvTextNodeData {
   text: string;
   mode: 'plain' | 'structured';
+  /** Makes this text a workflow input that runs can fill in. */
+  inputName?: string;
 }
 
 export interface AdvImageInputNodeData {
   imageUrl?: string;
   characterId?: string;
+  /** A pose library image, resolved when the workflow runs. */
+  poseId?: string;
+  /** Makes this image a workflow input that runs can fill in. */
+  inputName?: string;
   fileName?: string;
   naturalWidth?: number;
   naturalHeight?: number;
@@ -154,9 +160,47 @@ export interface AdvProject {
   schemaVersion: number;
   revision: number;
   document: AdvDocument;
+  /** Inputs the workflow declares: `{{name}}` placeholders and `inputName` nodes. */
+  inputs?: AdvWorkflowInput[];
+  /** Runs still in progress on the server, null when idle. */
+  activeRun?: AdvActiveRun | null;
   createdAt: string;
   updatedAt: string;
 }
+
+export interface AdvWorkflowInput {
+  name: string;
+  kind: 'text' | 'image';
+  nodeIds: string[];
+  default: unknown;
+}
+
+export interface AdvActiveRun {
+  runIds: string[];
+  running: string[];
+  queued: string[];
+}
+
+/** A distinct recipe (nodes, settings, wiring) that has run. */
+export interface AdvVersionSummary {
+  id: string;
+  version: number;
+  createdAt: string;
+  runCount: number;
+  lastRunAt: string | null;
+  /** Sum of completed generations' recorded estimates; null when none priced. */
+  costUsd: number | null;
+  generationCount: number;
+  /** Below generationCount when some engines bill through a plan (no price). */
+  pricedGenerationCount: number;
+}
+
+export interface AdvVersionsResponse {
+  /** The version the canvas matches, null when it has changed since its last run. */
+  currentVersionId: string | null;
+  versions: AdvVersionSummary[];
+}
+
 
 export interface AdvProjectSummary {
   id: string;
@@ -246,6 +290,7 @@ export interface AdvMediaUploadResponse {
 export interface AdvNodeRunResponse {
   project: AdvProject;
   results: AdvGeneratorResult[];
+  runId?: string;
 }
 
 /* ------------------------------------------------------------------ registry */

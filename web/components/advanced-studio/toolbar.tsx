@@ -40,6 +40,7 @@ export function AdvToolbar({
   minimap,
   onToggleMinimap,
   onShowShortcuts,
+  extras,
 }: {
   name: string;
   saveState: AdvSaveState;
@@ -50,6 +51,8 @@ export function AdvToolbar({
   minimap: boolean;
   onToggleMinimap: () => void;
   onShowShortcuts: () => void;
+  /** Project-level controls supplied by the page, e.g. the versions menu. */
+  extras?: React.ReactNode;
 }) {
   const [draft, setDraft] = React.useState(name);
   // Adjust during render rather than in an effect: renaming elsewhere (or
@@ -96,6 +99,7 @@ export function AdvToolbar({
       </div>
 
       <div className="adv-toolbar-right">
+        {extras}
         <button type="button" className="adv-toolbar-button" onClick={onAddNode} disabled={locked} aria-label="Add node" title="Add node (A)">
           <Plus aria-hidden size={15} /> Add node
         </button>

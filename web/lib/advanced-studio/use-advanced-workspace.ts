@@ -214,6 +214,22 @@ export function useAdvancedWorkspace(projectId: string, saveDelayMs = ADV_SAVE_D
     cacheProject(project);
   }, [cacheProject]);
 
+  /**
+   * Puts a version back on the canvas. Queued edits are saved first so the
+   * restore is checked against the real latest revision; the refetch then
+   * remounts the canvas on the restored document (it ignores later prop
+   * updates by design).
+   */
+  const restoreVersion = React.useCallback(async (versionId: string) => {
+    await flushNow();
+    const restored = await api.advancedStudio.restoreVersion(projectId, versionId, revisionRef.current);
+    revisionRef.current = restored.revision;
+    acknowledgedKeyRef.current = documentKey(restored.document);
+    acknowledgedNameRef.current = restored.name;
+    cacheProject(restored);
+    await query.refetch();
+  }, [cacheProject, flushNow, projectId, query]);
+
   return {
     // Cached data may predate a generation that completed while this route
     // was unmounted. Keep the canvas unmounted until the on-mount refresh
@@ -229,5 +245,6 @@ export function useAdvancedWorkspace(projectId: string, saveDelayMs = ADV_SAVE_D
     retry,
     flushNow,
     adoptProject,
+    restoreVersion,
   };
 }

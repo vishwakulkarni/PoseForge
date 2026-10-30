@@ -97,6 +97,8 @@ interface CanvasProps {
   onSave: (document: ReturnType<typeof flowToDocument>, name?: string) => void;
   onRetry: () => void;
   onRunNode: (nodeId: string) => Promise<AdvProject | null>;
+  /** Rendered in the toolbar beside "Add node". */
+  toolbarExtras?: React.ReactNode;
   onEstimateCost?: (request: HiggsfieldEstimateRequest) => Promise<HiggsfieldEstimate | null>;
 }
 
@@ -108,7 +110,7 @@ interface HistoryEntry {
 const noEstimate = async () => null;
 
 function AdvCanvasInner({
-  project, capabilities, characters = [], saveState, onSave, onRetry, onRunNode, onEstimateCost = noEstimate,
+  project, capabilities, characters = [], saveState, onSave, onRetry, onRunNode, onEstimateCost = noEstimate, toolbarExtras,
 }: CanvasProps) {
   const flow = useReactFlow<AdvFlowNode, AdvFlowEdge>();
   const { resolvedTheme } = useTheme();
@@ -1170,6 +1172,7 @@ function AdvCanvasInner({
         minimap={minimap}
         onToggleMinimap={() => setMinimap((current) => !current)}
         onShowShortcuts={() => setShortcutsOpen(true)}
+        extras={toolbarExtras}
       />
 
       <div

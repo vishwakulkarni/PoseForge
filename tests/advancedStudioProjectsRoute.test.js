@@ -83,6 +83,7 @@ function loadRoute({ rows = [row()], registry, createAdvancedImageGeneration, cr
   };
 
   const stubbed = [stub("db/pool.js", { pool: { query } })];
+  stubbed.push(stub("lib/advancedRuns.js", memoryRunStore()));
   if (registry) stubbed.push(stub("engines/index.js", { registry }));
   if (createAdvancedImageGeneration || createAdvancedVideoGeneration) {
     stubbed.push(stub("lib/advancedGenerationRunner.js", { createAdvancedImageGeneration, createAdvancedVideoGeneration }));
@@ -100,7 +101,68 @@ function loadRoute({ rows = [row()], registry, createAdvancedImageGeneration, cr
   };
 }
 
-function invoke(router, method, routePath, { params = {}, body = {} } = {}) {
+/** In-memory stand-in for lib/advancedRuns.js (its SQL is covered end to end
+ * against PGlite in tests/advancedWorkflowRuns.test.js). Pure helpers come
+ * from the real module. */
+function memoryRunStore() {
+  const realPath = require.resolve(path.join(ROOT, "lib/advancedRuns.js"));
+  delete require.cache[realPath];
+  const real = require(realPath);
+  delete require.cache[realPath];
+  const versions = [];
+  const runs = new Map();
+  const shapeRun = (run) => ({
+    ...run,
+    version: versions.find((version) => version.id === run.versionId).version,
+    outputs: Object.entries(run.nodes).flatMap(([nodeId, outcome]) => (outcome.results || []).map((result) => ({ nodeId, ...result }))),
+  });
+  return {
+    ...real,
+    async ensureVersion(projectId, document) {
+      const hash = real.recipeHash(document);
+      let version = versions.find((entry) => entry.projectId === projectId && entry.hash === hash);
+      if (!version) {
+        version = { id: `00000000-0000-4000-8000-${String(versions.length + 1).padStart(12, "0")}`, projectId, hash, version: versions.length + 1, document: real.withoutRunState(document) };
+        versions.push(version);
+      }
+      return { id: version.id, version: version.version };
+    },
+    async findVersionByHash(projectId, document) {
+      return versions.find((entry) => entry.projectId === projectId && entry.hash === real.recipeHash(document))?.id || null;
+    },
+    async listVersions(projectId) {
+      return versions.filter((entry) => entry.projectId === projectId).map(({ id, version }) => ({ id, version, runCount: [...runs.values()].filter((run) => run.versionId === id).length }));
+    },
+    async getVersion(projectId, versionId) {
+      const version = versions.find((entry) => entry.projectId === projectId && entry.id === versionId);
+      return version ? { id: version.id, version: version.version, document: version.document } : null;
+    },
+    async createRun({ projectId, versionId, batchId = null, inputs = {}, nodeIds }) {
+      const id = `11111111-1111-4111-8111-${String(runs.size + 1).padStart(12, "0")}`;
+      runs.set(id, { id, projectId, versionId, batchId, inputs, nodeIds, status: "queued", nodes: Object.fromEntries(nodeIds.map((nodeId) => [nodeId, { status: "queued", results: [] }])) });
+      return shapeRun(runs.get(id));
+    },
+    async getRun(projectId, runId) {
+      const run = runs.get(runId);
+      return run && run.projectId === projectId ? shapeRun(run) : null;
+    },
+    async listRuns(projectId, { versionId, batchId } = {}) {
+      return [...runs.values()]
+        .filter((run) => run.projectId === projectId && (!versionId || run.versionId === versionId) && (!batchId || run.batchId === batchId))
+        .reverse()
+        .map(shapeRun);
+    },
+    async markRunStarted(runId) { runs.get(runId).status = "running"; },
+    async recordNodeOutcome(runId, nodeId, outcome) { runs.get(runId).nodes[nodeId] = outcome; },
+    async finishRun(runId, outcomes) {
+      const statuses = Object.values(outcomes);
+      const done = statuses.filter((status) => status === "done").length;
+      runs.get(runId).status = statuses.length && done === statuses.length ? "completed" : done ? "partial" : "failed";
+    },
+  };
+}
+
+function invoke(router, method, routePath, { params = {}, body = {}, query = {} } = {}) {
   return new Promise((resolve, reject) => {
     const layer = router.stack.find((item) =>
       item.route && item.route.path === routePath && item.route.methods[method.toLowerCase()],
@@ -108,7 +170,7 @@ function invoke(router, method, routePath, { params = {}, body = {} } = {}) {
     assert.ok(layer, `${method} ${routePath} route must be registered`);
     const stack = layer.route.stack;
     const handler = stack[stack.length - 1].handle;
-    const req = { params, body, method, url: routePath };
+    const req = { params, body, query, method, url: routePath };
     const res = {
       statusCode: 200,
       status(code) { this.statusCode = code; return this; },
@@ -604,6 +666,280 @@ test("running a video node coerces settings and attaches an MP4 result", async (
     const node = response.body.project.document.nodes.find((item) => item.id === "video-1");
     assert.equal(node.data.status, "done");
     assert.match(node.data.results[0].videoUrl, /output\.mp4$/);
+  } finally {
+    cleanup();
+  }
+});
+
+/** A prompt feeding `first`, whose image feeds `second` as a reference. */
+function chainedGraph() {
+  const base = graph();
+  return {
+    ...base,
+    nodes: [
+      ...base.nodes,
+      { id: "gen-2", type: "imageGenerator", position: { x: 1000, y: 0 }, data: { engine: "gemini", outputs: 1 } },
+    ],
+    edges: [
+      ...base.edges,
+      { id: "e2", source: "text-1", sourceHandle: "text", target: "gen-2", targetHandle: "prompt", dataType: "text" },
+      { id: "e3", source: "gen-1", sourceHandle: "image", target: "gen-2", targetHandle: "image", dataType: "image" },
+    ],
+  };
+}
+
+async function settled(router) {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const response = await invoke(router, "GET", "/:id", { params: { id: PROJECT_ID } });
+    if (!response.body.activeRun) return response.body;
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  throw new Error("workflow run did not finish");
+}
+
+test("a workflow run starts immediately and chains generator outputs in dependency order", async () => {
+  const calls = [];
+  const { router, cleanup } = loadRoute({
+    rows: [row({ document: chainedGraph() })],
+    registry: { gemini: engineStub() },
+    createAdvancedImageGeneration: async (input) => {
+      calls.push(input.referencePaths);
+      const index = calls.length;
+      return { id: `aaaaaaaa-aaaa-4aaa-8aaa-00000000000${index}`, imageUrl: `/storage/generations/${index}/output.png` };
+    },
+  });
+  try {
+    const started = await invoke(router, "POST", "/:id/run", { params: { id: PROJECT_ID } });
+    assert.equal(started.status, 202);
+    assert.deepEqual(started.body.waves, [["gen-1"], ["gen-2"]]);
+
+    const project = await settled(router);
+    assert.equal(calls.length, 2);
+    assert.deepEqual(calls[0], []);
+    assert.equal(calls[1].length, 1);
+    assert.match(calls[1][0], /generations[/\\]1[/\\]output\.png$/, "the second node received the first node's image");
+    const statuses = Object.fromEntries(project.document.nodes.filter((node) => node.type === "imageGenerator").map((node) => [node.id, node.data.status]));
+    assert.deepEqual(statuses, { "gen-1": "done", "gen-2": "done" });
+  } finally {
+    cleanup();
+  }
+});
+
+test("a failed node skips the nodes downstream of it", async () => {
+  let calls = 0;
+  const { router, cleanup } = loadRoute({
+    rows: [row({ document: chainedGraph() })],
+    registry: { gemini: engineStub() },
+    createAdvancedImageGeneration: async () => {
+      calls += 1;
+      throw new Error("Provider quota exhausted.");
+    },
+  });
+  try {
+    assert.equal((await invoke(router, "POST", "/:id/run", { params: { id: PROJECT_ID } })).status, 202);
+    const project = await settled(router);
+    assert.equal(calls, 1, "the downstream node never called the provider");
+    const byId = Object.fromEntries(project.document.nodes.map((node) => [node.id, node.data]));
+    assert.equal(byId["gen-1"].error, "Provider quota exhausted.");
+    assert.equal(byId["gen-2"].status, "error");
+    assert.equal(byId["gen-2"].error, "Upstream node gen-1 failed.");
+  } finally {
+    cleanup();
+  }
+});
+
+test("a workflow run can be limited to chosen nodes and refuses unknown ones", async () => {
+  const calls = [];
+  const { router, cleanup } = loadRoute({
+    rows: [row({ document: chainedGraph() })],
+    registry: { gemini: engineStub() },
+    createAdvancedImageGeneration: async (input) => {
+      calls.push(input);
+      return { id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000009", imageUrl: "/storage/generations/9/output.png" };
+    },
+  });
+  try {
+    const started = await invoke(router, "POST", "/:id/run", { params: { id: PROJECT_ID }, body: { nodeIds: ["gen-2"] } });
+    assert.deepEqual(started.body.started, ["gen-2"]);
+    await settled(router);
+    assert.equal(calls.length, 1);
+
+    await assert.rejects(
+      invoke(router, "POST", "/:id/run", { params: { id: PROJECT_ID }, body: { nodeIds: ["text-1"] } }),
+      (error) => error.statusCode === 422 && /Not a generator node/.test(error.message),
+    );
+  } finally {
+    cleanup();
+  }
+});
+
+/** The image graph with its prompt turned into a template. */
+function templatedGraph(text = "a {{subject}} at {{time}}") {
+  const base = graph();
+  return { ...base, nodes: base.nodes.map((node) => (node.type === "text" ? { ...node, data: { ...node.data, text } } : node)) };
+}
+
+async function settledRuns(router) {
+  await settled(router);
+  return (await invoke(router, "GET", "/:id/runs", { params: { id: PROJECT_ID }, body: {} })).body.runs;
+}
+
+test("a project lists the inputs its workflow declares", async () => {
+  const { router, cleanup } = loadRoute({ rows: [row({ document: templatedGraph() })] });
+  try {
+    const response = await invoke(router, "GET", "/:id", { params: { id: PROJECT_ID } });
+    assert.deepEqual(response.body.inputs.map((input) => input.name), ["subject", "time"]);
+  } finally {
+    cleanup();
+  }
+});
+
+test("run inputs fill prompt placeholders without changing the saved workflow", async () => {
+  const prompts = [];
+  const { router, projects, cleanup } = loadRoute({
+    rows: [row({ document: templatedGraph() })],
+    registry: { gemini: engineStub() },
+    createAdvancedImageGeneration: async (input) => {
+      prompts.push(input.prompt);
+      return { id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000001", imageUrl: "/storage/generations/1/output.png" };
+    },
+  });
+  try {
+    const started = await invoke(router, "POST", "/:id/run", { params: { id: PROJECT_ID }, body: { inputs: { subject: "lighthouse", time: "dawn" } } });
+    assert.equal(started.status, 202);
+    assert.equal(started.body.version, 1);
+    const [run] = await settledRuns(router);
+    assert.deepEqual(prompts, ["a lighthouse at dawn"]);
+    assert.equal(run.status, "completed");
+    assert.deepEqual(run.inputs, { subject: "lighthouse", time: "dawn" });
+    assert.equal(run.outputs[0].imageUrl, "/storage/generations/1/output.png");
+    assert.equal(projects[0].document.nodes.find((node) => node.type === "text").data.text, "a {{subject}} at {{time}}");
+  } finally {
+    cleanup();
+  }
+});
+
+test("unknown and missing inputs are refused before anything runs", async () => {
+  let calls = 0;
+  const { router, cleanup } = loadRoute({
+    rows: [row({ document: templatedGraph() })],
+    registry: { gemini: engineStub() },
+    createAdvancedImageGeneration: async () => { calls += 1; return {}; },
+  });
+  try {
+    await assert.rejects(
+      invoke(router, "POST", "/:id/run", { params: { id: PROJECT_ID }, body: { inputs: { subjct: "x", time: "dawn" } } }),
+      (error) => error.statusCode === 422 && /Unknown input subjct/.test(error.message),
+    );
+    await assert.rejects(
+      invoke(router, "POST", "/:id/run", { params: { id: PROJECT_ID }, body: { inputs: { subject: "x" } } }),
+      (error) => error.statusCode === 422 && /Missing value for input time/.test(error.message),
+    );
+    await assert.rejects(
+      invoke(router, "POST", "/:id/batch", { params: { id: PROJECT_ID }, body: { rows: [{ subject: "a", time: "b" }, { subject: "a" }] } }),
+      (error) => error.statusCode === 422 && /^Row 2:/.test(error.message),
+    );
+    assert.equal(calls, 0);
+  } finally {
+    cleanup();
+  }
+});
+
+test("a batch runs every row of the same node in parallel, each with its own result", async () => {
+  const prompts = [];
+  let inFlight = 0;
+  let peak = 0;
+  const { router, projects, cleanup } = loadRoute({
+    rows: [row({ document: templatedGraph() })],
+    registry: { gemini: engineStub() },
+    createAdvancedImageGeneration: async (input) => {
+      inFlight += 1;
+      peak = Math.max(peak, inFlight);
+      prompts.push(input.prompt);
+      const index = prompts.length;
+      await new Promise((resolve) => setImmediate(resolve));
+      inFlight -= 1;
+      return { id: `aaaaaaaa-aaaa-4aaa-8aaa-00000000000${index}`, imageUrl: `/storage/generations/${index}/output.png` };
+    },
+  });
+  try {
+    const started = await invoke(router, "POST", "/:id/batch", {
+      params: { id: PROJECT_ID },
+      body: { rows: [{ subject: "fox", time: "noon" }, { subject: "owl", time: "night" }, { subject: "cat", time: "dusk" }] },
+    });
+    assert.equal(started.status, 202);
+    assert.equal(started.body.runs.length, 3);
+    const runs = await settledRuns(router);
+    assert.equal(runs.length, 3);
+    assert.ok(runs.every((run) => run.batchId === started.body.batchId && run.status === "completed" && run.version === 1));
+    assert.deepEqual(prompts.sort(), ["a cat at dusk", "a fox at noon", "a owl at night"]);
+    assert.ok(peak > 1, "rows of the same node generate concurrently");
+    assert.equal(projects[0].document.nodes.find((node) => node.id === "gen-1").data.results.length, 3, "every row's result reaches the canvas");
+  } finally {
+    cleanup();
+  }
+});
+
+test("versions follow the recipe: layout changes reuse a version, setting changes make a new one", async () => {
+  const { router, projects, cleanup } = loadRoute({
+    registry: { gemini: engineStub() },
+    rows: [row({ document: graph() })],
+    createAdvancedImageGeneration: async () => ({ id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000001", imageUrl: "/storage/generations/1/output.png" }),
+  });
+  const runOnce = async () => {
+    const response = await invoke(router, "POST", "/:id/nodes/:nodeId/run", { params: { id: PROJECT_ID, nodeId: "gen-1" } });
+    assert.equal(response.status, 200);
+    return response.body;
+  };
+  const edit = (change) => {
+    const document = projects[0].document;
+    document.nodes = document.nodes.map((node) => (node.id === "gen-1" ? change(node) : node));
+  };
+  try {
+    const first = await runOnce();
+    assert.ok(first.runId);
+    edit((node) => ({ ...node, position: { x: 900, y: 300 } }));
+    await runOnce();
+    edit((node) => ({ ...node, data: { ...node.data, aspectRatio: "1:1" } }));
+    await runOnce();
+
+    const versions = (await invoke(router, "GET", "/:id/versions", { params: { id: PROJECT_ID } })).body;
+    assert.deepEqual(versions.versions.map((version) => [version.version, version.runCount]), [[1, 2], [2, 1]]);
+    assert.equal(versions.currentVersionId, versions.versions[1].id, "the canvas matches the latest version");
+
+    const v1Runs = (await invoke(router, "GET", "/:id/runs", { params: { id: PROJECT_ID }, body: {} })).body.runs.filter((run) => run.version === 1);
+    assert.equal(v1Runs.length, 2);
+  } finally {
+    cleanup();
+  }
+});
+
+test("restoring a version brings back its settings and keeps current results", async () => {
+  const { router, projects, cleanup } = loadRoute({
+    registry: { gemini: engineStub() },
+    rows: [row({ document: graph() })],
+    createAdvancedImageGeneration: async () => ({ id: "aaaaaaaa-aaaa-4aaa-8aaa-000000000001", imageUrl: "/storage/generations/1/output.png" }),
+  });
+  try {
+    await invoke(router, "POST", "/:id/nodes/:nodeId/run", { params: { id: PROJECT_ID, nodeId: "gen-1" } });
+    const [v1] = (await invoke(router, "GET", "/:id/versions", { params: { id: PROJECT_ID } })).body.versions;
+    const document = projects[0].document;
+    document.nodes.find((node) => node.id === "gen-1").data.aspectRatio = "9:16";
+
+    const restored = await invoke(router, "POST", "/:id/versions/:versionId/restore", {
+      params: { id: PROJECT_ID, versionId: v1.id },
+      body: { expectedRevision: projects[0].revision },
+    });
+    assert.equal(restored.status, 200);
+    const generator = restored.body.document.nodes.find((node) => node.id === "gen-1");
+    assert.equal(generator.data.aspectRatio, "16:9");
+    assert.equal(generator.data.results.length, 1, "restoring never hides an output");
+
+    const stale = await invoke(router, "POST", "/:id/versions/:versionId/restore", {
+      params: { id: PROJECT_ID, versionId: v1.id },
+      body: { expectedRevision: 0 },
+    });
+    assert.equal(stale.status, 409);
   } finally {
     cleanup();
   }
