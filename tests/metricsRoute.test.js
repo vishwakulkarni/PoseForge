@@ -83,16 +83,6 @@ function loadRoute(generations, engines = [{ key: "codex", ready: true }]) {
         weekly: { usedPercent: 55, remainingPercent: 45, windowDurationMins: 10080, resetsAt: null },
         reason: null,
       },
-      antigravityLimits: {
-        available: true,
-        groups: [{
-          name: "Gemini Models",
-          description: null,
-          fiveHour: { usedPercent: 0, remainingPercent: 100, windowDurationMins: 300, resetsAt: null },
-          weekly: { usedPercent: 7, remainingPercent: 93, windowDurationMins: 10080, resetsAt: null },
-        }],
-        reason: null,
-      },
     }),
   });
 
@@ -161,7 +151,6 @@ test("returns the full metrics contract the dashboard expects", async () => {
       "failures",
       "library",
       "codexLimits",
-      "antigravityLimits",
     ]) {
       assert.ok(key in body, `response must include ${key}`);
     }
@@ -177,7 +166,6 @@ test("returns the full metrics contract the dashboard expects", async () => {
     assert.equal(body.library.characters, 3);
     assert.equal(body.library.mostUsedCharacter.name, "Anika");
     assert.equal(body.codexLimits.weekly.remainingPercent, 45);
-    assert.equal(body.antigravityLimits.groups[0].weekly.remainingPercent, 93);
   } finally {
     cleanup();
   }
@@ -241,7 +229,6 @@ test("a failing engine registry does not take the whole endpoint down", async ()
   const providerLimitsPath = stub("lib/providerLimits.js", {
     getProviderLimitsSnapshot: () => ({
       codexLimits: { available: false, planType: null, fiveHour: null, weekly: null, reason: "Unavailable" },
-      antigravityLimits: { available: false, groups: [], reason: "Unavailable" },
     }),
   });
   const routePath = require.resolve(path.join(ROOT, "routes/metrics.js"));

@@ -49,11 +49,3 @@ test("ComfyUI reports no provider tokens or API cost", () => {
   assert.equal(usage.totalTokens, 0);
   assert.equal(usage.estimatedCostUsd, 0);
 });
-
-test("Antigravity estimates tokens while leaving plan cost undisclosed", () => {
-  const usage = estimateGenerationUsage({ engine: "antigravity", model: "gemini-3.6-flash-high" });
-  assert.equal(usage.model, "gemini-3.6-flash-high");
-  assert.ok(usage.totalTokens > 0);
-  assert.equal(usage.estimatedCostUsd, null);
-  assert.match(usage.pricingNote, /G1 credit/);
-});

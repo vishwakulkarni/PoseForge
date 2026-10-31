@@ -94,7 +94,7 @@ router.get(
     ]);
 
     const rows = generations.rows;
-    const { codexLimits, antigravityLimits } = getProviderLimitsSnapshot();
+    const { codexLimits } = getProviderLimitsSnapshot();
 
     res.json({
       scope,
@@ -107,7 +107,6 @@ router.get(
       failures: computeFailures(rows),
       library,
       codexLimits,
-      antigravityLimits,
     });
   })
 );

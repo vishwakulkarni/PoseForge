@@ -38,14 +38,6 @@ function freshMetrics(body: MetricsResponse): MetricsResponse {
       fiveHour: withReset(body.codexLimits.fiveHour, now),
       weekly: withReset(body.codexLimits.weekly, now),
     },
-    antigravityLimits: {
-      ...body.antigravityLimits,
-      groups: body.antigravityLimits.groups.map((group) => ({
-        ...group,
-        fiveHour: withReset(group.fiveHour, now),
-        weekly: withReset(group.weekly, now),
-      })),
-    },
   };
 }
 

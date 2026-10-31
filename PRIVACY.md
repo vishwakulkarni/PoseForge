@@ -10,7 +10,6 @@ leaves the machine depends on the generation engine you select.
 |---|---|---|
 | ComfyUI on loopback | Nothing through PoseForge | Your local ComfyUI server |
 | Codex CLI | Selected identity images, pose image, prompt, and generation settings | The provider used by the authenticated Codex CLI session |
-| Google Antigravity CLI | Selected identity images, pose image, prompt, and generation settings | Google services used by the authenticated Antigravity session |
 | OpenAI | Selected identity images, pose image, prompt, and generation settings | OpenAI API |
 | Google Gemini API | Selected identity images, pose image, prompt, and generation settings | Google Gemini API |
 | Replicate | Selected identity images, pose image, prompt, and generation settings | Replicate and the configured model provider |

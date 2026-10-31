@@ -16,7 +16,7 @@ Give PoseForge an identity photo and a pose reference. It returns the same
 person—or family—in the new pose and composition, with controls for camera,
 lighting, styling, fidelity, and output format.
 
-PoseForge exists so Codex, Google Antigravity, and ComfyUI users can turn their
+PoseForge exists so Codex, ComfyUI, and hosted-API users can turn their
 existing AI access into a repeatable visual workflow instead of rebuilding the
 same multi-image prompt in chat for every photograph.
 
@@ -40,8 +40,8 @@ same multi-image prompt in chat for every photograph.
 
 > **Local-first, not automatically offline.** Your workspace, embedded PGlite
 > database, character library, pose library, and generated files stay on your
-> machine. ComfyUI can keep inference fully local. Codex CLI, Google
-> Antigravity, and hosted API engines send only the references, prompt, and
+> machine. ComfyUI can keep inference fully local. Codex CLI and hosted API
+> engines send only the references, prompt, and
 > settings selected for that generation to their provider. See
 > [Privacy and data flow](PRIVACY.md).
 
@@ -64,7 +64,7 @@ up front. To check a fresh install end to end (database and the 16 bundled
 offline poses), run `npm run setup`.
 
 No image engine is required to explore the interface. To generate images,
-authenticate Codex or Google Antigravity, connect local ComfyUI, or configure
+authenticate Codex, connect local ComfyUI, or configure
 a hosted provider in **Settings**.
 
 ## How it works
@@ -74,7 +74,7 @@ a hosted provider in **Settings**.
 2. **Choose the pose.** Upload a pose, split a pose sheet, or select one of the
    bundled references.
 3. **Direct and generate.** Set composition, camera, lighting, styling, and
-   fidelity; then run through Codex, Antigravity, ComfyUI, or a hosted API.
+   fidelity; then run through Codex, ComfyUI, or a hosted API.
 
 PoseForge stores successful pose uploads in the reusable pose library and
 keeps generation history, usage, latency, cost estimates, and outputs together
@@ -97,7 +97,7 @@ machine, then hands each provider the same carefully prepared inputs:
   up to four people per generation, instead of re-describing them each time.
 - **Switch providers without starting over.** Characters, poses, history,
   projects, and metrics all stay put when you change engine, so you can try
-  Codex, Antigravity, Dreamina, Higgsfield, ComfyUI, or a hosted API and compare
+  Codex, Dreamina, Higgsfield, ComfyUI, or a hosted API and compare
   results from identical inputs.
 - **Metrics are calculated locally.** Usage, cost, latency, and reliability come
   from your own stored runs; nothing is sent to a PoseForge cloud, because there
@@ -109,13 +109,11 @@ is to give each one the best, most consistent starting point.
 ## Choose where the image is made
 
 [![Codex CLI](https://img.shields.io/badge/Codex%20CLI-supported-111827)](https://github.com/openai/codex)
-[![Google Antigravity](https://img.shields.io/badge/Google%20Antigravity-supported-4285F4?logo=google&logoColor=white)](docs/COMPATIBILITY.md)
 [![ComfyUI](https://img.shields.io/badge/ComfyUI-fully%20local-111827)](docs/COMPATIBILITY.md)
 
 | Engine | Existing plan/account | Separate API key | Fully local | Selected inputs leave machine |
 |---|---|---:|---:|---:|
 | **Codex CLI** | Authenticated Codex access | No | No | Yes, to the CLI provider |
-| **Google Antigravity CLI** | Signed-in Google plan | No | No | Yes, to Google services |
 | **ComfyUI** | Not required | No | **Yes**, when loopback-only | **No**, when loopback-only |
 | **OpenAI API** | API billing/account | Yes | No | Yes, to OpenAI |
 | **Google Gemini API** | API billing/account | Yes | No | Yes, to Google Gemini |
@@ -251,7 +249,7 @@ The Metrics page summarizes every generation stored locally: lifetime spend,
 tokens, success rate, median and P95 latency, queue wait, and active days. It
 adds a cumulative usage chart (group by day, week, month, or run; tokens or
 cost), a per-engine and per-model breakdown, recurring failure groups, and
-Codex and Antigravity account-limit windows. Switch between **Historical** and
+Codex account-limit windows. Switch between **Historical** and
 **Session** scope, and export JSON or CSV. Values are marked actual, estimated,
 partial, or local, so you can tell provider-reported usage from estimates; see
 the [metrics reference](docs/METRICS.md).
@@ -320,8 +318,7 @@ the request lifecycle, data model, and adapter contract.
 The default `.env.example` uses embedded PGlite under `storage/pglite`. Set
 `DATABASE_MODE=postgres` and `DATABASE_URL` to use an existing PostgreSQL
 server instead. Other optional environment variables include `CODEX_BIN`,
-`CODEX_TIMEOUT_MS`, `ANTIGRAVITY_BIN`,
-`ANTIGRAVITY_MODEL`, `ANTIGRAVITY_TIMEOUT_MS`, `GEMINI_API_KEY`,
+`CODEX_TIMEOUT_MS`, `GEMINI_API_KEY`,
 `GEMINI_IMAGE_MODEL`, `FAL_KEY`, `COMFYUI_URL`, `COMFYUI_MODEL`,
 `COMFYUI_WORKFLOW_PATH`, and `COMFYUI_TIMEOUT_MS`.
 

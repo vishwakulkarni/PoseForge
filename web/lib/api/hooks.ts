@@ -522,7 +522,7 @@ export function useMetrics(scope: MetricsScope, refreshMs = 30_000) {
     // while that first snapshot is pending, then return to the normal cadence.
     refetchInterval: (query) => {
       const data = query.state.data;
-      return data?.codexLimits.loading || data?.antigravityLimits.loading ? 1_000 : refreshMs;
+      return data?.codexLimits.loading ? 1_000 : refreshMs;
     },
     placeholderData: (previous) => previous,
   });

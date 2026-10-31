@@ -30,6 +30,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Image inputs can reference a character (its current primary photo), a pose
   library entry, or a web image URL, which is downloaded once at run time.
 
+### Removed
+
+- The Google Antigravity CLI engine, along with its Settings card, model
+  setting, Metrics quota panel and `ANTIGRAVITY_*` variables. Its image
+  generation no longer works: the image service returns `500 Internal Server
+  Error` on every request, and the CLI keeps retrying until it times out, still
+  reporting success. Past Antigravity generations stay in History, and a saved
+  default engine of `antigravity` falls back to Codex.
+
 ## [1.0.0] — 2026-08-26
 
 ### Added

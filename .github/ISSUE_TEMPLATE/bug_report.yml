@@ -35,7 +35,6 @@ body:
       options:
         - Not applicable
         - Codex CLI
-        - Google Antigravity CLI
         - ComfyUI
         - OpenAI
         - Google Gemini API

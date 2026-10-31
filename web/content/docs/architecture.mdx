@@ -62,13 +62,11 @@ flowchart LR
 
   subgraph Providers[External provider boundary]
     Registry --> Codex[Codex CLI provider session]
-    Registry --> Agy[Google Antigravity session]
     Registry --> APIs[OpenAI / Gemini / Replicate / fal.ai]
   end
 
   Comfy --> Files
   Codex --> Files
-  Agy --> Files
   APIs --> Files
 ```
 
@@ -97,7 +95,7 @@ routes/
 engines/
   index.js                 Registry: engine key -> adapter module
   engineInterface.md        The adapter contract, documented
-  codexEngine.js, antigravityEngine.js, comfyEngine.js, openaiEngine.js,
+  codexEngine.js, comfyEngine.js, openaiEngine.js,
   geminiEngine.js, replicateEngine.js, falEngine.js
 lib/
   promptTemplate.js         Builds the merge instruction sent to an engine
@@ -207,7 +205,7 @@ repeatedly.
 ## The engine adapter pattern
 
 This is the part most contributions touch. Every generation engine —
-Codex CLI, Antigravity CLI, OpenAI, Gemini, ComfyUI, Replicate, or a future one — implements
+Codex CLI, OpenAI, Gemini, ComfyUI, Replicate, or a future one — implements
 the same shape:
 
 ```js
@@ -237,7 +235,7 @@ with more than one character photo it composites them into a side-by-side
 montage locally (via `sharp`) before sending — an imperfect but reasonable
 fallback, documented inline in that file.
 
-`engines/index.js` holds the registry (`&#123; codex, antigravity, openai, gemini, comfy, replicate, fal &#125;`) and
+`engines/index.js` holds the registry (`&#123; codex, openai, gemini, comfy, replicate, fal &#125;`) and
 `listEngines()`, which calls `isReady()` on each — that's what powers both
 the Studio's engine dropdown and the Settings screen's status list. The
 registry is enough for basic discovery; engines with provider-specific
@@ -260,15 +258,6 @@ Adapters worth knowing about specifically:
   references to ComfyUI, renders a user-supplied API workflow template,
   polls its history endpoint, and downloads the first saved output image.
   Its workflow placeholder contract is implemented in `lib/comfyWorkflow.js`.
-- **`antigravityEngine.js`** invokes Google’s local `agy` binary in documented
-  headless JSON mode. It confines each run to the generation folder with
-  `--sandbox`, auto-approves otherwise-unpromptable headless tool calls inside
-  that isolated folder, uses cached interactive credentials, and records
-  CLI-reported input, output, and thinking tokens. Antigravity's native image
-  tool currently stages output in its per-conversation `brain` directory even
-  when asked for a workspace path; the adapter validates the returned file URL,
-  conversation ID, directory boundary, size, and PNG signature before copying
-  that artifact into PoseForge storage.
 
 ## Generation call flow
 

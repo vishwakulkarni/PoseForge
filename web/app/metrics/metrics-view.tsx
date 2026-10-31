@@ -368,53 +368,6 @@ export function MetricsView() {
         )}
       </section>
 
-      {/* ---------------------------------------- Antigravity account limits */}
-      <section className="rounded-[16px] border border-[var(--pf-border)] bg-[var(--pf-surface)] p-5">
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-[15px] font-bold">Antigravity account limits</h2>
-            <p className="mt-1 text-[12px] text-[var(--pf-text-secondary)]">
-              Live quota from the Antigravity CLI account signed in on this machine.
-            </p>
-          </div>
-          {data?.antigravityLimits.loading || !data ? (
-            <Skeleton className="h-6 w-24 rounded-full" />
-          ) : data.antigravityLimits.available ? (
-            <Badge variant="ok" dot>Connected</Badge>
-          ) : (
-            <Badge variant="warning">Unavailable</Badge>
-          )}
-        </div>
-
-        {isLoading || data?.antigravityLimits.loading ? (
-          <div className="grid gap-3 md:grid-cols-2">
-            <Skeleton className="h-32 w-full" />
-            <Skeleton className="h-32 w-full" />
-          </div>
-        ) : data?.antigravityLimits.available ? (
-          <div className="flex flex-col gap-4">
-            {data.antigravityLimits.groups.map((group) => (
-              <div key={group.name} className="rounded-[14px] border border-[var(--pf-border)] p-4">
-                <div className="mb-3">
-                  <h3 className="text-[13px] font-bold">{group.name}</h3>
-                  {group.description ? (
-                    <p className="mt-0.5 text-[11px] text-[var(--pf-text-tertiary)]">{group.description}</p>
-                  ) : null}
-                </div>
-                <div className="grid gap-3 md:grid-cols-2">
-                  <AccountLimitCard label="5-hour window" window={group.fiveHour} provider={`Antigravity ${group.name}`} />
-                  <AccountLimitCard label="Weekly limit" window={group.weekly} provider={`Antigravity ${group.name}`} />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="rounded-[12px] bg-[var(--pf-surface-muted)] px-4 py-3 text-[12px] text-[var(--pf-text-secondary)]">
-            {data?.antigravityLimits.reason || 'Antigravity quota limits are unavailable.'}
-          </p>
-        )}
-      </section>
-
       {/* ------------------------------------------------- chart + table */}
       <div className="grid gap-3 xl:grid-cols-[1.6fr_1fr]">
         <section className="rounded-[16px] border border-[var(--pf-border)] bg-[var(--pf-surface)] p-5">

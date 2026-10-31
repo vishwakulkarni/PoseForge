@@ -11,8 +11,8 @@ workspace, and generated files live on your computer.
   without sending the portrait to an AI provider.
 - **OpenAI, Gemini, and Replicate** send the selected references and prompt to
   that provider's API.
-- **Codex CLI and Antigravity CLI** use the account and provider connection of
-  the locally installed CLI. They may send references to their provider.
+- **Codex CLI** uses the account and provider connection of the locally
+  installed CLI. It may send references to their provider.
 
 PoseForge has no hosted account or gallery service. Review `SECURITY.md` before
 exposing the app outside a trusted machine.
@@ -80,7 +80,7 @@ Settings reports engine readiness, selects the default engine, and stores the
 configuration required by API providers. Credential fields are write-only in
 the browser; saved secrets are never rendered back into the page.
 
-Codex and Antigravity require their CLIs to be installed and authenticated.
+Codex requires its CLI to be installed and authenticated.
 ComfyUI requires a running server and an exported API workflow. Gemini, OpenAI,
 and Replicate require provider API keys. Follow the setup instructions shown
 beside each engine in Settings.

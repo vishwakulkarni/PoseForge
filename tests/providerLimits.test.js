@@ -20,10 +20,6 @@ test("provider limit snapshots return cached data without awaiting CLI refreshes
     getCachedCodexRateLimits: () => ({ available: true, weekly: { remainingPercent: 45 } }),
     getCodexRateLimits: () => never,
   });
-  const antigravityPath = stub("lib/antigravityRateLimits.js", {
-    getCachedAntigravityRateLimits: () => ({ available: true, groups: [] }),
-    getAntigravityRateLimits: () => never,
-  });
   const providerPath = require.resolve(path.join(ROOT, "lib/providerLimits.js"));
   delete require.cache[providerPath];
 
@@ -31,10 +27,8 @@ test("provider limit snapshots return cached data without awaiting CLI refreshes
     const { getProviderLimitsSnapshot } = require(providerPath);
     const snapshot = getProviderLimitsSnapshot();
     assert.equal(snapshot.codexLimits.weekly.remainingPercent, 45);
-    assert.equal(snapshot.antigravityLimits.available, true);
   } finally {
     delete require.cache[codexPath];
-    delete require.cache[antigravityPath];
     delete require.cache[providerPath];
   }
 });

@@ -31,7 +31,6 @@ async function getSettings() {
     dreaminaMonthlyCreditBudget: dreamina.parseCredits(values.dreamina_monthly_credit_budget),
     geminiApiKey: credential(values.gemini_api_key, process.env.GEMINI_API_KEY),
     geminiModel: modelAllowed("gemini", process.env.GEMINI_IMAGE_MODEL || values.gemini_model) ? process.env.GEMINI_IMAGE_MODEL || values.gemini_model : registry.gemini.models[0].id,
-    antigravityModel: modelAllowed("antigravity", process.env.ANTIGRAVITY_MODEL || values.antigravity_model) ? process.env.ANTIGRAVITY_MODEL || values.antigravity_model : registry.antigravity.models[0].id,
     comfyEndpoint: process.env.COMFYUI_URL || values.comfy_endpoint || "http://127.0.0.1:8188",
     comfyModel: modelAllowed("comfy", process.env.COMFYUI_MODEL || values.comfy_model) ? process.env.COMFYUI_MODEL || values.comfy_model : registry.comfy.models[0].id,
     comfyWorkflow: {
@@ -48,7 +47,6 @@ router.put("/", asyncHandler(async (req, res) => {
   const body = req.body || {};
   if (Object.prototype.hasOwnProperty.call(body, "defaultEngine") && !registry[body.defaultEngine]) return res.status(400).json({ error: "Unknown default engine." });
   if (Object.prototype.hasOwnProperty.call(body, "geminiModel") && !modelAllowed("gemini", body.geminiModel)) return res.status(400).json({ error: "Unknown Gemini image model." });
-  if (Object.prototype.hasOwnProperty.call(body, "antigravityModel") && !modelAllowed("antigravity", body.antigravityModel)) return res.status(400).json({ error: "Unknown Antigravity model." });
   if (Object.prototype.hasOwnProperty.call(body, "comfyModel") && !modelAllowed("comfy", body.comfyModel)) return res.status(400).json({ error: "Unknown ComfyUI model profile." });
   if (Object.prototype.hasOwnProperty.call(body, "higgsfieldApiKey")) {
     body.higgsfieldApiKey = String(body.higgsfieldApiKey || "").trim();
@@ -94,7 +92,6 @@ router.put("/", asyncHandler(async (req, res) => {
     dreaminaMonthlyCreditBudget: "dreamina_monthly_credit_budget",
     geminiApiKey: "gemini_api_key",
     geminiModel: "gemini_model",
-    antigravityModel: "antigravity_model",
     comfyEndpoint: "comfy_endpoint",
     comfyModel: "comfy_model",
     comfyWorkflow: "comfy_workflow",

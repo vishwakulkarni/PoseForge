@@ -72,17 +72,6 @@ describe('MetricsView', () => {
     );
   });
 
-  it('shows Antigravity quota windows for each model group', async () => {
-    renderWithProviders(<MetricsView />);
-
-    expect(await screen.findByText('Antigravity account limits')).toBeInTheDocument();
-    expect(await screen.findByText('Gemini Models')).toBeInTheDocument();
-    expect(screen.getByText('Claude and GPT models')).toBeInTheDocument();
-    expect(
-      screen.getByRole('progressbar', { name: /weekly limit antigravity gemini models usage/i }),
-    ).toHaveAttribute('aria-valuenow', '7');
-  });
-
   it('surfaces queue depth as its own badge when work is waiting', async () => {
     server.use(
       http.get('/api/metrics', async () => {

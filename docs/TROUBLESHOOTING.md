@@ -75,9 +75,6 @@ Open **Settings** and read the readiness reason shown for that engine.
 
 - **Codex CLI:** install `codex`, then run `codex login` and complete the
   sign-in flow. Use `CODEX_BIN` if the executable has a custom path.
-- **Google Antigravity:** install `agy`, then run `agy install` to add it to
-  your shell `PATH`, and run `agy` once to complete interactive sign-in. Use
-  `ANTIGRAVITY_BIN` for a custom path.
 - If either CLI was just installed or just added to `PATH`, open a new
   terminal (or run `source ~/.zshrc` / `source ~/.bashrc`, matching your
   shell) so the updated `PATH` takes effect, then restart the PoseForge

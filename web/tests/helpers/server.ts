@@ -30,24 +30,6 @@ export const metricsFixture: MetricsResponse = {
     },
     reason: null,
   },
-  antigravityLimits: {
-    available: true,
-    groups: [
-      {
-        name: 'Gemini Models',
-        description: 'Models within this group: Gemini Flash, Gemini Pro',
-        fiveHour: { usedPercent: 0, remainingPercent: 100, windowDurationMins: 300, resetsAt: '2026-08-08T22:26:07.000Z' },
-        weekly: { usedPercent: 7, remainingPercent: 93, windowDurationMins: 10080, resetsAt: '2026-08-09T17:58:09.000Z' },
-      },
-      {
-        name: 'Claude and GPT models',
-        description: 'Models within this group: Claude Opus, Claude Sonnet, GPT-OSS',
-        fiveHour: { usedPercent: 0, remainingPercent: 100, windowDurationMins: 300, resetsAt: '2026-08-08T22:26:07.000Z' },
-        weekly: { usedPercent: 0, remainingPercent: 100, windowDurationMins: 10080, resetsAt: '2026-08-15T17:26:07.000Z' },
-      },
-    ],
-    reason: null,
-  },
   totals: {
     totalRuns: 12,
     completedRuns: 10,
@@ -178,14 +160,6 @@ export const handlers = [
           label: 'Google Gemini',
           ready: false,
           reason: 'No API key',
-          models: [],
-          capabilities: { angleProfiles: true },
-        },
-        {
-          key: 'antigravity',
-          label: 'Google Antigravity CLI',
-          ready: false,
-          reason: 'CLI is not installed',
           models: [],
           capabilities: { angleProfiles: true },
         },

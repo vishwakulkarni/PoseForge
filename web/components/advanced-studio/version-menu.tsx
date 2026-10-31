@@ -9,7 +9,7 @@ import { useToast } from '@/components/ui/toast';
 import { cn, formatCurrency, relativeTime } from '@/lib/utils';
 
 /** What a version cost across all of its runs. Engines billed through a plan
- * (Codex, Antigravity, fal) record no price, so a total can be partial. */
+ * (Codex, fal) record no price, so a total can be partial. */
 function versionCost(version: AdvVersionSummary): { label: string; note?: string } {
   // A server that predates cost tracking sends no counts: that is unknown,
   // not "nothing generated", so it must never read as $0.

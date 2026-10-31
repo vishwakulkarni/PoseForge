@@ -45,15 +45,6 @@ const SETUP_GUIDES: Record<string, SetupGuideContent> = {
     ],
     links: [{ label: 'Install Codex CLI', href: 'https://github.com/openai/codex' }],
   },
-  antigravity: {
-    steps: [
-      <>Install the Antigravity CLI, then run {code('agy install')} to add it to your shell PATH.</>,
-      <>Run {code('agy')} once to complete interactive sign-in.</>,
-      <>Open a new terminal (or run {code('source ~/.zshrc')}) so the CLI is on PATH.</>,
-      <>Restart the PoseForge server ({code('npm run dev')} or {code('npm start')}).</>,
-    ],
-    links: [{ label: 'Install Antigravity CLI', href: 'https://antigravity.google/docs/cli/install/' }],
-  },
   dreamina: {
     steps: [
       <>Install the Dreamina Canvas CLI: {code('curl -fsSL https://dreamina.capcut.com/canvas-cli/install.sh | bash')}</>,
@@ -703,7 +694,6 @@ export function SettingsView() {
 
   const engines = engineData?.engines ?? [];
   const geminiModels = engines.find((e) => e.key === 'gemini')?.models ?? [];
-  const antigravityModels = engines.find((e) => e.key === 'antigravity')?.models ?? [];
   const comfyModels = engines.find((e) => e.key === 'comfy')?.models ?? [];
 
   const value = (key: string, fallback: string) => draft[key] ?? fallback;
@@ -711,7 +701,7 @@ export function SettingsView() {
 
   const engine = (key: string) => engines.find((item) => item.key === key);
   const readyCount = (flags: Array<boolean | undefined>) => flags.filter(Boolean).length;
-  const cliReady = [engine('codex')?.ready, engine('antigravity')?.ready, dreaminaReady(dreaminaStatus)];
+  const cliReady = [engine('codex')?.ready, dreaminaReady(dreaminaStatus)];
   const apiReady = [engine('openai')?.ready, engine('gemini')?.ready, engine('replicate')?.ready, engine('fal')?.ready, higgsfieldStatus?.ready];
   const localReady = [engine('comfy')?.ready];
   const sections: Array<{ id: string; icon: LucideIcon; title: string; ready: number; total: number }> = [
@@ -787,33 +777,6 @@ export function SettingsView() {
             reason={engine('codex')?.reason}
           >
             {engine('codex') ? <SetupGuide provider="codex" ready={engine('codex')?.ready} /> : null}
-          </ProviderCard>
-          <ProviderCard
-            title="Antigravity"
-            description="Image generation through the Antigravity CLI and your Google sign-in."
-            ready={engine('antigravity')?.ready}
-            reason={engine('antigravity')?.reason}
-          >
-            {antigravityModels.length ? (
-              <Field label="Model" htmlFor="antigravity-model">
-                <Select
-                  value={value('antigravityModel', settings.antigravityModel)}
-                  onValueChange={(next) => set('antigravityModel', next)}
-                >
-                  <SelectTrigger id="antigravity-model">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {antigravityModels.map((model) => (
-                      <SelectItem key={model.id} value={model.id}>
-                        {model.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-            ) : null}
-            {engine('antigravity') ? <SetupGuide provider="antigravity" ready={engine('antigravity')?.ready} /> : null}
           </ProviderCard>
         </div>
         <DreaminaCard settings={settings} draft={draft} set={set} />

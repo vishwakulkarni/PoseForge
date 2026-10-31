@@ -15,7 +15,6 @@ export type EngineKey =
   | 'fal'
   | 'gemini'
   | 'comfy'
-  | 'antigravity'
   | (string & {});
 
 /** GET /api/characters */
@@ -301,7 +300,6 @@ export interface Settings {
   dreaminaMonthlyCreditBudget: number | null;
   geminiApiKey: Credential;
   geminiModel: string;
-  antigravityModel: string;
   comfyEndpoint: string;
   comfyModel: string;
   comfyWorkflow: {
@@ -425,18 +423,6 @@ export interface CodexLimits {
   reason: string | null;
 }
 
-export interface AntigravityLimits {
-  available: boolean;
-  loading?: boolean;
-  groups: Array<{
-    name: string;
-    description: string | null;
-    fiveHour: AccountLimitWindow | null;
-    weekly: AccountLimitWindow | null;
-  }>;
-  reason: string | null;
-}
-
 export interface MetricsResponse {
   scope: MetricsScope;
   generatedAt: string;
@@ -460,8 +446,6 @@ export interface MetricsResponse {
   failures: MetricsFailureRow[];
   /** Live account limits read from the locally authenticated Codex CLI. */
   codexLimits: CodexLimits;
-  /** Live quota groups read from the locally authenticated Antigravity CLI. */
-  antigravityLimits: AntigravityLimits;
   library: {
     characters: number;
     poseReferences: number;
