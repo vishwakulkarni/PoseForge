@@ -104,6 +104,14 @@ async function generateEdit({ referencePaths, prompt, systemPrompt, outputPath, 
 const engine = {
   key: "fal",
   label: "fal.ai",
+  imageSettings: {
+    aspectRatios: ["21:9", "16:9", "3:2", "4:3", "5:4", "1:1", "4:5", "3:4", "2:3", "9:16"],
+    resolutions: [
+      { id: "1K", label: "1K", quality: "medium" },
+      { id: "2K", label: "2K", quality: "high" },
+    ],
+    defaultResolution: "1K",
+  },
   models: [{ id: MODEL_ID, label: "Nano Banana Pro Edit", tier: "pose-editing", note: "Multi-reference image editing for identity-preserving pose transfer." }],
   capabilities: { multiImage: true, maxReferenceImages: 10, angleProfiles: true, aspectRatio: true, quality: false, variants: false, local: false },
   async getConfiguredModel() { return MODEL_ID; },

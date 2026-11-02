@@ -14,8 +14,9 @@ import {
 } from 'lucide-react';
 import type { AdvEngineCapability, AdvImageGeneratorNodeData } from '@/lib/advanced-studio/types';
 import type { AdvNodeBodyProps } from '../node-context';
-import { PillMenu, type PillOption } from '../pill-menu';
+import { PillMenu, withUnavailableOption, type PillOption } from '../pill-menu';
 import { HIGGSFIELD_ENGINES, HiggsfieldCostHint, useHiggsfieldCost } from './higgsfield-cost';
+import { FallbackPill } from './node-parts';
 import { cn } from '@/lib/utils';
 
 /**
@@ -44,8 +45,9 @@ export const ImageGeneratorNodeBody = React.memo(function ImageGeneratorNodeBody
   const active = results[activeIndex];
   const resolved = actions.resolveInputsFor(id);
 
+  const selectedModelValue = data.engine ? `${data.engine}::${data.model ?? data.engine}` : undefined;
   const modelOptions = React.useMemo<PillOption<string>[]>(
-    () => actions.capabilities.filter((engine) => engine.image.supported).flatMap((engine) =>
+    () => withUnavailableOption(actions.capabilities.filter((engine) => engine.image.supported).flatMap((engine) =>
       (engine.models.length ? engine.models : [{ id: engine.key, label: engine.label }]).map((model) => ({
         value: `${engine.key}::${model.id}`,
         label: model.label,
@@ -57,11 +59,9 @@ export const ImageGeneratorNodeBody = React.memo(function ImageGeneratorNodeBody
         group: model.label === engine.label ? undefined : engine.label,
         disabled: !engine.ready,
       })),
-    ),
-    [actions.capabilities],
+    ), selectedModelValue, data.model ?? data.engine ?? ''),
+    [actions.capabilities, data.engine, data.model, selectedModelValue],
   );
-
-  const selectedModelValue = data.engine ? `${data.engine}::${data.model ?? data.engine}` : undefined;
 
   const onModelChange = (value: string) => {
     const [engineKey, modelId] = value.split('::');
@@ -218,6 +218,9 @@ export const ImageGeneratorNodeBody = React.memo(function ImageGeneratorNodeBody
             </div>
           </>
         ) : null}
+        {data.engine ? (
+          <FallbackPill id={id} kind="image" engine={data.engine} model={data.model ?? data.engine} fallbacks={data.fallbacks} actions={actions} />
+        ) : null}
       </div>
 
       {blockedReason ? <p className="adv-inline-error" role="status">{blockedReason}</p> : null}
@@ -276,7 +279,8 @@ function blockingReason(
 ): string | null {
   if (!data.engine) return 'Choose a model to enable generation.';
   if (!capability) return 'That model is no longer available. Choose another.';
-  if (!capability.ready) return capability.reason ?? `${capability.label} is not configured.`;
+  // A fallback can stand in for a provider that is not set up.
+  if (!capability.ready && !data.fallbacks?.length) return capability.reason ?? `${capability.label} is not configured.`;
   if (missingPrompt) return 'Connect a prompt with some text.';
   if (imageCount > capability.image.maxImages) {
     return `${capability.label} accepts at most ${capability.image.maxImages} reference images.`;

@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { planWaves, runWaves, downstreamGenerators } = require("../lib/advancedWorkflowRunner");
+const { planWaves, runWaves, downstreamOf } = require("../lib/advancedWorkflowRunner");
 
 const generator = (id) => ({ id, type: "imageGenerator", data: {} });
 const edge = (source, target) => ({ id: `${source}-${target}`, source, target, targetHandle: "image" });
@@ -25,8 +25,28 @@ test("cycles and non-generator ids are rejected with 422", () => {
   assert.throws(() => planWaves(document, ["p"]), (error) => error.statusCode === 422);
 });
 
-test("downstream generators are found transitively", () => {
-  assert.deepEqual([...downstreamGenerators(document, "a")].sort(), ["b", "c", "d2"]);
+test("downstream running nodes are found transitively", () => {
+  assert.deepEqual([...downstreamOf(document, "a")].sort(), ["b", "c", "d2"]);
+});
+
+test("dependencies are traced through nodes that do not run", () => {
+  // llm → list → gen: the list derives its items from the LLM's text, so the
+  // generator waits for the LLM even though no edge joins them directly.
+  const chained = {
+    nodes: [
+      { id: "llm", type: "llmText", data: {} },
+      { id: "items", type: "list", data: {} },
+      generator("gen"),
+      { id: "out", type: "output", data: {} },
+    ],
+    edges: [
+      { id: "e1", source: "llm", target: "items", targetHandle: "text" },
+      { id: "e2", source: "items", target: "gen", targetHandle: "prompt" },
+      { id: "e3", source: "gen", target: "out", targetHandle: "image" },
+    ],
+  };
+  assert.deepEqual(planWaves(chained), [["llm"], ["gen"], ["out"]]);
+  assert.throws(() => planWaves(chained, ["items"]), (error) => error.statusCode === 422);
 });
 
 test("a failure skips everything downstream but not independent nodes", async () => {

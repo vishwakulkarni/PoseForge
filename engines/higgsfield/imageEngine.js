@@ -45,6 +45,16 @@ async function quoteUsage(request, { enforce = true } = {}) {
 const engine = {
   key: "higgsfield",
   label: "Higgsfield",
+  // Each model has its own resolution vocabulary; generateFreeform maps these
+  // tiers onto it (see models.js).
+  imageSettings: {
+    aspectRatios: ["1:1", "3:2", "2:3", "4:3", "3:4", "16:9", "9:16"],
+    resolutions: [
+      { id: "standard", label: "Standard", quality: "medium" },
+      { id: "high", label: "High", quality: "high" },
+    ],
+    defaultResolution: "standard",
+  },
   credentialSetting: client.CREDENTIAL_SETTING,
   models: IMAGE_MODELS.map(({ id, label, note }) => ({ id, label, note })),
   capabilities: { freeform: true, textToImage: true, multiImage: true, maxReferenceImages: 10, aspectRatio: true, local: false },

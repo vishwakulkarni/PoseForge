@@ -5,8 +5,9 @@ import { AlertCircle, Clapperboard, Download, Loader2, Maximize, Send } from 'lu
 import type { AdvVideoGeneratorNodeData } from '@/lib/advanced-studio/types';
 import { coerceVideoSettings, selectedVideoModel } from '@/lib/advanced-studio/registry/video-generator-node';
 import type { AdvNodeBodyProps } from '../node-context';
-import { PillMenu, type PillOption } from '../pill-menu';
+import { PillMenu, withUnavailableOption, type PillOption } from '../pill-menu';
 import { HIGGSFIELD_ENGINES, HiggsfieldCostHint, useHiggsfieldCost } from './higgsfield-cost';
+import { FallbackPill } from './node-parts';
 import { cn } from '@/lib/utils';
 
 export const VideoGeneratorNodeBody = React.memo(function VideoGeneratorNodeBody({
@@ -22,17 +23,22 @@ export const VideoGeneratorNodeBody = React.memo(function VideoGeneratorNodeBody
   const activeIndex = Math.min(Math.max(data.activeResultIndex ?? 0, 0), Math.max(results.length - 1, 0));
   const active = results[activeIndex];
 
+  const selectedModelValue = data.engine && data.model ? `${data.engine}::${data.model}` : undefined;
   const modelOptions = React.useMemo<PillOption<string>[]>(
-    () => actions.capabilities
-      .filter((engine) => engine.video.supported)
-      .flatMap((engine) => engine.models.map((option) => ({
-        value: `${engine.key}::${option.id}`,
-        label: option.label,
-        group: engine.label,
-        note: engine.ready ? option.note : engine.reason ?? 'Not configured',
-        disabled: !engine.ready,
-      }))),
-    [actions.capabilities],
+    () => withUnavailableOption(
+      actions.capabilities
+        .filter((engine) => engine.video.supported)
+        .flatMap((engine) => engine.models.map((option) => ({
+          value: `${engine.key}::${option.id}`,
+          label: option.label,
+          group: engine.label,
+          note: engine.ready ? option.note : engine.reason ?? 'Not configured',
+          disabled: !engine.ready,
+        }))),
+      selectedModelValue,
+      data.model ?? '',
+    ),
+    [actions.capabilities, data.model, selectedModelValue],
   );
 
   const onModelChange = (value: string) => {
@@ -55,7 +61,7 @@ export const VideoGeneratorNodeBody = React.memo(function VideoGeneratorNodeBody
   const inputReason = (() => {
     if (!data.engine || !data.model) return 'Choose a video model to enable generation.';
     if (!capability || !capability.video.supported || !model) return 'That video model is no longer available.';
-    if (!capability.ready) return capability.reason ?? `Set up ${capability.label} in Settings to generate video.`;
+    if (!capability.ready && !data.fallbacks?.length) return capability.reason ?? `Set up ${capability.label} in Settings to generate video.`;
     if (!resolved.prompt.trim()) return 'Connect a prompt with some text.';
     if (model.inputs.includes('startFrame') && resolved.startFrameUrls.length === 0) return 'Connect a start frame for this model.';
     if (model.inputs.includes('referenceVideo')) {
@@ -115,7 +121,7 @@ export const VideoGeneratorNodeBody = React.memo(function VideoGeneratorNodeBody
       <div className="adv-controls nodrag nopan">
         <PillMenu
           label="Model"
-          value={data.engine && data.model ? `${data.engine}::${data.model}` : undefined}
+          value={selectedModelValue}
           options={modelOptions}
           onChange={onModelChange}
           disabled={actions.locked}
@@ -156,6 +162,9 @@ export const VideoGeneratorNodeBody = React.memo(function VideoGeneratorNodeBody
               </label>
             ) : null}
           </>
+        ) : null}
+        {data.engine && data.model ? (
+          <FallbackPill id={id} kind="video" engine={data.engine} model={data.model} fallbacks={data.fallbacks} actions={actions} />
         ) : null}
       </div>
 

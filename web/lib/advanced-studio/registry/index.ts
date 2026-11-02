@@ -4,8 +4,8 @@
  * The canvas, the add-node menu, connection validation and serialization all
  * read node behaviour from here. Adding a node type means adding a definition
  * file, one entry in this map, one body component in
- * components/advanced-studio/nodes, and (for a persisted shape) one sanitizer
- * entry in lib/advancedStudioProject.js — nothing else changes.
+ * components/advanced-studio/nodes, and one server definition
+ * module in lib/advancedNodes — nothing else changes.
  */
 import type { AdvDataType, AdvNodeCategory, AdvNodeDefinition, AdvNodeType } from '../types';
 import { textNodeDefinition } from './text-node';
@@ -14,6 +14,10 @@ import { audioInputNodeDefinition, videoInputNodeDefinition } from './media-inpu
 import { imageGeneratorNodeDefinition } from './image-generator-node';
 import { videoGeneratorNodeDefinition } from './video-generator-node';
 import { groupNodeDefinition } from './group-node';
+import { llmTextNodeDefinition } from './llm-text-node';
+import { listNodeDefinition } from './list-node';
+import { imageTransformNodeDefinition } from './image-transform-node';
+import { outputNodeDefinition } from './output-node';
 
 /** Exhaustive by construction: a missing or misnamed node type is a compile
  * error, and each entry stays narrowed to its own data type. */
@@ -27,6 +31,10 @@ export const ADV_NODE_REGISTRY: AdvNodeRegistry = {
   imageGenerator: imageGeneratorNodeDefinition,
   videoGenerator: videoGeneratorNodeDefinition,
   group: groupNodeDefinition,
+  llmText: llmTextNodeDefinition,
+  list: listNodeDefinition,
+  imageTransform: imageTransformNodeDefinition,
+  output: outputNodeDefinition,
 };
 
 export const ADV_NODE_TYPES = Object.keys(ADV_NODE_REGISTRY) as AdvNodeType[];
@@ -77,12 +85,13 @@ export function nodeTypesAcceptingInput(dataType: AdvDataType): AdvNodeType[] {
   });
 }
 
-export const ADV_CATEGORY_ORDER: AdvNodeCategory[] = ['inputs', 'media', 'generation', 'organization'];
+export const ADV_CATEGORY_ORDER: AdvNodeCategory[] = ['inputs', 'media', 'generation', 'flow', 'organization'];
 
 export const ADV_CATEGORY_LABELS: Record<AdvNodeCategory, string> = {
   inputs: 'Inputs',
   media: 'Media',
   generation: 'Generation',
+  flow: 'Flow & delivery',
   organization: 'Organization',
 };
 

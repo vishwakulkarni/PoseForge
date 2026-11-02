@@ -39,6 +39,63 @@ The generate action stays docked at the bottom of the workspace.
 HEIC and HEIF uploads are converted for browser preview and processing. The
 original subject should be clear, well lit, and large enough to recognize.
 
+## Automate content in Advanced Studio
+
+**Add node** includes building blocks for repeatable content:
+
+- **LLM Text** writes captions, hooks or prompt ideas from your instruction
+  and any text connected to it. Choose OpenAI, Gemini or Codex CLI, then
+  select **Write**.
+- **List** makes everything after it run once per line, up to 25 lines. Type
+  the lines yourself, or connect text such as an LLM's "five ideas, one per
+  line". The node shows how many items will run.
+- **Image Transform** resizes an image for a platform: Story/Reel 9:16,
+  portrait 4:5, square 1:1, landscape 16:9 or pin 3:4. **Crop** fills the
+  frame and **Pad** fits the whole image on a colour you pick. It can write a
+  caption on the image, either typed into the node or connected from another
+  node. With **Editor: Built-in** it runs on your computer and costs nothing.
+  Choose **Editor: Codex CLI** and describe the edit instead, for example
+  "remove the background and add our logo bottom-right". Codex makes the edit
+  using any connected text, and the format is then applied to its result.
+- **Output** collects the finished images, clips and captions, so a run
+  reports what it delivered.
+
+A typical chain is LLM Text → List → Image Generator → Image Transform →
+Output. One run turns one brief into several captioned posts in the right
+format.
+
+**Fallback model.** On a generator or LLM Text node, choose a second model.
+It is used when the first one isn't set up or fails, and the result records
+which model made it.
+
+Scheduled runs, webhooks and resuming interrupted runs are set up through
+the MCP tools or the API; see the MCP guide.
+
+## Share an Advanced Studio workflow
+
+Choose **Share** in the Advanced Studio toolbar to download the workflow as
+one `.poseforge.json` file. The file holds:
+- the nodes and their connections;
+- the prompts;
+- the model each generator uses;
+- the input images and clips.
+
+Generated results are not included: whoever imports the file generates their
+own. Character and Pose library inputs embed their current photo, so only
+share the file with people you would show those photos to.
+
+To use a shared file, choose **Import workflow** on the Advanced Studio page.
+The import dialog shows how each generator fits your setup:
+- **Ready:** it runs as is.
+- **Needs setup:** the author used a provider you haven't configured. The
+  dialog links to the right Settings section.
+- **Model unavailable** or **Not available here:** your version of PoseForge
+  doesn't have that model or engine.
+
+Each generator keeps the author's choice unless you pick one of your
+configured models instead. A node you keep stays on the author's model and
+works once that provider is set up.
+
 ## Characters and poses
 
 **Characters** stores people you use repeatedly. In Studio, **Use character**

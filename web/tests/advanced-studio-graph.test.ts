@@ -225,6 +225,46 @@ describe('input resolution', () => {
   });
 });
 
+describe('automation nodes', () => {
+  const nodes: GraphNodeLike[] = [
+    { id: 'llm', type: 'llmText', data: { engine: 'gemini', instruction: 'ideas', results: [{ text: '1. red kite\n2. blue kite' }], activeResultIndex: 0 } },
+    { id: 'items', type: 'list', data: { text: 'ignored when text is connected' } },
+    { id: 'gen-1', type: 'imageGenerator', data: { engine: 'gemini', outputs: 1, results: [{ imageUrl: '/storage/g.png' }], activeResultIndex: 0 } },
+    { id: 'fmt', type: 'imageTransform', data: { preset: '9:16', fit: 'cover', activeResultIndex: 0 } },
+    { id: 'out', type: 'output', data: { activeResultIndex: 0 } },
+  ];
+  const edges = [
+    { id: 'e1', source: 'llm', target: 'items', targetHandle: 'text' },
+    { id: 'e2', source: 'items', target: 'gen-1', targetHandle: 'prompt' },
+    { id: 'e3', source: 'gen-1', target: 'fmt', targetHandle: 'image' },
+    { id: 'e4', source: 'items', target: 'fmt', targetHandle: 'text' },
+  ];
+
+  it('previews the first list item, from an LLM node\'s written text', () => {
+    expect(resolveInputs('gen-1', nodes, edges).prompt).toBe('red kite');
+    const transform = resolveInputs('fmt', nodes, edges);
+    expect(transform.imageUrls).toEqual(['/storage/g.png']);
+    expect(transform.texts).toEqual(['red kite']);
+    expect(resolveInputs('items', nodes, edges).texts).toEqual(['1. red kite\n2. blue kite']);
+  });
+
+  it('checks connections by data type', () => {
+    expect(isValidAdvConnection({ source: 'items', sourceHandle: 'text', target: 'gen-1', targetHandle: 'prompt' }, nodes, edges.slice(0, 1), capabilities)).toBe(true);
+    expect(connectionProblem({ source: 'gen-1', sourceHandle: 'image', target: 'items', targetHandle: 'text' }, nodes, [], capabilities))
+      .toMatch(/accepts text, not image/);
+    expect(isValidAdvConnection({ source: 'fmt', sourceHandle: 'image', target: 'out', targetHandle: 'image' }, nodes, [], capabilities)).toBe(true);
+    expect(connectionProblem({ source: 'out', sourceHandle: null, target: 'fmt', targetHandle: 'image' }, nodes, [], capabilities))
+      .toMatch(/no output/);
+  });
+
+  it('lists the delivery nodes in their own add-menu group', () => {
+    const flow = nodeListings().filter((listing) => listing.category === 'flow').map((listing) => listing.type);
+    expect(flow).toEqual(['list', 'imageTransform', 'output']);
+    expect(nodeDefinition('llmText').generative).toBe(true);
+    expect(nodeDefinition('list').generative).toBeUndefined();
+  });
+});
+
 describe('document serialization', () => {
   const document: AdvDocument = {
     schemaVersion: ADV_SCHEMA_VERSION,

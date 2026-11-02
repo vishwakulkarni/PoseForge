@@ -93,7 +93,7 @@ async function editImage({ referencePaths, prompt, outputPath, outputSettings = 
   } };
 }
 
-async function assistPrompt({ instruction, apiKey }) {
+async function assistPrompt({ instruction, apiKey, system = SYSTEM_PROMPT }) {
   const key = apiKey || await configured();
   if (!key) throw new Error("No OpenAI API key configured.");
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -102,7 +102,7 @@ async function assistPrompt({ instruction, apiKey }) {
     body: JSON.stringify({
       model: ASSIST_MODEL,
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: system },
         { role: "user", content: instruction },
       ],
     }),
@@ -117,6 +117,15 @@ async function assistPrompt({ instruction, apiKey }) {
 const engine = {
   key: "openai",
   label: "OpenAI API",
+  imageSettings: {
+    aspectRatios: ["1:1", "4:5", "16:9", "9:16"],
+    resolutions: [
+      { id: "standard", label: "Standard", quality: "low" },
+      { id: "high", label: "High", quality: "medium" },
+      { id: "max", label: "Maximum", quality: "high" },
+    ],
+    defaultResolution: "high",
+  },
   models,
   capabilities: {
     multiImage: true,

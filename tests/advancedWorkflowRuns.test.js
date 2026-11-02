@@ -193,3 +193,46 @@ test("versions record what ran and the canvas can return to one", async () => {
     for (const output of run.outputs) cleanupPaths.push(path.join(__dirname, "..", "storage", "generations", output.generationId));
   }
 });
+
+test("a generator runs with more reference images than the guided Studio's four people", async () => {
+  const workflow = await call("create_workflow", { name: "Six references", template: "blank" });
+  cleanupPaths.push(path.join(__dirname, "..", "storage", "advanced", workflow.id));
+  const urls = [];
+  for (const color of ["#ff0000", "#00ff00", "#0000ff", "#ffff00", "#00ffff", "#ff00ff"]) {
+    const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "poseforge-ref-")), "ref.png");
+    cleanupPaths.push(path.dirname(file));
+    await sharp({ create: { width: 24, height: 24, channels: 3, background: color } }).png().toFile(file);
+    urls.push((await call("upload_workflow_image", { id: workflow.id, filePath: file })).url);
+  }
+  const nodes = [
+    { id: "p", type: "text", position: { x: 0, y: 0 }, data: { text: "the whole family" } },
+    { id: "gen", type: "imageGenerator", position: { x: 600, y: 0 }, data: { engine: "test-image" } },
+    ...urls.map((imageUrl, index) => ({ id: `ref-${index}`, type: "imageInput", position: { x: 0, y: 200 * (index + 1) }, data: { imageUrl } })),
+  ];
+  const edges = [
+    { id: "e-p", source: "p", sourceHandle: "text", target: "gen", targetHandle: "prompt", dataType: "text" },
+    ...urls.map((_, index) => ({ id: `e-${index}`, source: `ref-${index}`, sourceHandle: "image", target: "gen", targetHandle: "image", dataType: "image" })),
+  ];
+  const current = await call("get_workflow", { id: workflow.id });
+  await call("update_workflow", { id: workflow.id, expectedRevision: current.revision, document: { nodes, edges } });
+
+  const { runId } = await call("run_workflow", { id: workflow.id });
+  const [run] = await untilRunsFinish(workflow.id);
+  assert.equal(run.id, runId);
+  assert.equal(run.status, "completed", JSON.stringify(run.nodes));
+  const stored = await pool.query("SELECT COUNT(*)::int AS count FROM generation_characters WHERE generation_id = $1", [run.outputs[0].generationId]);
+  assert.equal(stored.rows[0].count, 6, "every reference is recorded");
+  cleanupPaths.push(path.join(__dirname, "..", "storage", "generations", run.outputs[0].generationId));
+});
+
+test("the database records as many references as any image engine accepts", async () => {
+  // generation_characters.position bounds the reference count (017).
+  const constraint = await pool.query(
+    "SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conname = 'generation_characters_position_check'"
+  );
+  const max = Number(constraint.rows[0].definition.match(/<= (\d+)/)[1]);
+  for (const engine of Object.values(engines.advancedRegistry)) {
+    const accepted = Number(engine.capabilities?.maxReferenceImages) || 0;
+    assert.ok(accepted <= max, `${engine.key} accepts ${accepted} reference images; generation_characters stores ${max}`);
+  }
+});

@@ -45,7 +45,9 @@ such as `npx mcp-remote http://127.0.0.1:3000/mcp`.
 | Area | Tools |
 |---|---|
 | Advanced Studio | `advanced_list_capabilities`, `list_workflows`, `get_workflow`, `create_workflow`, `update_workflow`, `delete_workflow`, `upload_workflow_image`, `upload_workflow_media` |
-| Runs and versions | `run_workflow`, `run_batch`, `get_run`, `list_runs`, `get_run_status`, `list_versions`, `get_version`, `restore_version` |
+| Sharing | `export_workflow`, `preview_workflow_import`, `import_workflow` |
+| Runs and versions | `run_workflow`, `run_batch`, `get_run`, `list_runs`, `get_run_status`, `resume_run`, `list_versions`, `get_version`, `restore_version` |
+| Triggers | `list_triggers`, `create_trigger`, `update_trigger`, `delete_trigger`, `run_trigger` |
 | Characters | `list_characters`, `get_character`, `create_character`, `rename_character`, `add_character_photo`, `build_angle_profile`, `delete_character` |
 | Poses | `list_poses`, `suggest_poses`, `add_pose`, `delete_pose` |
 | History | `list_generations`, `get_generation`, `delete_generation`, `estimate_generation_cost` |
@@ -60,9 +62,9 @@ Things worth knowing:
   `files`, with its absolute URL and its path on disk.
 - **Runs don't block.** `run_workflow` starts generating and returns a
   `runId` at once; poll `get_run` until its status is `completed`, `partial`
-  or `failed`. Generator nodes run in dependency order, independent ones in
-  parallel, and a node downstream of a failure is skipped with a clear error.
-  Pass `nodeIds` to run only some.
+  or `failed`. Nodes run in dependency order, independent ones in parallel,
+  and a node downstream of a failure is skipped with a clear error. Pass
+  `nodeIds` to run only some.
 - **Every run is a record** with the version it ran, its inputs, each node's
   outcome, its output files and its estimated cost — nothing is lost when a
   node's own result list (the last eight) moves on.
@@ -82,9 +84,11 @@ Things worth knowing:
 
 A workflow becomes a reusable template once it declares inputs:
 
-- write `&#123;&#123;name&#125;&#125;` anywhere in a text node — `"&#123;&#123;product&#125;&#125; on a &#123;&#123;surface&#125;&#125;, studio light"`;
-- or set `data.inputName` on a text node or an image input node; its current
-  value is the default.
+- write `&#123;&#123;name&#125;&#125;` anywhere in a text or list node, an `llmText` instruction or
+  an `imageTransform` caption or instruction — `"&#123;&#123;product&#125;&#125; on a &#123;&#123;surface&#125;&#125;, studio light"`;
+- set `data.inputName` on a text, list, image, video or audio input node; its
+  current value is the default;
+- or bind a node setting with `data.inputBindings` (see below).
 
 `get_workflow` lists them under `inputs`. Fill them per run without changing
 the saved workflow:
@@ -104,6 +108,92 @@ image — including the many that live on Unsplash or Pexels), or any http(s)
 image URL. Web images are downloaded once into the workflow's storage and
 reused.
 
+## Building blocks for content
+
+Besides prompts, inputs and generators, a workflow can use these nodes.
+`advanced_list_capabilities` → `nodeTypes` lists every node type's inputs
+and outputs.
+
+- **`llmText`** writes text from an `instruction` and any connected text:
+  captions, hooks, prompt variations, translations. It uses an engine whose
+  `text.supported` is true: OpenAI, Gemini or the Codex CLI.
+- **`list`** fans a workflow out. It makes one item per line of the connected
+  text, or of its own text if nothing is connected, and drops bullets and
+  `1.` numbering. Every running node after it runs once per item, up to 25.
+  An LLM's "write 5 ideas, one per line" becomes five images.
+- **`imageTransform`** crops (`fit: "cover"`) or pads (`"contain"`) an image
+  to `9:16`, `4:5`, `1:1`, `16:9` or `3:4`, or keeps it at `"original"` size.
+  It can also write a caption band from its `overlayText` or connected text.
+  It runs locally and costs nothing. Set `engine: "codex"` and an
+  `instruction` to have the Codex CLI edit the image however you describe:
+  remove a background, add a logo, grade the colours, lay out a title.
+  Codex gets connected text as material, and the format is applied to its
+  result. Codex works on a copy in a scratch folder and can use local tools
+  such as Python, ImageMagick or its image generator.
+- **`output`** marks deliverables. `get_run` → `deliverables` lists what
+  reached the run's output nodes, named after each node's label. Without
+  output nodes, `deliverables` lists every result.
+
+Example: `llmText` ("5 hooks about &#123;&#123;topic&#125;&#125;") → `list` → `imageGenerator` →
+`imageTransform` (9:16, with the list also wired to its caption) → `output`.
+One run gives five captioned story images.
+
+**Fallbacks.** A generator or `llmText` node can list up to three
+`fallbacks: [&#123; "engine": "…", "model": "…" &#125;]`. They are tried in order when
+the node's own model is not set up or fails, and each result records the
+`engine` and `model` that made it.
+
+**Setting inputs.** `data.inputBindings` turns a setting into a run input,
+for example `&#123; "aspectRatio": "format" &#125;` on a generator or
+`&#123; "preset": "format" &#125;` on a transform. `get_workflow` → `inputs` lists the
+values each one accepts, and a run refuses anything else. One batch can then
+make every format from a single workflow:
+
+```json
+run_batch { "id": "…", "rows": [{ "format": "9:16" }, { "format": "1:1" }, { "format": "16:9" }] }
+```
+
+## Resuming runs
+
+`resume_run` reruns the unfinished nodes of a `failed` or `partial` run with
+the same version and inputs. Use it after a provider outage, after setting
+up a provider, or after a restart. Finished nodes don't run again: what they
+produced feeds the resumed nodes. Runs execute inside the PoseForge server,
+so a run still going when the server stops is closed at the next start: it
+becomes `partial` (finished nodes keep their results) or `failed`, and it
+can be resumed.
+
+## Triggers: unattended runs
+
+A trigger saves how to run a workflow, meaning its `inputs` and `nodeIds`,
+plus when to run it:
+
+```json
+create_trigger { "id": "…", "name": "Morning post", "inputs": { "topic": "kites" },
+                 "schedule": { "type": "daily", "time": "08:30" }, "webhook": true }
+```
+
+- `schedule` is `&#123; "type": "interval", "minutes": 5…10080 &#125;`,
+  `&#123; "type": "daily", "time": "HH:MM" &#125;` (server time) or `null`. A trigger
+  that came due while PoseForge was off runs once when it starts again.
+- `webhook: true` returns a `webhookToken` once. An outside service starts
+  the trigger with `POST /api/advanced-studio-projects/hooks/<triggerId>`,
+  sending `Authorization: Bearer <token>` and optionally a body of
+  `&#123; "inputs": &#123; … &#125; &#125;`. Those inputs override the trigger's own.
+  `update_trigger` with `webhook: true` replaces the token, and with `false`
+  removes the webhook.
+- `run_trigger` fires a trigger now. A trigger whose previous run is still
+  going is skipped, and the reason shows in `lastError`.
+- Each trigger is checked against the workflow when you save it. If the
+  workflow later changes so a firing no longer fits, that firing records
+  `lastError` instead of running.
+
+Scheduled and webhook runs spend provider credits with nobody watching, and
+spending limits in Settings still apply. PoseForge listens on localhost, so
+an outside service can only reach a webhook through a tunnel. If you set one
+up, forward only the `/api/advanced-studio-projects/hooks/` path, not the
+whole app.
+
 ## Versions
 
 A version is each distinct set of nodes, settings and connections that has
@@ -117,6 +207,36 @@ engines billed through a plan (Codex, fal) record no price, so
 when `pricedGenerationCount` is below `generationCount` the total is partial.
 In the app, the **Versions** menu in the Advanced Studio toolbar lists the
 same versions with their cost.
+
+## Sharing workflows
+
+`export_workflow(&#123; id, filePath &#125;)` writes the workflow as one
+`.poseforge.json` file. It holds the nodes and connections, prompts and
+`&#123;&#123;inputs&#125;&#125;`, the engine and model of each generator, and the input images and
+clips embedded as base64. Character and pose inputs embed the photo they show
+today. Outputs, settings, keys and history are never included.
+
+`preview_workflow_import(&#123; filePath &#125;)` checks a file without creating
+anything. Each generator in `report.generators` has a `status`:
+
+| Status | Meaning |
+|---|---|
+| `ready` | Runs here as the author set it up. |
+| `needs-setup` | The provider exists but is not configured, for example the file uses Higgsfield and only fal.ai is set up. |
+| `unknown-model` | The engine is here but does not offer that model. |
+| `unknown-engine` | This version of PoseForge does not have that engine. |
+| `unset` | No model was chosen. |
+
+`issues` lists connections the model cannot take. `alternatives` lists the
+configured models that can take them.
+
+`import_workflow(&#123; filePath, name?, replacements? &#125;)` creates the workflow.
+Every generator keeps the author's engine and model unless `replacements`
+switches it, for example `&#123; "clip": &#123; "engine": "fal-video", "model": "<id>" &#125; &#125;`.
+On a switch, each setting the new model supports is kept and the rest take
+its defaults. Imported files are untrusted: they may only use their own
+embedded files or web URLs, never paths on your machine, and every embedded
+file is decoded and checked before it is stored.
 
 ## Example: one photo to a short clip
 

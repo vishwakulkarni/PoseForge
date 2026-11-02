@@ -96,6 +96,17 @@ async function generateFreeform(request) {
 module.exports = {
   key: "dreamina",
   label: "Dreamina",
+  // Seedream and GPT Image; generateFreeform maps these tiers onto each
+  // model's resolutions (see models.js).
+  imageSettings: {
+    aspectRatios: ["21:9", "16:9", "3:2", "4:3", "1:1", "3:4", "2:3", "9:16"],
+    resolutions: [
+      { id: "standard", label: "Standard", quality: "medium" },
+      { id: "2K", label: "2K", quality: "high" },
+      { id: "4K", label: "4K", quality: "max" },
+    ],
+    defaultResolution: "2K",
+  },
   models: IMAGE_MODELS.map(({ id, label, note }) => ({ id, label, note })),
   capabilities: { freeform: true, textToImage: true, multiImage: true, maxReferenceImages: MAX_REFERENCE_IMAGES, aspectRatio: true, local: false },
   async getConfiguredModel() { return IMAGE_MODELS[0].id; },

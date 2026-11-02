@@ -72,7 +72,7 @@ export const AdvNodeActionsContext = React.createContext<AdvNodeActions>({
   uploadMedia: async () => {},
   clearMedia: noop,
   openPreview: noop,
-  resolveInputsFor: () => ({ prompt: '', imageUrls: [], startFrameUrls: [], endFrameUrls: [], referenceImageUrls: [], videoUrls: [], audioUrls: [] }),
+  resolveInputsFor: () => ({ prompt: '', texts: [], imageUrls: [], startFrameUrls: [], endFrameUrls: [], referenceImageUrls: [], videoUrls: [], audioUrls: [] }),
   estimateCost: async () => null,
 });
 

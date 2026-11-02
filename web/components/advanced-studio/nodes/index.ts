@@ -14,6 +14,10 @@ import { MediaInputNodeBody } from './media-input-node-body';
 import { ImageGeneratorNodeBody } from './image-generator-node-body';
 import { VideoGeneratorNodeBody } from './video-generator-node-body';
 import { GroupNodeBody } from './group-node-body';
+import { LlmTextNodeBody } from './llm-text-node-body';
+import { ListNodeBody } from './list-node-body';
+import { ImageTransformNodeBody } from './image-transform-node-body';
+import { OutputNodeBody } from './output-node-body';
 
 // Each body narrows its own data type, so this map is heterogeneous by nature.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -25,6 +29,10 @@ export const ADV_NODE_BODIES: Record<AdvNodeType, React.ComponentType<AdvNodeBod
   imageGenerator: ImageGeneratorNodeBody,
   videoGenerator: VideoGeneratorNodeBody,
   group: GroupNodeBody,
+  llmText: LlmTextNodeBody,
+  list: ListNodeBody,
+  imageTransform: ImageTransformNodeBody,
+  output: OutputNodeBody,
 };
 
 export { TextNodeBody, ImageInputNodeBody, MediaInputNodeBody, ImageGeneratorNodeBody, VideoGeneratorNodeBody, GroupNodeBody };

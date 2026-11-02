@@ -88,15 +88,17 @@ function loadRoute({ rows = [row()], registry, createAdvancedImageGeneration, cr
   if (createAdvancedImageGeneration || createAdvancedVideoGeneration) {
     stubbed.push(stub("lib/advancedGenerationRunner.js", { createAdvancedImageGeneration, createAdvancedVideoGeneration }));
   }
-  const routePath = require.resolve(path.join(ROOT, "routes/advanced-studio-projects.js"));
-  delete require.cache[routePath];
-  const router = require(routePath);
+  // The run service holds the pool and run store it loaded with, so it is
+  // reloaded with each harness's stubs.
+  const reloaded = ["routes/advanced-studio-projects.js", "lib/advancedRunService.js"]
+    .map((relativePath) => require.resolve(path.join(ROOT, relativePath)));
+  for (const item of reloaded) delete require.cache[item];
+  const router = require(reloaded[0]);
   return {
     router,
     projects,
     cleanup() {
-      for (const item of stubbed) delete require.cache[item];
-      delete require.cache[routePath];
+      for (const item of [...stubbed, ...reloaded]) delete require.cache[item];
     },
   };
 }
@@ -578,7 +580,7 @@ test("a second run is refused while the node is already generating", async () =>
 });
 
 test("connected image inputs are resolved in edge order and passed as references", async () => {
-  const { resolveNodeInputs } = require("../routes/advanced-studio-projects");
+  const { resolveInputs } = require("../lib/advancedNodes/resolve");
   const document = {
     nodes: [
       { id: "t", type: "text", data: { text: "prompt text" } },
@@ -594,9 +596,9 @@ test("connected image inputs are resolved in edge order and passed as references
       { id: "e4", source: "prev", target: "gen", targetHandle: "image" },
     ],
   };
-  const resolved = resolveNodeInputs(document, "gen");
-  assert.equal(resolved.prompt, "prompt text");
-  assert.deepEqual(resolved.imageUrls, [
+  const resolved = resolveInputs(document, "gen");
+  assert.deepEqual(resolved.prompt, ["prompt text"]);
+  assert.deepEqual(resolved.image, [
     "/storage/advanced/b.png",
     "/storage/advanced/a.png",
     "/storage/generations/prev/output.png",
@@ -604,7 +606,7 @@ test("connected image inputs are resolved in edge order and passed as references
 });
 
 test("reference video and audio handles resolve media inputs and earlier video results", () => {
-  const { resolveNodeInputs } = require("../routes/advanced-studio-projects");
+  const { resolveInputs } = require("../lib/advancedNodes/resolve");
   const document = {
     nodes: [
       { id: "v", type: "videoInput", data: { mediaUrl: "/storage/advanced/p/move.mp4" } },
@@ -619,10 +621,10 @@ test("reference video and audio handles resolve media inputs and earlier video r
       { id: "e4", source: "v", target: "gen", targetHandle: "referenceAudio" },
     ],
   };
-  const resolved = resolveNodeInputs(document, "gen");
-  assert.deepEqual(resolved.referenceVideoUrls, ["/storage/advanced/p/move.mp4", "/storage/generations/prev/output.mp4"]);
-  assert.deepEqual(resolved.referenceAudioUrls, ["/storage/advanced/p/beat.mp3"]);
-  assert.deepEqual(resolved.imageUrls, []);
+  const resolved = resolveInputs(document, "gen");
+  assert.deepEqual(resolved.referenceVideo, ["/storage/advanced/p/move.mp4", "/storage/generations/prev/output.mp4"]);
+  assert.deepEqual(resolved.referenceAudio, ["/storage/advanced/p/beat.mp3"]);
+  assert.equal(resolved.image, undefined);
 });
 
 test("running a video node coerces settings and attaches an MP4 result", async () => {
@@ -766,7 +768,7 @@ test("a workflow run can be limited to chosen nodes and refuses unknown ones", a
 
     await assert.rejects(
       invoke(router, "POST", "/:id/run", { params: { id: PROJECT_ID }, body: { nodeIds: ["text-1"] } }),
-      (error) => error.statusCode === 422 && /Not a generator node/.test(error.message),
+      (error) => error.statusCode === 422 && /Not a node that runs/.test(error.message),
     );
   } finally {
     cleanup();

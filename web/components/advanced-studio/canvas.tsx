@@ -25,7 +25,7 @@ import { X } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { api } from '@/lib/api/client';
-import { nodeDefinition, nodeTypesAcceptingInput } from '@/lib/advanced-studio/registry';
+import { ADV_NODE_TYPES, nodeDefinition, nodeTypesAcceptingInput } from '@/lib/advanced-studio/registry';
 import { connectionProblem, edgeDataType, type GraphNodeLike } from '@/lib/advanced-studio/validation';
 import { resolveInputs } from '@/lib/advanced-studio/resolve-inputs';
 import { snapToNeighbours, upstreamOf, type SnapGuide } from '@/lib/advanced-studio/canvas-focus';
@@ -61,15 +61,7 @@ import type { AdvSaveState } from '@/lib/advanced-studio/use-advanced-workspace'
 
 /** One shell handles every node type; the registry decides what it renders.
  * Declared at module scope so React Flow never sees a new object identity. */
-const NODE_TYPES = {
-  text: AdvNodeShell,
-  imageInput: AdvNodeShell,
-  videoInput: AdvNodeShell,
-  audioInput: AdvNodeShell,
-  imageGenerator: AdvNodeShell,
-  videoGenerator: AdvNodeShell,
-  group: AdvNodeShell,
-} as const;
+const NODE_TYPES = Object.fromEntries(ADV_NODE_TYPES.map((type) => [type, AdvNodeShell])) as Record<AdvNodeType, typeof AdvNodeShell>;
 
 const EDGE_TYPES = { adv: AdvCuttableEdge } as const;
 const DEFAULT_EDGE_OPTIONS = { type: 'adv' } as const;

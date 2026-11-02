@@ -3,6 +3,9 @@ import type {
   AdvMediaUploadResponse,
   AdvDocument,
   AdvEngineCapability,
+  AdvImportPreview,
+  AdvImportReplacements,
+  AdvImportResult,
   AdvNodeRunResponse,
   AdvProject,
   AdvProjectSummary,
@@ -288,6 +291,28 @@ export const api = {
       const form = new FormData();
       form.append('file', file);
       return request<AdvMediaUploadResponse>(`/api/advanced-studio-projects/${id}/media`, {
+        method: 'POST',
+        body: form,
+      });
+    },
+    /** Downloads as `<name>.poseforge.json` (the server sets the file name). */
+    exportUrl: (id: string) => `/api/advanced-studio-projects/${id}/export`,
+    previewImport: (file: File) => {
+      const form = new FormData();
+      form.append('file', file);
+      return request<AdvImportPreview>('/api/advanced-studio-projects/import/preview', {
+        method: 'POST',
+        body: form,
+      });
+    },
+    importWorkflow: (file: File, input: { name?: string; replacements?: AdvImportReplacements }) => {
+      const form = new FormData();
+      form.append('file', file);
+      if (input.name) form.append('name', input.name);
+      if (input.replacements && Object.keys(input.replacements).length) {
+        form.append('replacements', JSON.stringify(input.replacements));
+      }
+      return request<AdvImportResult>('/api/advanced-studio-projects/import', {
         method: 'POST',
         body: form,
       });

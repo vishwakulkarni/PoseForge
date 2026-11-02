@@ -13,6 +13,17 @@ export interface PillOption<T extends string> {
 }
 
 /**
+ * Keeps a selection the menu cannot offer visible, as a disabled entry: a
+ * model from an engine this build lacks (an imported workflow, or a removed
+ * provider) would otherwise render as an empty pill and hide what the node
+ * was set up to use.
+ */
+export function withUnavailableOption<T extends string>(options: PillOption<T>[], value: T | undefined, label: string) {
+  if (!value || options.some((option) => option.value === value)) return options;
+  return [...options, { value, label, note: 'Not available in this PoseForge. Choose another model.', disabled: true }];
+}
+
+/**
  * Compact control used for every in-node selector (model, aspect ratio,
  * resolution, …). Keyboard accessible, closes on Escape or outside click, and
  * renders its list in place so it can never be clipped by the node frame.

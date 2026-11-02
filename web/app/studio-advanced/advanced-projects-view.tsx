@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Clapperboard, FileStack, LayoutGrid, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { Clapperboard, FileStack, FileUp, LayoutGrid, Plus, Sparkles, Trash2 } from 'lucide-react';
 import {
   useAdvancedProjects,
   useCreateAdvancedProject,
@@ -17,6 +17,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useToast } from '@/components/ui/toast';
 import { Badge } from '@/components/ui/badge';
 import { NewProjectDialog } from './new-project-dialog';
+import { ImportWorkflowDialog } from './import-workflow-dialog';
 
 const TEMPLATE_ICON: Record<AdvTemplateId, typeof Sparkles> = {
   image: Sparkles,
@@ -68,6 +69,8 @@ export function AdvancedProjectsView() {
   const remove = useDeleteAdvancedProject();
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [pendingDelete, setPendingDelete] = React.useState<AdvProjectSummary | null>(null);
+  const [importFile, setImportFile] = React.useState<File | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const onCreate = async (input: { name: string; template: AdvTemplateId }) => {
     try {
@@ -85,10 +88,28 @@ export function AdvancedProjectsView() {
         <p className="text-sm text-[var(--pf-text-secondary)]">
           Free-form node workflows for image, video and storyboard work.
         </p>
-        <Button variant="primary" onClick={() => setDialogOpen(true)}>
-          <Plus />
-          New project
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
+            <FileUp />
+            Import workflow
+          </Button>
+          <Button variant="primary" onClick={() => setDialogOpen(true)}>
+            <Plus />
+            New project
+          </Button>
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json,application/json"
+          className="sr-only"
+          aria-label="Workflow file to import"
+          tabIndex={-1}
+          onChange={(event) => {
+            setImportFile(event.target.files?.[0] ?? null);
+            event.target.value = '';
+          }}
+        />
       </div>
 
       <LoadingRegion label="Loading workflows">
@@ -154,6 +175,16 @@ export function AdvancedProjectsView() {
           </ul>
         )}
       </LoadingRegion>
+
+      <ImportWorkflowDialog
+        key={importFile ? `${importFile.name}:${importFile.size}:${importFile.lastModified}` : 'closed'}
+        file={importFile}
+        onOpenChange={(open) => { if (!open) setImportFile(null); }}
+        onImported={(projectId) => {
+          setImportFile(null);
+          router.push(`/studio-advanced/${projectId}`);
+        }}
+      />
 
       <NewProjectDialog
         open={dialogOpen}

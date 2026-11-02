@@ -10,6 +10,7 @@ import { useAdvancedWorkspace } from '@/lib/advanced-studio/use-advanced-workspa
 import type { AdvDocument, AdvProject } from '@/lib/advanced-studio/types';
 import { AdvCanvas } from '@/components/advanced-studio/canvas';
 import { AdvVersionMenu } from '@/components/advanced-studio/version-menu';
+import { AdvShareMenu } from '@/components/advanced-studio/share-menu';
 import { ErrorState, LoadingRegion, Skeleton } from '@/components/ui/feedback';
 
 /**
@@ -87,7 +88,17 @@ export function AdvancedStudioView({ projectId }: { projectId: string }) {
       onRetry={() => { void retry(); }}
       onRunNode={runNode}
       onEstimateCost={estimateCost}
-      toolbarExtras={<AdvVersionMenu projectId={projectId} onRestore={restoreVersion} />}
+      toolbarExtras={
+        <>
+          <AdvVersionMenu projectId={projectId} onRestore={restoreVersion} />
+          <AdvShareMenu
+            projectId={projectId}
+            projectName={workspace.project.name}
+            document={workspace.project.document}
+            capabilities={capabilities.data ?? []}
+          />
+        </>
+      }
     />
   );
 }

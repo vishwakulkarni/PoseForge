@@ -995,6 +995,94 @@
 .adv-generate-button:hover:not(:disabled) { background: var(--pf-accent-hover); }
 .adv-generate-button:disabled { background: var(--pf-adv-disabled); color: var(--pf-adv-node); cursor: not-allowed; }
 
+/* ------------------------------------------- LLM text, transform and output */
+
+.adv-llm-instruction { flex: 0 0 auto; min-height: 96px; font-family: inherit; }
+.adv-caption-input { flex: 0 0 auto; min-height: 56px; font-family: inherit; }
+
+.adv-llm-output {
+  flex: 1;
+  min-height: 90px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid var(--pf-adv-border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--pf-adv-node-media);
+}
+
+.adv-llm-output:has(.adv-state) { align-items: center; }
+
+.adv-llm-text {
+  width: 100%;
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--pf-adv-text);
+  user-select: text;
+}
+
+.adv-color-input {
+  width: 30px;
+  height: 26px;
+  padding: 2px;
+  border: 1px solid var(--pf-adv-border);
+  border-radius: 999px;
+  background: var(--pf-adv-node-subtle);
+  cursor: pointer;
+}
+
+.adv-output-list {
+  flex: 1;
+  min-height: 90px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: auto;
+}
+
+.adv-output-list:has(> .adv-state) { align-items: center; justify-content: center; }
+
+.adv-output-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid var(--pf-adv-border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--pf-adv-node-subtle);
+}
+
+.adv-output-thumb {
+  flex: 0 0 auto;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 6px;
+  background: var(--pf-adv-node-media);
+  cursor: zoom-in;
+}
+
+.adv-output-thumb img,
+.adv-output-thumb video { width: 100%; height: 100%; object-fit: cover; }
+
+.adv-output-text {
+  flex: 1;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  color: var(--pf-adv-text);
+  user-select: text;
+}
+
+.adv-output-item .adv-icon-button { margin-left: auto; }
+
 /* ------------------------------------------------------------- add-node menu */
 
 .adv-add-menu {
@@ -1142,6 +1230,33 @@
   color: var(--pf-text-primary);
   font: inherit;
 }
+
+/* ------------------------------------------------ share and import dialogs */
+
+.adv-import-dialog { max-width: 560px; }
+.adv-import-dialog .adv-field select {
+  padding: 8px 10px;
+  border: 1px solid var(--pf-border);
+  border-radius: var(--radius-sm);
+  background: var(--pf-surface);
+  color: var(--pf-text-primary);
+  font: inherit;
+}
+.adv-import-loading,
+.adv-import-summary { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 13px; color: var(--pf-text-secondary); }
+.adv-import-error { margin-top: 12px; font-size: 13px; color: var(--pf-error); }
+.adv-import-rows { display: flex; flex-direction: column; gap: 10px; max-height: 46vh; margin-top: 14px; overflow-y: auto; }
+.adv-import-row { padding: 12px; border: 1px solid var(--pf-border); border-radius: var(--radius-md, 12px); }
+.adv-import-row .adv-field { margin-top: 10px; }
+.adv-import-row-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; }
+.adv-import-row-model { margin-top: 4px; font-size: 12px; color: var(--pf-text-secondary); }
+.adv-import-row-note { margin-top: 6px; font-size: 12px; color: var(--pf-text-tertiary); }
+.adv-import-warnings { margin-top: 12px; font-size: 12px; color: var(--pf-text-secondary); }
+.adv-import-warnings summary { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.adv-import-warnings ul { margin-top: 6px; padding-left: 18px; list-style: disc; }
+.adv-share-list { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; padding-left: 18px; font-size: 13px; list-style: disc; color: var(--pf-text-secondary); }
+.adv-share-warning { display: flex; gap: 8px; margin-top: 12px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--pf-warning-bg); color: var(--pf-warning); font-size: 12px; }
+.adv-share-warning svg { flex-shrink: 0; margin-top: 2px; }
 
 .adv-dialog-actions {
   display: flex;

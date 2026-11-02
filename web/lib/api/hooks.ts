@@ -8,7 +8,7 @@ import {
   type UseQueryOptions,
 } from '@tanstack/react-query';
 import { api, ApiError } from './client';
-import type { AdvProjectSummary, AdvTemplateId } from '../advanced-studio/types';
+import type { AdvImportReplacements, AdvProjectSummary, AdvTemplateId } from '../advanced-studio/types';
 import type {
   EngineKey,
   Generation,
@@ -575,6 +575,18 @@ export function useCreateAdvancedProject() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (input: { name?: string; template: AdvTemplateId }) => api.advancedStudio.create(input),
+    onSuccess: (project) => {
+      client.setQueryData(queryKeys.advancedProject(project.id), project);
+      client.invalidateQueries({ queryKey: queryKeys.advancedProjects });
+    },
+  });
+}
+
+export function useImportAdvancedWorkflow() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ file, name, replacements }: { file: File; name?: string; replacements?: AdvImportReplacements }) =>
+      api.advancedStudio.importWorkflow(file, { name, replacements }),
     onSuccess: (project) => {
       client.setQueryData(queryKeys.advancedProject(project.id), project);
       client.invalidateQueries({ queryKey: queryKeys.advancedProjects });

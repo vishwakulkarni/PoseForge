@@ -29,6 +29,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   what its runs cost and can restore an older version (results are kept).
 - Image inputs can reference a character (its current primary photo), a pose
   library entry, or a web image URL, which is downloaded once at run time.
+- Share Advanced Studio workflows as one `.poseforge.json` file.
+  - **Share** in the toolbar exports the nodes, connections, prompts, chosen
+    models and embedded input images and clips. Outputs are not included.
+  - **Import workflow** shows how each generator fits your setup and keeps the
+    author's model unless you switch to one you have configured.
+  - New API routes: `GET /:id/export`, `POST /import/preview` and `POST /import`.
+  - New MCP tools: `export_workflow`, `preview_workflow_import` and
+    `import_workflow`.
+- Adaptable automation for Advanced Studio workflows:
+  - New nodes: **LLM Text** writes captions, hooks and prompt ideas with an
+    engine that can write text (OpenAI, Gemini). **List** fans a workflow out:
+    everything after it runs once per line, up to 25. **Image Transform**
+    crops or pads an image to 9:16, 4:5, 1:1, 16:9 or 3:4, and can write a
+    caption band on it, locally and for free. **Output** marks what a run
+    delivers; runs now report `deliverables`, named after the output node.
+  - The **Codex CLI** can write text for LLM Text nodes (and prompt
+    assistance), and can edit images for Image Transform nodes from a
+    free-form instruction, using local tools or its image generator.
+  - **Fallback models**: a generator or LLM Text node tries the next model in
+    `fallbacks` when its own is not set up or fails. Each result records the
+    engine and model that made it.
+  - **Setting inputs**: `inputBindings` lets a run input set a node's model,
+    aspect ratio, resolution, outputs or duration, or a transform's format.
+    Video and audio inputs can be filled with web URLs too.
+  - **Resume**: `POST /:id/runs/:runId/resume` (MCP `resume_run`) reruns a
+    failed or partial run's unfinished nodes, reusing what the finished ones
+    produced. At startup, runs a restart cut off are closed as partial or
+    failed instead of staying `running`.
+  - **Triggers** run a workflow unattended: on a schedule (every N minutes,
+    or daily at a set time), from a webhook with a secret token, or on demand.
+    The new routes are `/:id/triggers` and `POST /hooks/:triggerId`. The new
+    MCP tools are `list_triggers`, `create_trigger`, `update_trigger`,
+    `delete_trigger` and `run_trigger`. Migration `018` adds the triggers
+    table.
+  - Node types are defined once on the server (`lib/advancedNodes/`), and
+    `GET /capabilities` describes them as `nodeTypes`. A new node type is
+    now one server module and one UI module.
+
+### Changed
+
+- Each image engine declares its Advanced Studio settings (`imageSettings`:
+  aspect ratios and resolution tiers) in its own module, as video engines
+  already did with `videoModels`. Adding a provider is one engine file.
 
 ### Removed
 

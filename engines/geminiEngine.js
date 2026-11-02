@@ -77,12 +77,12 @@ async function generateFromReferences({ referencePaths, prompt, outputPath, outp
   } };
 }
 
-async function assistPrompt({ instruction, apiKey, model }) {
+async function assistPrompt({ instruction, apiKey, model, system = SYSTEM_PROMPT }) {
   const key = apiKey || await configuredKey();
   if (!key) throw new Error("No Gemini API key configured.");
   const selectedModel = validModel(model || await configuredModel());
   const body = {
-    systemInstruction: { role: "system", parts: [{ text: SYSTEM_PROMPT }] },
+    systemInstruction: { role: "system", parts: [{ text: system }] },
     contents: [{ role: "user", parts: [{ text: instruction }] }],
     generationConfig: { responseModalities: ["TEXT"] },
   };
@@ -102,6 +102,14 @@ async function assistPrompt({ instruction, apiKey, model }) {
 const engine = {
   key: "gemini",
   label: "Google Gemini",
+  imageSettings: {
+    aspectRatios: ["1:1", "4:5", "16:9", "9:16"],
+    resolutions: [
+      { id: "1K", label: "1K", quality: "medium" },
+      { id: "2K", label: "2K", quality: "high" },
+    ],
+    defaultResolution: "1K",
+  },
   models,
   capabilities: { multiImage: true, maxReferenceImages: 5, angleProfiles: true, aspectRatio: true, quality: true, variants: true, local: false, assistPrompt: true },
   getConfiguredModel: configuredModel,

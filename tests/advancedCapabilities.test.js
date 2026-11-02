@@ -1,11 +1,11 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { IMAGE_CAPABILITIES, qualityForResolution, supportsAspectRatio } = require("../lib/advancedCapabilities");
+const { qualityForResolution, supportsAspectRatio } = require("../lib/advancedCapabilities");
 const codexEngine = require("../engines/codexEngine");
 const falVideoEngine = require("../engines/falVideoEngine");
 
 test("the Codex CLI is offered for Advanced Studio image generation", () => {
-  assert.ok(IMAGE_CAPABILITIES.codex, "codex must have an image capability entry");
+  assert.ok(codexEngine.imageSettings, "codex must declare its image settings");
   assert.equal(codexEngine.capabilities.freeform, true);
   assert.equal(codexEngine.capabilities.textToImage, true);
   assert.equal(typeof codexEngine.generateFreeform, "function");
@@ -23,11 +23,11 @@ test("Codex advertises the app's core aspect ratios", () => {
   assert.equal(supportsAspectRatio("codex", "21:9"), false);
 });
 
-test("every engine with an image capability entry implements generateFreeform", () => {
+test("every engine with image settings implements generateFreeform", () => {
   const { advancedRegistry: registry } = require("../engines");
-  for (const key of Object.keys(IMAGE_CAPABILITIES)) {
-    const engine = registry[key];
-    assert.ok(engine, `${key} must exist in the engine registry`);
+  for (const [key, engine] of Object.entries(registry)) {
+    if (!engine.imageSettings) continue;
+    assert.ok(engine.imageSettings.resolutions.some((entry) => entry.id === engine.imageSettings.defaultResolution), `${key} must default to one of its resolutions`);
     assert.equal(typeof engine.generateFreeform, "function", `${key} must implement generateFreeform`);
     assert.equal(engine.capabilities.freeform, true, `${key} must declare the freeform capability`);
   }

@@ -14,9 +14,20 @@ import type { LucideIcon } from 'lucide-react';
  * accept — consistently, on every node. */
 export type AdvDataType = 'text' | 'image' | 'video' | 'audio';
 
-export type AdvNodeType = 'text' | 'imageInput' | 'videoInput' | 'audioInput' | 'imageGenerator' | 'videoGenerator' | 'group';
+export type AdvNodeType =
+  | 'text'
+  | 'imageInput'
+  | 'videoInput'
+  | 'audioInput'
+  | 'imageGenerator'
+  | 'videoGenerator'
+  | 'group'
+  | 'llmText'
+  | 'list'
+  | 'imageTransform'
+  | 'output';
 
-export type AdvNodeCategory = 'inputs' | 'generation' | 'media' | 'organization';
+export type AdvNodeCategory = 'inputs' | 'generation' | 'media' | 'flow' | 'organization';
 
 export type AdvNodeStatus = 'idle' | 'queued' | 'running' | 'done' | 'error';
 
@@ -65,27 +76,49 @@ export interface AdvImageInputNodeData {
 export interface AdvMediaInputNodeData {
   mediaUrl?: string;
   fileName?: string;
+  /** Makes this clip a workflow input that runs can fill in. */
+  inputName?: string;
 }
 
 export interface AdvGeneratorResult {
   imageUrl?: string;
   videoUrl?: string;
+  /** Written by an LLM Text node, or a caption delivered by an Output node. */
+  text?: string;
   generationId?: string;
+  /** The engine and model that produced it — a fallback when they differ
+   * from the node's own. */
+  engine?: string;
+  model?: string;
   width?: number;
   height?: number;
   error?: string;
 }
 
-export interface AdvImageGeneratorNodeData {
+/** An alternative model tried, in order, when the node's own is not set up
+ * or fails. */
+export interface AdvFallback {
+  engine: string;
+  model?: string;
+}
+
+/** What a node shows after running. */
+export interface AdvRunState {
+  status?: AdvNodeStatus;
+  error?: string;
+  results?: AdvGeneratorResult[];
+  activeResultIndex: number;
+}
+
+export interface AdvImageGeneratorNodeData extends AdvRunState {
   engine?: string;
   model?: string;
   aspectRatio?: string;
   resolution?: string;
   outputs: number;
-  status?: AdvNodeStatus;
-  error?: string;
-  results?: AdvGeneratorResult[];
-  activeResultIndex: number;
+  fallbacks?: AdvFallback[];
+  /** `{ setting: inputName }`: settings a run input can set. */
+  inputBindings?: Record<string, string>;
 }
 
 export interface AdvVideoGeneratorNodeData extends AdvImageGeneratorNodeData {
@@ -99,6 +132,36 @@ export interface AdvGroupNodeData {
   scene?: number;
 }
 
+export interface AdvLlmTextNodeData extends AdvRunState {
+  engine?: string;
+  instruction: string;
+  fallbacks?: AdvFallback[];
+}
+
+/** One item per line; every running node downstream runs once per item. */
+export interface AdvListNodeData {
+  text: string;
+  inputName?: string;
+}
+
+export type AdvTransformPreset = 'original' | '9:16' | '4:5' | '1:1' | '16:9' | '3:4';
+
+export interface AdvImageTransformNodeData extends AdvRunState {
+  /** An engine that edits images (Codex CLI); absent means the built-in,
+   * free resize and caption. */
+  engine?: string;
+  /** What the engine should do to the image. */
+  instruction?: string;
+  preset: AdvTransformPreset;
+  fit: 'cover' | 'contain';
+  background?: string;
+  overlayText?: string;
+  overlayPosition?: 'top' | 'bottom';
+  inputBindings?: Record<string, string>;
+}
+
+export type AdvOutputNodeData = AdvRunState;
+
 export type AdvNodeDataMap = {
   text: AdvTextNodeData;
   imageInput: AdvImageInputNodeData;
@@ -107,6 +170,10 @@ export type AdvNodeDataMap = {
   imageGenerator: AdvImageGeneratorNodeData;
   videoGenerator: AdvVideoGeneratorNodeData;
   group: AdvGroupNodeData;
+  llmText: AdvLlmTextNodeData;
+  list: AdvListNodeData;
+  imageTransform: AdvImageTransformNodeData;
+  output: AdvOutputNodeData;
 };
 
 export type AdvNodeData = AdvNodeDataMap[AdvNodeType];
@@ -170,9 +237,15 @@ export interface AdvProject {
 
 export interface AdvWorkflowInput {
   name: string;
-  kind: 'text' | 'image';
+  kind: 'text' | 'image' | 'video' | 'audio' | 'setting';
   nodeIds: string[];
   default: unknown;
+  /** For a setting input: the setting it sets and what it accepts. */
+  setting?: string;
+  valueType?: 'enum' | 'number';
+  options?: Array<string | number>;
+  min?: number;
+  max?: number;
 }
 
 export interface AdvActiveRun {
@@ -199,6 +272,56 @@ export interface AdvVersionsResponse {
   /** The version the canvas matches, null when it has changed since its last run. */
   currentVersionId: string | null;
   versions: AdvVersionSummary[];
+}
+
+/* ------------------------------------------------------------------ sharing */
+
+/** How a shared workflow's generator fits this machine (see lib/advancedWorkflowShare.js). */
+export type AdvShareStatus = 'ready' | 'needs-setup' | 'unknown-model' | 'unknown-engine' | 'unset';
+
+export interface AdvShareAlternative {
+  engine: string;
+  engineLabel: string;
+  model: string;
+  label: string;
+}
+
+export interface AdvShareGeneratorRow {
+  nodeId: string;
+  label: string;
+  kind: 'image' | 'video';
+  engine: string | null;
+  engineLabel: string | null;
+  model: string | null;
+  modelLabel: string | null;
+  status: AdvShareStatus;
+  reason: string | null;
+  /** Connections the chosen model cannot take as wired. */
+  issues: string[];
+  /** Configured models that can take this node's connections. */
+  alternatives: AdvShareAlternative[];
+}
+
+export interface AdvShareReport {
+  generators: AdvShareGeneratorRow[];
+  warnings: string[];
+}
+
+export interface AdvImportPreview {
+  name: string;
+  nodeCount: number;
+  generatorCount: number;
+  embeddedFiles: number;
+  inputs: AdvWorkflowInput[];
+  report: AdvShareReport;
+  warnings: string[];
+}
+
+export type AdvImportReplacements = Record<string, { engine: string; model: string }>;
+
+export interface AdvImportResult extends AdvProject {
+  report: AdvShareReport;
+  warnings: string[];
 }
 
 
@@ -269,6 +392,10 @@ export interface AdvEngineCapability {
   defaultModel: string | null;
   image: AdvImageCapability;
   video: AdvVideoCapability;
+  /** Can write text for LLM Text nodes. */
+  text?: { supported: boolean };
+  /** Can edit an image from an instruction for Image Transform nodes. */
+  transform?: { supported: boolean };
 }
 
 export interface AdvAssetUploadResponse {
@@ -319,6 +446,8 @@ export interface AdvNodeDefinition<T extends AdvNodeType = AdvNodeType> {
 
 export interface AdvResolvedInputs {
   prompt: string;
+  /** Text reaching a `text` input (LLM Text, List, Image Transform, Output). */
+  texts: string[];
   imageUrls: string[];
   startFrameUrls: string[];
   endFrameUrls: string[];

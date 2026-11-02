@@ -20,6 +20,8 @@ const { pool, databaseConfig } = require("./db/pool");
 const { runMigrations } = require("./db/migrate");
 const { seedExampleProjects } = require("./lib/exampleProjects");
 const { createDailyBackup, scheduleDailyBackups } = require("./lib/dbBackup");
+const { recoverInterruptedRuns } = require("./lib/advancedRuns");
+const { startScheduler } = require("./lib/advancedTriggers");
 
 const WEB_DIR = path.join(__dirname, "web");
 const requireFromWeb = createRequire(path.join(WEB_DIR, "package.json"));
@@ -97,6 +99,10 @@ async function start() {
   const dev = DEV_MODE || process.env.NODE_ENV === "development";
 
   await runMigrations();
+  // Runs execute in this process, so any still marked running were cut off
+  // by the last shutdown; close them before anything can start a new one.
+  const interrupted = await recoverInterruptedRuns();
+  if (interrupted) logger.warn("closed workflow runs interrupted by a restart", { runs: interrupted });
   await seedExampleProjects().catch((error) =>
     logger.error("example project seeding failed", { error: error.message })
   );
@@ -105,6 +111,7 @@ async function start() {
     logger.error("startup database backup failed", { error: error.message })
   );
   const backupInterval = scheduleDailyBackups(pool, logger);
+  const triggerInterval = startScheduler();
 
   // Next and Fumadocs resolve project-relative generated imports from cwd.
   // Express, storage, and database paths use __dirname, so the complete app
@@ -139,15 +146,30 @@ async function start() {
     codexTimeoutMs: Number(process.env.CODEX_TIMEOUT_MS || 300000),
   });
 
+  // Tracked so shutdown can end keep-alive and upgraded (HMR) connections,
+  // which would otherwise hold `server.close` open indefinitely.
+  const sockets = new Set();
+  server.on("connection", (socket) => {
+    sockets.add(socket);
+    socket.once("close", () => sockets.delete(socket));
+  });
+
   let closing = false;
   const shutdown = async (signal) => {
     if (closing) return;
     closing = true;
     logger.info("server stopping", { signal });
     clearInterval(backupInterval);
-    await nextApp.close();
-    await new Promise((resolve) => server.close(resolve));
+    clearInterval(triggerInterval);
+    // The database closes before Next: in dev, `nextApp.close()` can wait on
+    // its bundler workers forever, and PGlite only flushes on `pool.end()`.
+    const stopped = new Promise((resolve) => server.close(resolve));
+    for (const socket of sockets) socket.destroy();
+    await stopped;
     await pool.end();
+    logger.info("database closed");
+    await Promise.race([nextApp.close(), new Promise((resolve) => setTimeout(resolve, 5_000).unref())]);
+    process.exit(0);
   };
 
   process.once("SIGINT", () => void shutdown("SIGINT"));
