@@ -3170,7 +3170,11 @@
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  overflow: visible;
+  /* The tool column is taller than a short canvas (a 720px-high window); cap
+     it to the canvas and scroll so the top tools stay reachable. */
+  max-height: calc(100% - 30px);
+  overflow-x: hidden;
+  overflow-y: auto;
   border: 1px solid var(--pf-canvas-border);
   border-radius: 16px;
   background: var(--pf-canvas-node);

@@ -368,16 +368,18 @@ export function useStudioProjectWorkspace({
   // Route-driven mode: a new `/studio/[projectId]` navigation (e.g. a link
   // click or browser back/forward) changes this prop without remounting the
   // component, so the workspace must re-target itself to match the URL.
+  // Only a route change triggers this: an in-app create/switch activates the
+  // project before navigating, and reacting to that gap would switch back.
+  const routedProjectIdRef = React.useRef(projectId);
   React.useEffect(() => {
-    if (projectId && projectId !== activeProjectId) {
-      // Syncing to the URL is the effect's job; switchProject flags 'switching'
-      // up front so the UI reflects the pending load. A failure is already
-      // surfaced through projectActionError, so it must not escape as an
-      // unhandled rejection.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      switchProject(projectId).catch(() => {});
-    }
-  }, [projectId, activeProjectId, switchProject]);
+    if (!projectId || projectId === routedProjectIdRef.current) return;
+    routedProjectIdRef.current = projectId;
+    // Syncing to the URL is the effect's job; switchProject flags 'switching'
+    // up front so the UI reflects the pending load. A failure is already
+    // surfaced through projectActionError, so it must not escape as an
+    // unhandled rejection.
+    switchProject(projectId).catch(() => {});
+  }, [projectId, switchProject]);
 
   // Node runs act on the server's persisted document, so any locally pending
   // edit must land first or the run would read stale inputs.

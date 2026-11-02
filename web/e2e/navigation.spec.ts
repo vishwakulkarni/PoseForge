@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 const PAGES = [
   { path: '/', heading: /your local-first.*ai studio/i },
-  { path: '/studio', heading: /sources/i },
+  { path: '/studio', heading: /your projects/i },
   { path: '/characters', heading: /people you photograph/i },
   { path: '/poses', heading: /body language/i },
   { path: '/passport', heading: /one photo\. ready for the application/i },

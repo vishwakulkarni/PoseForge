@@ -4,7 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Menu, Moon, Sun, X } from 'lucide-react';
-import { useTheme } from 'next-themes';
+import { useHydratedTheme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 import { STATIC_DEMO } from '@/lib/demo-mode';
 import { Button } from '@/components/ui/button';
@@ -31,7 +31,7 @@ const IS_GITHUB_PAGES = process.env.NEXT_PUBLIC_GITHUB_PAGES === 'true';
 const INSTALL_URL = 'https://github.com/vishwakulkarni/PoseForge#quickstart';
 
 function ThemeToggle() {
-  const { resolvedTheme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useHydratedTheme();
   const isDark = resolvedTheme === 'dark';
 
   return (
@@ -39,10 +39,6 @@ function ThemeToggle() {
       size="icon"
       variant="secondary"
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
-      // The label depends on resolvedTheme, which is undefined during SSR.
-      // suppressHydrationWarning keeps the attribute mismatch from warning
-      // while still giving the correct label once next-themes resolves.
-      suppressHydrationWarning
       aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
       title={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
     >

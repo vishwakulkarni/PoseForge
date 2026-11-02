@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useTheme } from 'next-themes';
+import { useHydratedTheme } from '@/lib/theme';
 import {
   Background,
   BackgroundVariant,
@@ -1759,7 +1759,7 @@ function CanvasFlow(props: CanvasPanelProps) {
     setViewport: setFlowViewport,
   } = useReactFlow();
   const updateNodeInternals = useUpdateNodeInternals();
-  const { resolvedTheme } = useTheme();
+  const { resolvedTheme } = useHydratedTheme();
   const {
     project,
     projectSaveState,

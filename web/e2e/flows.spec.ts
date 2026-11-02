@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 test.describe('metrics dashboard', () => {
   test.beforeEach(async ({ page }) => {
@@ -41,13 +41,24 @@ test.describe('metrics dashboard', () => {
   });
 });
 
+/**
+ * The workbench lives at /studio/[projectId] (/studio is the project list).
+ * Without an id this opens the real default project.
+ */
+async function openStudioProject(page: Page, projectId?: string) {
+  const id = projectId ?? (
+    await (await page.request.get('/api/studio-projects/default')).json() as { id: string }
+  ).id;
+  await page.goto(`/studio/${id}`);
+  // The workbench is server-rendered before React attaches event handlers.
+  // Wait for the explicit app readiness marker so a fast browser cannot
+  // click the visible SSR shell and lose the interaction during hydration.
+  await expect(page.locator('html[data-poseforge-hydrated="true"]')).toBeAttached();
+}
+
 test.describe('studio', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/studio');
-    // The workbench is server-rendered before React attaches event handlers.
-    // Wait for the explicit app readiness marker so a fast browser cannot
-    // click the visible SSR shell and lose the interaction during hydration.
-    await expect(page.locator('html[data-poseforge-hydrated="true"]')).toBeAttached();
+    await openStudioProject(page);
   });
 
   test('renders the three-column workbench and node canvas', async ({ page }) => {
@@ -62,9 +73,10 @@ test.describe('studio', () => {
     const edgePaths = page.locator('.react-flow__edge-path');
     await expect(edgePaths.first()).toBeVisible();
     await expect(edgePaths.first()).toHaveAttribute('marker-end', /type=arrowclosed/);
+    // Dark is the default theme.
     await expect(page.locator('.react-flow__arrowhead polyline').first()).toHaveCSS(
       'fill',
-      'rgb(99, 91, 255)',
+      'rgb(155, 148, 255)',
     );
     await expect(page.getByRole('button', { name: 'Fit all nodes' })).toBeVisible();
     await expect(page.getByLabel('Node palette')).toHaveCount(0);
@@ -103,7 +115,6 @@ test.describe('studio', () => {
       updatedAt: now,
     };
     let submittedName: string | null = null;
-    let listRequests = 0;
     const observedRequests: string[] = [];
     page.on('request', (request) => {
       const pathname = new URL(request.url()).pathname;
@@ -113,7 +124,7 @@ test.describe('studio', () => {
     });
 
     await page.evaluate(() => localStorage.removeItem('poseforge:active-studio-project'));
-    await page.route('**/api/studio-projects/default', async (route) => {
+    await page.route(`**/api/studio-projects/${defaultId}`, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -140,15 +151,20 @@ test.describe('studio', () => {
         await route.fulfill({ status: 204 });
         return;
       }
-      listRequests += 1;
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          projects: [{
-            ...defaultProject,
-            document: undefined,
-          }],
+          projects: [
+            { ...defaultProject, document: undefined },
+            ...(submittedName ? [{
+              ...defaultProject,
+              id: createdId,
+              name: submittedName,
+              isDefault: false,
+              document: undefined,
+            }] : []),
+          ],
         }),
       });
     });
@@ -157,11 +173,19 @@ test.describe('studio', () => {
         await route.fulfill({ status: 204 });
         return;
       }
-      await route.fallback();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ...defaultProject,
+          id: createdId,
+          name: 'Holiday launch',
+          isDefault: false,
+        }),
+      });
     });
 
-    await page.reload();
-    await expect(page.locator('html[data-poseforge-hydrated="true"]')).toBeAttached();
+    await openStudioProject(page, defaultId);
     const switcher = page.getByRole('button', {
       name: 'Switch Studio project. Current project: My Studio',
     });
@@ -172,7 +196,8 @@ test.describe('studio', () => {
     await createButton.click();
     await expect.poll(() => submittedName).toBe('Holiday launch');
     expect(observedRequests).toContain('POST /api/studio-projects');
-    expect(observedRequests.filter((request) => request === 'GET /studio')).toHaveLength(1);
+    expect(observedRequests.filter((request) => request === `GET /studio/${defaultId}`)).toHaveLength(1);
+    await expect(page).toHaveURL(new RegExp(`/studio/${createdId}$`));
     await expect.poll(() => page.evaluate(() =>
       localStorage.getItem('poseforge:active-studio-project'),
     )).toBe(createdId);
@@ -181,7 +206,6 @@ test.describe('studio', () => {
       name: 'Switch Studio project. Current project: Holiday launch',
     })).toBeVisible();
     expect(submittedName).toBe('Holiday launch');
-    expect(listRequests).toBe(1);
 
     await page.getByRole('button', {
       name: 'Switch Studio project. Current project: Holiday launch',
@@ -190,14 +214,9 @@ test.describe('studio', () => {
     await expect(menu.getByRole('button', { name: /Holiday launch Updated/ })).toBeVisible();
     await expect(menu.getByLabel('Current project')).toBeVisible();
     await menu.getByRole('button', { name: 'Delete Holiday launch' }).click();
-    await expect(page.getByRole('button', {
-      name: 'Switch Studio project. Current project: My Studio',
-    })).toBeVisible();
-    await page.getByRole('button', {
-      name: 'Switch Studio project. Current project: My Studio',
-    }).click();
-    await expect(page.getByRole('dialog', { name: 'Studio projects' })
-      .getByRole('button', { name: /holiday launch/i })).toHaveCount(0);
+    // Deleting the open project returns to the project list.
+    await expect(page).toHaveURL(/\/studio$/);
+    await expect(page.getByRole('heading', { name: 'Your projects' })).toBeVisible();
   });
 
   test('locks and unlocks spatial canvas interactions', async ({ page }) => {
@@ -239,7 +258,8 @@ test.describe('studio', () => {
     let revision = 2;
     let document = {
       schemaVersion: 1 as const,
-      viewport: { x: -120, y: -40, zoom: 0.75 },
+      // x keeps the leftmost blocks clear of the floating canvas tool column.
+      viewport: { x: 0, y: -40, zoom: 0.75 },
       nodes: [
         { id: 'character-empty', kind: 'character', position: { x: 0, y: 0 } },
         { id: 'pose-empty', kind: 'pose', position: { x: 380, y: 0 } },
@@ -281,17 +301,15 @@ test.describe('studio', () => {
       });
     });
     await page.route(`**/api/studio-projects/${projectId}`, async (route) => {
-      const body = route.request().postDataJSON() as { document: typeof document };
-      document = body.document;
-      revision += 1;
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(response()) });
-    });
-    await page.route('**/api/studio-projects/default', async (route) => {
+      if (route.request().method() !== 'GET') {
+        const body = route.request().postDataJSON() as { document: typeof document };
+        document = body.document;
+        revision += 1;
+      }
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(response()) });
     });
 
-    await page.reload();
-    await expect(page.locator('html[data-poseforge-hydrated="true"]')).toBeAttached();
+    await openStudioProject(page, projectId);
     await expect(page.getByLabel('Studio project: Saved')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Reset zoom from 75%' })).toBeVisible();
 
@@ -361,9 +379,10 @@ test.describe('studio', () => {
     let putCount = 0;
     let document = {
       schemaVersion: 1,
-      // Keep the Generate node clear of the bottom drawer while still using a
-      // non-default camera that proves hydration does not trigger fit-view.
-      viewport: { x: -240, y: -80, zoom: 0.8 },
+      // Keep the Generate node clear of the bottom drawer and the canvas tool
+      // column while still using a non-default camera that proves hydration
+      // does not trigger fit-view.
+      viewport: { x: 0, y: -80, zoom: 0.8 },
       nodes: [
         { id: 'character-empty', kind: 'character', position: { x: 0, y: 0 } },
         { id: 'pose-empty', kind: 'pose', position: { x: 380, y: 0 } },
@@ -387,6 +406,11 @@ test.describe('studio', () => {
     });
 
     await page.route(`**/api/studio-projects/${projectId}`, async (route) => {
+      if (route.request().method() === 'GET') {
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(response()) });
+        return;
+      }
       const body = await route.request().postDataJSON() as {
         expectedRevision: number;
         document: typeof document;
@@ -398,13 +422,8 @@ test.describe('studio', () => {
       putCount += 1;
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(response()) });
     });
-    await page.route('**/api/studio-projects/default', async (route) => {
-      await new Promise((resolve) => setTimeout(resolve, 150));
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(response()) });
-    });
 
-    await page.reload();
-    await expect(page.locator('html[data-poseforge-hydrated="true"]')).toBeAttached();
+    await openStudioProject(page, projectId);
     const lock = page.getByRole('button', { name: 'Lock canvas' });
     await expect(page.getByLabel('Studio project: Saved')).toBeVisible();
     await expect(lock).toBeEnabled();
@@ -416,7 +435,7 @@ test.describe('studio', () => {
     const settledPutCount = putCount;
     await page.waitForTimeout(250);
     expect(putCount).toBe(settledPutCount);
-    expect(document.viewport).toEqual({ x: -240, y: -80, zoom: 0.8 });
+    expect(document.viewport).toEqual({ x: 0, y: -80, zoom: 0.8 });
 
     const canvasNodes = page.locator('.react-flow__node');
     const originalNodeTransforms = await canvasNodes.evaluateAll((nodes) =>
@@ -583,7 +602,7 @@ test.describe('documentation navigation', () => {
 
     await primary.getByRole('link', { name: 'Studio', exact: true }).click();
     await expect(page).toHaveURL(/\/studio$/);
-    await expect(page.getByRole('heading', { name: 'Sources' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Your projects' })).toBeVisible();
   });
 });
 

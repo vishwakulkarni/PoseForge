@@ -417,6 +417,36 @@ describe('Studio project save queue', () => {
     ]));
   });
 
+  it('keeps a created project active while the route catches up to it', async () => {
+    const createdId = '66666666-6666-4666-8666-666666666666';
+    server.use(
+      http.get(`/api/studio-projects/${projectId}`, () =>
+        HttpResponse.json(projectResponse(1, projectDocument())),
+      ),
+      http.get('/api/studio-projects', () => HttpResponse.json({ projects: [] })),
+      http.post('/api/studio-projects', () => HttpResponse.json({
+        ...projectResponse(0, projectDocument({ viewport: null, nodes: [], edges: [] })),
+        id: createdId,
+        name: 'Holiday launch',
+        isDefault: false,
+      }, { status: 201 })),
+    );
+    const { result, rerender } = renderHook(
+      ({ routeProjectId }) => useStudioProjectWorkspace({ projectId: routeProjectId, saveDelayMs: 25 }),
+      { wrapper: wrapper(), initialProps: { routeProjectId: projectId } },
+    );
+    await waitFor(() => expect(result.current.project?.id).toBe(projectId));
+
+    // The caller navigates to the new project only after creation resolves, so
+    // the route briefly still names the previous project.
+    await act(async () => result.current.createProject('Holiday launch'));
+    await waitFor(() => expect(result.current.project?.id).toBe(createdId));
+    rerender({ routeProjectId: createdId });
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(result.current.project?.id).toBe(createdId);
+  });
+
   it('keeps a newly created project visible when the server list is temporarily stale', async () => {
     const initial = projectDocument();
     const createdId = '66666666-6666-4666-8666-666666666666';

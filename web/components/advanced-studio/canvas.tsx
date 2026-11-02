@@ -20,7 +20,7 @@ import {
   type NodeChange,
   type Viewport,
 } from '@xyflow/react';
-import { useTheme } from 'next-themes';
+import { useHydratedTheme } from '@/lib/theme';
 import { X } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -105,7 +105,7 @@ function AdvCanvasInner({
   project, capabilities, characters = [], saveState, onSave, onRetry, onRunNode, onEstimateCost = noEstimate, toolbarExtras,
 }: CanvasProps) {
   const flow = useReactFlow<AdvFlowNode, AdvFlowEdge>();
-  const { resolvedTheme } = useTheme();
+  const { resolvedTheme } = useHydratedTheme();
   const toast = useToast();
   const [nodes, setNodes, onNodesChange] = useNodesState<AdvFlowNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<AdvFlowEdge>([]);
