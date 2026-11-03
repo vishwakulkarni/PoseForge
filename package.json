@@ -54,7 +54,7 @@
     "check": "find . -name '*.js' -not -path './node_modules/*' -not -path './storage/*' -not -path './tmp/*' -not -path './web/*' -print0 | xargs -0 -n1 node --check"
   },
   "dependencies": {
-    "@electric-sql/pglite": "^0.5.8",
+    "@electric-sql/pglite": "^0.5.14",
     "@fal-ai/client": "^1.10.1",
     "@higgsfield/client": "^0.2.6",
     "@modelcontextprotocol/sdk": "^1.32.2",
